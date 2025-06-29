@@ -16,8 +16,10 @@ The repository contains a minimal driver which wires all stages together so you
 can parse and execute `.mxs` files:
 
 ```bash
-python -m src.driver.main demo_program/hello_world.mxs
+python main.py demo_program/hello_world.mxs
 ```
+
+To execute using the LLVM backend, pass `--compile-mode llvm`.
 
 ## Development
 
@@ -29,4 +31,4 @@ pytest -q
 ```
 
 The implementation is intentionally small to keep the focus on the language
-design. See `AGENT.md` for the project philosophy and roadmap.
+design. See `AGENTS.md` for the project philosophy and roadmap.
