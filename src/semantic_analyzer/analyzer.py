@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Set
 
+from ..backend.llir import load_module_ast
+
 from ..syntax_parser.ast import (
     BinaryOp,
     FunctionCall,
@@ -40,21 +42,23 @@ class SemanticAnalyzer:
     functions: Set[str] | None = None
 
     def analyze(self, program: Program) -> None:
-        # Gather all function names first so they can be referenced before
-        # their declaration.
-        self.functions = {
-            stmt.name
-            for stmt in program.statements
-            if isinstance(
-                stmt,
-                (
-                    FunctionDecl,
-                    FuncDef,
-                    ForeignFuncDecl,
-                ),
-            )
-        }
+        self.functions = set()
+        self._collect_functions(program)
         self.variables_stack = [set()]
+        self._visit_program(program)
+
+    def _collect_functions(self, program: Program) -> None:
+        for stmt in program.statements:
+            if isinstance(stmt, (FunctionDecl, FuncDef, ForeignFuncDecl)):
+                self.functions.add(stmt.name)
+            elif isinstance(stmt, ImportStmt):
+                try:
+                    mod_ast = load_module_ast(stmt.module)
+                except FileNotFoundError:
+                    continue
+                self._collect_functions(mod_ast)
+
+    def _visit_program(self, program: Program) -> None:
         for stmt in program.statements:
             self._visit_statement(stmt)
 
@@ -91,6 +95,14 @@ class SemanticAnalyzer:
             # record alias so it can be referenced later
             if stmt.alias:
                 self._current_scope().add(stmt.alias)
+            try:
+                mod_ast = load_module_ast(stmt.module)
+            except FileNotFoundError:
+                return
+            self.variables_stack.append(set())
+            for s in mod_ast.statements:
+                self._visit_statement(s)
+            self.variables_stack.pop()
         elif isinstance(stmt, (FunctionDecl, FuncDef)):
             # Enter a new scope for parameters and locals
             if isinstance(stmt, FunctionDecl):

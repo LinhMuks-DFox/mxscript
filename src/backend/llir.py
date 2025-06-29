@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List
 
 from llvmlite import binding, ir
+
+from ..lexer import TokenStream, tokenize
+from ..syntax_parser import Parser
 
 from ..syntax_parser.ast import (
     BinaryOp,
@@ -82,12 +86,42 @@ class ProgramIR:
     foreign_functions: Dict[str, str]
 
 
+# ------------ Module Loading --------------------------------------------------
+
+def load_module_ast(module: str, search_paths: List[str | Path] | None = None) -> Program:
+    """Locate ``module`` and parse it into an AST."""
+    if search_paths is None:
+        search_paths = [Path("demo_program")]
+    rel = Path(module.replace(".", "/") + ".mxs")
+    for base in search_paths:
+        path = Path(base) / rel
+        if path.exists():
+            lines = path.read_text().splitlines()
+            # Skip a simple header delimited by !# and #!
+            if lines and lines[0].startswith("!#"):
+                while lines and not lines.pop(0).startswith("#!"):
+                    pass
+            source_text = "\n".join(lines)
+            tokens = tokenize(source_text)
+            stream = TokenStream(tokens)
+            return Parser(stream).parse()
+    raise FileNotFoundError(f"Module {module} not found")
+
+
 # ------------ Compilation ------------------------------------------------------
 
-def compile_program(prog: Program) -> ProgramIR:
+def compile_program(
+    prog: Program,
+    module_cache: Dict[str, ProgramIR] | None = None,
+    search_paths: List[str | Path] | None = None,
+) -> ProgramIR:
     code: List[Instr] = []
     functions: Dict[str, Function] = {}
     foreign_functions: Dict[str, str] = {}
+    if module_cache is None:
+        module_cache = {}
+    if search_paths is None:
+        search_paths = [Path("demo_program")]
     has_main = False
     for stmt in prog.statements:
         if isinstance(stmt, (FuncDef, FunctionDecl)):
@@ -98,7 +132,28 @@ def compile_program(prog: Program) -> ProgramIR:
         elif isinstance(stmt, ForeignFuncDecl):
             foreign_functions[stmt.name] = stmt.c_name
         elif isinstance(stmt, ImportStmt):
-            # imports currently have no effect on code generation
+            mod_name = stmt.module
+            try:
+                if mod_name not in module_cache:
+                    mod_ast = load_module_ast(mod_name, search_paths)
+                    module_cache[mod_name] = compile_program(
+                        mod_ast, module_cache, search_paths
+                    )
+                mod_ir = module_cache[mod_name]
+            except FileNotFoundError:
+                continue
+            prefix = f"{stmt.alias or stmt.module}."
+            rename_map = {n: prefix + n for n in mod_ir.functions}
+            for name, func in mod_ir.functions.items():
+                new_name = rename_map[name]
+                new_code: List[Instr] = []
+                for instr in func.code:
+                    if isinstance(instr, Call) and instr.name in rename_map:
+                        new_code.append(Call(rename_map[instr.name], instr.argc))
+                    else:
+                        new_code.append(instr)
+                functions[new_name] = Function(new_name, func.params, new_code)
+            foreign_functions.update(mod_ir.foreign_functions)
             continue
         else:
             code.extend(_compile_stmt(stmt))
