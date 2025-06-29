@@ -8,6 +8,10 @@ from .ast import (
     Integer,
     BinaryOp,
     UnaryOp,
+    Block,
+    Parameter,
+    FuncSig,
+    FuncDef,
     FunctionDecl,
     FunctionCall,
 )
@@ -22,6 +26,10 @@ __all__ = [
     "Integer",
     "BinaryOp",
     "UnaryOp",
+    "Block",
+    "Parameter",
+    "FuncSig",
+    "FuncDef",
     "FunctionDecl",
     "FunctionCall",
 ]

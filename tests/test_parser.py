@@ -9,6 +9,8 @@ from src.syntax_parser import (
     ExprStmt,
     Integer,
     LetStmt,
+    FuncDef,
+    Block,
     Parser,
 )
 
@@ -40,3 +42,32 @@ def test_operator_precedence():
     assert expr.right.op == "*"
     assert isinstance(expr.right.left, Integer)
     assert expr.right.left.value == 2
+
+
+def test_parse_func_def():
+    src = "func add(x: int, y: int) -> int { let z = x + y; }"
+    program = parse(src)
+    assert len(program.statements) == 1
+    func = program.statements[0]
+    assert isinstance(func, FuncDef)
+    assert func.name == "add"
+    assert len(func.signature.params) == 2
+    assert func.signature.params[0].names == ["x"]
+    assert func.signature.params[0].type_name == "int"
+    assert func.signature.return_type == "int"
+    assert isinstance(func.body, Block)
+    assert len(func.body.statements) == 1
+    assert isinstance(func.body.statements[0], LetStmt)
+
+
+def test_nested_blocks():
+    src = "func foo() { let x = 1; { let y = 2; } }"
+    program = parse(src)
+    func = program.statements[0]
+    assert isinstance(func, FuncDef)
+    assert len(func.body.statements) == 2
+    inner = func.body.statements[1]
+    assert isinstance(inner, Block)
+    assert len(inner.statements) == 1
+    assert isinstance(inner.statements[0], LetStmt)
+
