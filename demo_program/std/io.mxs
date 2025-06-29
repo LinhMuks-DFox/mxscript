@@ -1,0 +1,21 @@
+!#
+    Module: std.io
+#!
+
+class __OutStream {
+
+}
+
+
+class __InStream {
+
+}
+
+class __Printer {
+
+}
+
+static let __global_printer__ = Printer();
+static let println = Printer.println;
+static let print = Printer.print;
+
