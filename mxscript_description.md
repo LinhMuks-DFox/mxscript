@@ -3,7 +3,7 @@
 ## Version Info
 
 * Version: 1.3.0
-* Last Updated: 2025-06-29
+* Last Updated: 2025-07-01
 
 ---
 
@@ -217,3 +217,9 @@ public func println(s: string) {
   __internal_write(stdout_fd, "\n", 1);
 }
 ```
+
+### 4.6 Execution Model
+
+* **Top-Level Statements**: Executed sequentially when the program starts.
+* **`main` Function**: If a function named `main` is defined with **no parameters**, it is automatically invoked after all top-level statements have run.
+* **Return Value**: The integer returned from `main` becomes the program's exit code. If `main` returns nothing, the exit code is `0`.
