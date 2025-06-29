@@ -21,6 +21,8 @@ class Statement(Node):
 class LetStmt(Statement):
     name: str
     value: "Expression"
+    type_name: str | None = None
+    is_mut: bool = False
 
 
 @dataclass
