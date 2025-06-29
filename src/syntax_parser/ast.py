@@ -114,3 +114,38 @@ class FunctionCall(Expression):
     name: str
     args: List[Expression]
 
+
+@dataclass
+class ForInStmt(Statement):
+    """Represents a simple 'for' loop over an iterable expression."""
+
+    var: str
+    iterable: Expression
+    body: Block
+    is_mut: bool = False
+
+
+@dataclass
+class RaiseStmt(Statement):
+    """`raise` statement used for value-based error handling."""
+
+    expr: Expression
+
+
+@dataclass
+class RaiseExpr(Expression):
+    expr: Expression
+
+
+@dataclass
+class MatchCase(Node):
+    name: str
+    type_name: str
+    body: Block | Expression
+
+
+@dataclass
+class MatchExpr(Expression):
+    value: Expression
+    cases: List[MatchCase]
+

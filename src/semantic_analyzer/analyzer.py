@@ -10,6 +10,10 @@ from ..syntax_parser.ast import (
     FuncDef,
     ForeignFuncDecl,
     ExprStmt,
+    ForInStmt,
+    RaiseStmt,
+    RaiseExpr,
+    MatchExpr,
     Identifier,
     Integer,
     String,
@@ -70,6 +74,14 @@ class SemanticAnalyzer:
             self._current_scope().add(stmt.name)
         elif isinstance(stmt, ExprStmt):
             self._visit_expression(stmt.expr)
+        elif isinstance(stmt, RaiseStmt):
+            self._visit_expression(stmt.expr)
+        elif isinstance(stmt, ForInStmt):
+            self._visit_expression(stmt.iterable)
+            self.variables_stack.append({stmt.var})
+            for s in stmt.body.statements:
+                self._visit_statement(s)
+            self.variables_stack.pop()
         elif isinstance(stmt, ImportStmt):
             # record alias so it can be referenced later
             if stmt.alias:
@@ -94,7 +106,8 @@ class SemanticAnalyzer:
 
     def _visit_expression(self, expr: Expression) -> None:
         if isinstance(expr, Identifier):
-            if not self._is_defined(expr.name):
+            name = expr.name.split('.')[0]
+            if not self._is_defined(name):
                 raise SemanticError(f"Undefined variable '{expr.name}'")
         elif isinstance(expr, Integer):
             pass
@@ -105,9 +118,21 @@ class SemanticAnalyzer:
             self._visit_expression(expr.right)
         elif isinstance(expr, UnaryOp):
             self._visit_expression(expr.operand)
+        elif isinstance(expr, RaiseExpr):
+            self._visit_expression(expr.expr)
+        elif isinstance(expr, MatchExpr):
+            self._visit_expression(expr.value)
+            for case in expr.cases:
+                self.variables_stack.append({case.name})
+                if isinstance(case.body, Expression):
+                    self._visit_expression(case.body)
+                else:
+                    for s in case.body.statements:
+                        self._visit_statement(s)
+                self.variables_stack.pop()
         elif isinstance(expr, FunctionCall):
             # Check that the function exists
-            if self.functions is not None and expr.name not in self.functions:
+            if '.' not in expr.name and self.functions is not None and expr.name not in self.functions:
                 raise SemanticError(f"Undefined function '{expr.name}'")
             for arg in expr.args:
                 self._visit_expression(arg)

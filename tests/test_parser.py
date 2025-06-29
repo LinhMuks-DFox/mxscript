@@ -13,6 +13,9 @@ from src.syntax_parser import (
     FuncDef,
     Block,
     ImportStmt,
+    ForInStmt,
+    RaiseStmt,
+    MatchExpr,
     Parser,
 )
 
@@ -88,4 +91,25 @@ def test_parse_import():
     assert isinstance(stmt, ImportStmt)
     assert stmt.module == "std.io"
     assert stmt.alias == "io"
+
+
+def test_parse_for_loop():
+    src = "for i in 0..10 { let x = i; }"
+    program = parse(src)
+    stmt = program.statements[0]
+    assert isinstance(stmt, ForInStmt)
+    assert stmt.var == "i"
+
+
+def test_parse_raise_stmt():
+    program = parse("raise 1;")
+    stmt = program.statements[0]
+    assert isinstance(stmt, RaiseStmt)
+
+
+def test_parse_match_expr():
+    program = parse("match (x) { case v: int => v, case s: string => 0 };")
+    stmt = program.statements[0]
+    assert isinstance(stmt, ExprStmt)
+    assert isinstance(stmt.expr, MatchExpr)
 
