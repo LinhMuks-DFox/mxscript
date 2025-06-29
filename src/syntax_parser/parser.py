@@ -64,6 +64,9 @@ class Parser:
                     'Annotation only supported before functions',
                     next_tok,
                 )
+        if tok.tk_type == 'KEYWORD' and tok.value in ('public', 'private'):
+            self.stream.next()
+            tok = self.stream.peek()
         if tok.tk_type == 'KEYWORD' and tok.value == 'import':
             return self.parse_import()
         if tok.tk_type == 'KEYWORD' and tok.value == 'let':
