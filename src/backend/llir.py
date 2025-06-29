@@ -15,6 +15,7 @@ from ..syntax_parser.ast import (
     ForeignFuncDecl,
     Identifier,
     Integer,
+    String,
     LetStmt,
     Program,
     UnaryOp,
@@ -29,7 +30,7 @@ class Instr:
 
 @dataclass
 class Const(Instr):
-    value: int
+    value: int | str
 
 
 @dataclass
@@ -107,6 +108,8 @@ def _compile_stmt(stmt) -> List[Instr]:
 def _compile_expr(expr) -> List[Instr]:
     if isinstance(expr, Integer):
         return [Const(expr.value)]
+    if isinstance(expr, String):
+        return [Const(expr.value)]
     if isinstance(expr, Identifier):
         return [Load(expr.name)]
     if isinstance(expr, BinaryOp):
@@ -174,8 +177,8 @@ def _optimize_list(code: List[Instr]) -> List[Instr]:
 # ------------ Execution --------------------------------------------------------
 
 def execute(program: ProgramIR) -> int | None:
-    def run(code: List[Instr], env_stack: List[Dict[str, int]]) -> int | None:
-        stack: List[int] = []
+    def run(code: List[Instr], env_stack: List[Dict[str, object]]) -> object | None:
+        stack: List[object] = []
         for instr in code:
             if isinstance(instr, Const):
                 stack.append(instr.value)
@@ -197,9 +200,8 @@ def execute(program: ProgramIR) -> int | None:
                 func = program.functions.get(instr.name)
                 if func is None:
                     if instr.name in program.foreign_functions:
-                        raise RuntimeError(
-                            f"Foreign function {instr.name} not executable in interpreter"
-                        )
+                        stack.append(_ffi_call(program.foreign_functions[instr.name], args))
+                        continue
                     raise RuntimeError(f"Undefined function {instr.name}")
                 new_env = dict(zip(func.params, args))
                 env_stack.append(new_env)
@@ -220,6 +222,8 @@ def execute(program: ProgramIR) -> int | None:
 # ------------ Helpers ----------------------------------------------------------
 
 def _apply_op(op: str, a: int, b: int) -> int:
+    a = int(a)
+    b = int(b)
     if op == '+':
         return a + b
     if op == '-':
@@ -243,6 +247,27 @@ def _apply_op(op: str, a: int, b: int) -> int:
     if op == '<=':
         return int(a <= b)
     raise RuntimeError(f"Unsupported op {op}")
+
+
+def _ffi_call(c_name: str, args: List[object]) -> int | None:
+    """Very small foreign function handler for the interpreter."""
+    if c_name == "write":
+        import os
+
+        fd = int(args[0])
+        buf = args[1]
+        count = int(args[2])
+        if isinstance(buf, str):
+            data = buf.encode()[:count]
+        elif isinstance(buf, bytes):
+            data = buf[:count]
+        else:
+            data = bytes(buf)
+        return os.write(fd, data)
+    if c_name == "print":
+        print(*args)
+        return 0
+    raise RuntimeError(f"Foreign function {c_name} not implemented")
 
 
 # ------------ LLVM IR Generation ---------------------------------------------

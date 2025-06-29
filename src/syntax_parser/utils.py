@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .ast import BinaryOp, ExprStmt, Identifier, Integer, LetStmt, Program, UnaryOp
+from .ast import BinaryOp, ExprStmt, Identifier, Integer, LetStmt, Program, String, UnaryOp
 
 
 def dump_ast(node, indent: int = 0) -> str:
@@ -19,6 +19,8 @@ def dump_ast(node, indent: int = 0) -> str:
         return "\n".join(lines)
     if isinstance(node, Integer):
         return prefix + f"Integer({node.value})"
+    if isinstance(node, String):
+        return prefix + f"String({node.value!r})"
     if isinstance(node, Identifier):
         return prefix + f"Identifier({node.name})"
     if isinstance(node, BinaryOp):
