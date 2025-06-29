@@ -10,6 +10,8 @@ from .llir import (
     compile_program,
     execute,
     optimize,
+    to_llvm_ir,
+    execute_llvm,
 )
 
 __all__ = [
@@ -24,4 +26,6 @@ __all__ = [
     "compile_program",
     "optimize",
     "execute",
+    "to_llvm_ir",
+    "execute_llvm",
 ]

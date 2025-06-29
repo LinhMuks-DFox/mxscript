@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List
 
+from llvmlite import binding, ir
+
 from ..syntax_parser.ast import (
     BinaryOp,
     Block,
@@ -241,3 +243,129 @@ def _apply_op(op: str, a: int, b: int) -> int:
     if op == '<=':
         return int(a <= b)
     raise RuntimeError(f"Unsupported op {op}")
+
+
+# ------------ LLVM IR Generation ---------------------------------------------
+
+def to_llvm_ir(program: ProgramIR) -> str:
+    """Convert :class:`ProgramIR` to LLVM IR string."""
+
+    int_t = ir.IntType(64)
+    module = ir.Module(name="mxscript")
+
+    # Declare all functions first
+    llvm_funcs: Dict[str, ir.Function] = {}
+
+    for func in program.functions.values():
+        func_ty = ir.FunctionType(int_t, [int_t] * len(func.params))
+        llvm_funcs[func.name] = ir.Function(module, func_ty, name=func.name)
+
+    # Foreign functions as external declarations
+    for name in program.foreign_functions:
+        ir.Function(module, ir.FunctionType(int_t, []), name=name)
+
+    def emit_code(builder: ir.IRBuilder, code: List[Instr], vars: Dict[str, ir.AllocaInstr]) -> ir.Value:
+        stack: List[ir.Value] = []
+
+        def get_var(name: str) -> ir.AllocaInstr:
+            if name not in vars:
+                vars[name] = builder.alloca(int_t, name=name)
+                builder.store(ir.Constant(int_t, 0), vars[name])
+            return vars[name]
+
+        for instr in code:
+            if isinstance(instr, Const):
+                stack.append(ir.Constant(int_t, instr.value))
+            elif isinstance(instr, Load):
+                stack.append(builder.load(get_var(instr.name)))
+            elif isinstance(instr, Store):
+                builder.store(stack.pop(), get_var(instr.name))
+            elif isinstance(instr, BinOpInstr):
+                b = stack.pop()
+                a = stack.pop()
+                if instr.op == '+':
+                    stack.append(builder.add(a, b))
+                elif instr.op == '-':
+                    stack.append(builder.sub(a, b))
+                elif instr.op == '*':
+                    stack.append(builder.mul(a, b))
+                elif instr.op == '/':
+                    stack.append(builder.sdiv(a, b))
+                elif instr.op == '%':
+                    stack.append(builder.srem(a, b))
+                elif instr.op == '==':
+                    stack.append(builder.icmp_signed('==', a, b))
+                elif instr.op == '!=':
+                    stack.append(builder.icmp_signed('!=', a, b))
+                elif instr.op == '>':
+                    stack.append(builder.icmp_signed('>', a, b))
+                elif instr.op == '<':
+                    stack.append(builder.icmp_signed('<', a, b))
+                elif instr.op == '>=':
+                    stack.append(builder.icmp_signed('>=', a, b))
+                elif instr.op == '<=':
+                    stack.append(builder.icmp_signed('<=', a, b))
+                else:
+                    raise RuntimeError(f"Unsupported op {instr.op}")
+            elif isinstance(instr, Call):
+                args = [stack.pop() for _ in range(instr.argc)][::-1]
+                callee = llvm_funcs.get(instr.name)
+                if callee is None:
+                    callee = module.get_global(instr.name)
+                stack.append(builder.call(callee, args))
+            elif isinstance(instr, Pop):
+                if stack:
+                    stack.pop()
+            else:
+                raise RuntimeError(f"Unknown instruction {instr}")
+
+        return stack[-1] if stack else ir.Constant(int_t, 0)
+
+    # Build function bodies
+    for func_ir in program.functions.values():
+        func = llvm_funcs[func_ir.name]
+        block = func.append_basic_block("entry")
+        builder = ir.IRBuilder(block)
+
+        vars: Dict[str, ir.AllocaInstr] = {}
+        for arg, name in zip(func.args, func_ir.params):
+            ptr = builder.alloca(int_t, name=name)
+            builder.store(arg, ptr)
+            vars[name] = ptr
+
+        ret_val = emit_code(builder, func_ir.code, vars)
+        builder.ret(ret_val)
+
+    # Build main from top-level code
+    main_ty = ir.FunctionType(int_t, [])
+    main_fn = ir.Function(module, main_ty, name="main")
+    block = main_fn.append_basic_block("entry")
+    builder = ir.IRBuilder(block)
+    ret = emit_code(builder, program.code, {})
+    builder.ret(ret)
+
+    return str(module)
+
+
+def execute_llvm(program: ProgramIR) -> int:
+    """JIT compile and execute program via LLVM."""
+
+    binding.initialize()
+    binding.initialize_native_target()
+    binding.initialize_native_asmprinter()
+
+    llvm_ir = to_llvm_ir(program)
+    mod = binding.parse_assembly(llvm_ir)
+    mod.verify()
+    target = binding.Target.from_default_triple()
+    target_machine = target.create_target_machine()
+    engine = binding.create_mcjit_compiler(mod, target_machine)
+    engine.finalize_object()
+    func_ptr = engine.get_function_address("main")
+
+    from ctypes import CFUNCTYPE, c_longlong
+
+    cfunc = CFUNCTYPE(c_longlong)(func_ptr)
+    result = cfunc()
+    return int(result)
+
