@@ -14,9 +14,9 @@ def compile_and_run(src: str):
     stream = TokenStream(tokens)
     ast = Parser(stream).parse()
     SemanticAnalyzer().analyze(ast)
-    code = compile_program(ast)
-    code = optimize(code)
-    return execute(code)
+    program_ir = compile_program(ast)
+    program_ir = optimize(program_ir)
+    return execute(program_ir)
 
 
 def test_backend_addition():

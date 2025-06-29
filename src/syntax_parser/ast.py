@@ -87,6 +87,7 @@ class FuncDef(Statement):
     signature: FuncSig
     body: Block
 
+@dataclass
 class FunctionCall(Expression):
     name: str
     args: List[Expression]
