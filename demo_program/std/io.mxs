@@ -2,20 +2,15 @@
     Module: std.io
 #!
 
-class __OutStream {
+@@foreign(c_name="print")
+func __internal_print(s: string) -> int;
 
+public func print(s: string) -> nil {
+    __internal_print(s);
 }
 
-
-class __InStream {
-
+public func println(s: string) -> nil {
+    __internal_print(s);
+    __internal_print("\n");
 }
-
-class __Printer {
-
-}
-
-static let __global_printer__ = Printer();
-static let println = Printer.println;
-static let print = Printer.print;
 
