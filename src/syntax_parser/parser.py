@@ -149,7 +149,11 @@ class Parser:
             return String(tok.value)
         if tok.tk_type == 'IDENTIFIER':
             self.stream.next()
-            name = tok.value
+            parts = [tok.value]
+            while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
+                self.stream.next()
+                parts.append(self.stream.expect('IDENTIFIER').value)
+            name = '.'.join(parts)
             if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '(':
                 self.stream.next()
                 args = []
@@ -221,7 +225,12 @@ class Parser:
         return Parameter(names, type_name)
 
     def parse_type_spec(self) -> str:
-        parts = [self.stream.expect('IDENTIFIER').value]
+        tok = self.stream.peek()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'nil':
+            self.stream.next()
+            parts = ['nil']
+        else:
+            parts = [self.stream.expect('IDENTIFIER').value]
         while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
             self.stream.next()
             parts.append(self.stream.expect('IDENTIFIER').value)

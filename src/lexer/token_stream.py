@@ -16,16 +16,28 @@ class TokenStream:
     tokens: List[Token]
     position: int = 0
 
+    def _skip_comments_from(self, index: int) -> int:
+        """Return the next index at or after *index* that is not a comment."""
+        while index < len(self.tokens) and self.tokens[index].tk_type == "COMMENT":
+            index += 1
+        return index
+
     def peek(self, offset: int = 0) -> Optional[Token]:
-        index = self.position + offset
-        if 0 <= index < len(self.tokens):
+        index = self._skip_comments_from(self.position)
+        while offset > 0 and index < len(self.tokens):
+            index += 1
+            index = self._skip_comments_from(index)
+            offset -= 1
+        if index < len(self.tokens):
             return self.tokens[index]
         return None
 
     def next(self) -> Optional[Token]:
         tok = self.peek()
         if tok is not None:
+            self.position = self._skip_comments_from(self.position)
             self.position += 1
+            self.position = self._skip_comments_from(self.position)
         return tok
 
     def expect(self, tk_type: str, value: Optional[str] = None) -> Token:

@@ -94,7 +94,8 @@ class SemanticAnalyzer:
 
     def _visit_expression(self, expr: Expression) -> None:
         if isinstance(expr, Identifier):
-            if not self._is_defined(expr.name):
+            name = expr.name.split('.')[0]
+            if not self._is_defined(name):
                 raise SemanticError(f"Undefined variable '{expr.name}'")
         elif isinstance(expr, Integer):
             pass
@@ -107,7 +108,7 @@ class SemanticAnalyzer:
             self._visit_expression(expr.operand)
         elif isinstance(expr, FunctionCall):
             # Check that the function exists
-            if self.functions is not None and expr.name not in self.functions:
+            if '.' not in expr.name and self.functions is not None and expr.name not in self.functions:
                 raise SemanticError(f"Undefined function '{expr.name}'")
             for arg in expr.args:
                 self._visit_expression(arg)
