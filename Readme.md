@@ -19,6 +19,13 @@ can parse and execute `.mxs` files:
 python main.py demo_program/hello_world.mxs
 ```
 
+Additional examples are located in `demo_program/examples`. Each file focuses on
+a single feature. You can run them the same way:
+
+```bash
+python main.py demo_program/examples/generic_swap.mxs
+```
+
 To execute using the LLVM backend, pass `--compile-mode llvm`.
 
 ## Development
