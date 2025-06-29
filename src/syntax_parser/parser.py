@@ -68,10 +68,14 @@ class Parser:
             return self.parse_import()
         if tok.tk_type == 'KEYWORD' and tok.value == 'let':
             return self.parse_let()
+        if tok.tk_type == 'KEYWORD' and tok.value in ('static', 'dynamic'):
+            return self.parse_binding(tok.value == 'static')
         if tok.tk_type == 'KEYWORD' and tok.value == 'for':
             return self.parse_for_in()
         if tok.tk_type == 'KEYWORD' and tok.value == 'raise':
             return self.parse_raise_stmt()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'return':
+            return self.parse_return_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'func':
             return self.parse_func_def()
         if tok.tk_type == 'OPERATOR' and tok.value == '{':
@@ -103,6 +107,16 @@ class Parser:
         self.stream.expect('OPERATOR', ';')
         return LetStmt(name, value)
 
+    def parse_binding(self, is_static: bool):
+        self.stream.next()  # consume 'static' or 'dynamic'
+        self.stream.expect('KEYWORD', 'let')
+        name = self.stream.expect('IDENTIFIER').value
+        self.stream.expect('OPERATOR', '=')
+        value = self.parse_expression()
+        self.stream.expect('OPERATOR', ';')
+        from .ast import BindingStmt
+        return BindingStmt(name, value, is_static)
+
     def parse_for_in(self):
         self.stream.expect('KEYWORD', 'for')
         is_mut = False
@@ -122,6 +136,16 @@ class Parser:
         self.stream.expect('OPERATOR', ';')
         from .ast import RaiseStmt
         return RaiseStmt(expr)
+
+    def parse_return_stmt(self):
+        self.stream.expect('KEYWORD', 'return')
+        if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ';'):
+            value = self.parse_expression()
+        else:
+            value = None
+        self.stream.expect('OPERATOR', ';')
+        from .ast import ReturnStmt
+        return ReturnStmt(value)
 
     def parse_match_expr(self):
         self.stream.expect('KEYWORD', 'match')

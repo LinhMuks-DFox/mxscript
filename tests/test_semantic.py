@@ -13,7 +13,6 @@ from src.syntax_parser.ast import (
     FunctionDecl,
     Identifier,
     Integer,
-    ImportStmt,
     LetStmt,
     Program,
 )
