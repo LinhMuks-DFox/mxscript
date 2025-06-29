@@ -12,6 +12,8 @@ from .ast import (
     Parameter,
     FuncSig,
     FuncDef,
+    FunctionDecl,
+    FunctionCall,
 )
 
 __all__ = [
@@ -28,4 +30,6 @@ __all__ = [
     "Parameter",
     "FuncSig",
     "FuncDef",
+    "FunctionDecl",
+    "FunctionCall",
 ]

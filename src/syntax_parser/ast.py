@@ -28,6 +28,13 @@ class ExprStmt(Statement):
     expr: "Expression"
 
 
+@dataclass
+class FunctionDecl(Statement):
+    name: str
+    params: List[str]
+    body: List[Statement]
+
+
 class Expression(Node):
     pass
 
@@ -79,3 +86,8 @@ class FuncDef(Statement):
     name: str
     signature: FuncSig
     body: Block
+=======
+class FunctionCall(Expression):
+    name: str
+    args: List[Expression]
+
