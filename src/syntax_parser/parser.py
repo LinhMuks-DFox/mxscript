@@ -288,6 +288,7 @@ class Parser:
         return ' | '.join(parts)
 
     def _parse_single_type_spec(self) -> str:
+
         tok = self.stream.peek()
         if tok.tk_type == 'KEYWORD' and tok.value == 'nil':
             self.stream.next()
