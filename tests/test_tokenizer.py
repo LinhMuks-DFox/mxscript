@@ -31,3 +31,10 @@ def test_hash_comment():
     tokens = tokenize("# a comment\nlet x = 1;")
     tk_types = [t.tk_type for t in tokens if t.tk_type != "COMMENT"]
     assert tk_types[:4] == ["KEYWORD", "IDENTIFIER", "OPERATOR", "INTEGER"]
+
+
+def test_bang_hash_comment():
+    src = "!#\n multi line\n#!\nlet x = 1;"
+    tokens = tokenize(src)
+    tk_types = [t.tk_type for t in tokens if t.tk_type != "COMMENT"]
+    assert tk_types[:4] == ["KEYWORD", "IDENTIFIER", "OPERATOR", "INTEGER"]
