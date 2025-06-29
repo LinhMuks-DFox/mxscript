@@ -10,6 +10,7 @@ from ..syntax_parser.ast import (
     FunctionCall,
     FunctionDecl,
     FuncDef,
+    ForeignFuncDecl,
     Identifier,
     Integer,
     LetStmt,
@@ -66,6 +67,7 @@ class Function:
 class ProgramIR:
     code: List[Instr]
     functions: Dict[str, Function]
+    foreign_functions: Dict[str, str]
 
 
 # ------------ Compilation ------------------------------------------------------
@@ -73,13 +75,16 @@ class ProgramIR:
 def compile_program(prog: Program) -> ProgramIR:
     code: List[Instr] = []
     functions: Dict[str, Function] = {}
+    foreign_functions: Dict[str, str] = {}
     for stmt in prog.statements:
         if isinstance(stmt, (FuncDef, FunctionDecl)):
             func_ir = _compile_function(stmt)
             functions[stmt.name] = func_ir
+        elif isinstance(stmt, ForeignFuncDecl):
+            foreign_functions[stmt.name] = stmt.c_name
         else:
             code.extend(_compile_stmt(stmt))
-    return ProgramIR(code, functions)
+    return ProgramIR(code, functions, foreign_functions)
 
 
 def _compile_stmt(stmt) -> List[Instr]:
@@ -133,10 +138,14 @@ def _compile_function(func: FuncDef | FunctionDecl) -> Function:
 # ------------ Optimization -----------------------------------------------------
 
 def optimize(program: ProgramIR) -> ProgramIR:
-    return ProgramIR(_optimize_list(program.code), {
-        name: Function(f.name, f.params, _optimize_list(f.code))
-        for name, f in program.functions.items()
-    })
+    return ProgramIR(
+        _optimize_list(program.code),
+        {
+            name: Function(f.name, f.params, _optimize_list(f.code))
+            for name, f in program.functions.items()
+        },
+        program.foreign_functions,
+    )
 
 
 def _optimize_list(code: List[Instr]) -> List[Instr]:
@@ -185,6 +194,10 @@ def execute(program: ProgramIR) -> int | None:
                 args = [stack.pop() for _ in range(instr.argc)][::-1]
                 func = program.functions.get(instr.name)
                 if func is None:
+                    if instr.name in program.foreign_functions:
+                        raise RuntimeError(
+                            f"Foreign function {instr.name} not executable in interpreter"
+                        )
                     raise RuntimeError(f"Undefined function {instr.name}")
                 new_env = dict(zip(func.params, args))
                 env_stack.append(new_env)

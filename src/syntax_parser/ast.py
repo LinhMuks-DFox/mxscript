@@ -79,6 +79,7 @@ class Parameter(Node):
 class FuncSig(Node):
     params: List[Parameter]
     return_type: str | None
+    var_arg: bool = False
 
 
 @dataclass
@@ -86,6 +87,13 @@ class FuncDef(Statement):
     name: str
     signature: FuncSig
     body: Block
+
+
+@dataclass
+class ForeignFuncDecl(Statement):
+    name: str
+    signature: FuncSig
+    c_name: str
 
 @dataclass
 class FunctionCall(Expression):

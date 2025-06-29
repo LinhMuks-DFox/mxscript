@@ -7,6 +7,8 @@ from ..syntax_parser.ast import (
     BinaryOp,
     FunctionCall,
     FunctionDecl,
+    FuncDef,
+    ForeignFuncDecl,
     ExprStmt,
     Identifier,
     Integer,
@@ -33,7 +35,16 @@ class SemanticAnalyzer:
         # Gather all function names first so they can be referenced before
         # their declaration.
         self.functions = {
-            stmt.name for stmt in program.statements if isinstance(stmt, FunctionDecl)
+            stmt.name
+            for stmt in program.statements
+            if isinstance(
+                stmt,
+                (
+                    FunctionDecl,
+                    FuncDef,
+                    ForeignFuncDecl,
+                ),
+            )
         }
         self.variables_stack = [set()]
         for stmt in program.statements:
@@ -57,12 +68,21 @@ class SemanticAnalyzer:
             self._current_scope().add(stmt.name)
         elif isinstance(stmt, ExprStmt):
             self._visit_expression(stmt.expr)
-        elif isinstance(stmt, FunctionDecl):
+        elif isinstance(stmt, (FunctionDecl, FuncDef)):
             # Enter a new scope for parameters and locals
-            self.variables_stack.append(set(stmt.params))
-            for s in stmt.body:
+            if isinstance(stmt, FunctionDecl):
+                params = set(stmt.params)
+                body = stmt.body
+            else:
+                params = {n for p in stmt.signature.params for n in p.names}
+                body = stmt.body.statements
+            self.variables_stack.append(params)
+            for s in body:
                 self._visit_statement(s)
             self.variables_stack.pop()
+        elif isinstance(stmt, ForeignFuncDecl):
+            # no body to check
+            pass
         else:
             raise SemanticError(f"Unsupported statement {type(stmt).__name__}")
 

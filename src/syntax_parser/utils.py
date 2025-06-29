@@ -27,4 +27,10 @@ def dump_ast(node, indent: int = 0) -> str:
     if isinstance(node, UnaryOp):
         lines = [prefix + f"UnaryOp({node.op})", dump_ast(node.operand, indent + 1)]
         return "\n".join(lines)
+    if hasattr(node, "__class__") and node.__class__.__name__ == "ForeignFuncDecl":
+        lines = [
+            prefix + f"ForeignFuncDecl(name={node.name}, c_name={node.c_name})",
+            dump_ast(node.signature, indent + 1),
+        ]
+        return "\n".join(lines)
     return prefix + repr(node)

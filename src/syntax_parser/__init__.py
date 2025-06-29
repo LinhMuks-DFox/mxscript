@@ -13,6 +13,7 @@ from .ast import (
     FuncSig,
     FuncDef,
     FunctionDecl,
+    ForeignFuncDecl,
     FunctionCall,
 )
 
@@ -31,5 +32,6 @@ __all__ = [
     "FuncSig",
     "FuncDef",
     "FunctionDecl",
+    "ForeignFuncDecl",
     "FunctionCall",
 ]
