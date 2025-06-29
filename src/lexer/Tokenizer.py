@@ -164,12 +164,29 @@ class Tokenizer:
                 col += 1
                 literal = ""
                 while i < length and self.source[i] != '"':
+                    if self.source[i] == "\\":
+                        if i + 1 < length:
+                            esc = self.source[i + 1]
+                            if esc == "n":
+                                literal += "\n"
+                            elif esc == "t":
+                                literal += "\t"
+                            elif esc == '"':
+                                literal += '"'
+                            elif esc == "\\":
+                                literal += "\\"
+                            else:
+                                literal += esc
+                            i += 2
+                            col += 2
+                            continue
                     if self.source[i] == "\n":
                         line += 1
                         col = 1
+                    else:
+                        col += 1
                     literal += self.source[i]
                     i += 1
-                    col += 1
                 i += 1  # consume closing quote
                 col += 1
                 tokens.append(Token("STRING", literal, start_line, start_col))
