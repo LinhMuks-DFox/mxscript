@@ -24,6 +24,15 @@ class LetStmt(Statement):
 
 
 @dataclass
+class BindingStmt(Statement):
+    """Global binding using ``static`` or ``dynamic`` let."""
+
+    name: str
+    value: "Expression"
+    is_static: bool = True
+
+
+@dataclass
 class ExprStmt(Statement):
     expr: "Expression"
 
@@ -123,6 +132,13 @@ class ForInStmt(Statement):
     iterable: Expression
     body: Block
     is_mut: bool = False
+
+
+@dataclass
+class ReturnStmt(Statement):
+    """Return statement inside a function."""
+
+    value: Expression | None = None
 
 
 @dataclass

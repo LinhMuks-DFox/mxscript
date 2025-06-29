@@ -1,6 +1,17 @@
 from __future__ import annotations
 
-from .ast import BinaryOp, ExprStmt, Identifier, Integer, LetStmt, Program, String, UnaryOp
+from .ast import (
+    BinaryOp,
+    ExprStmt,
+    Identifier,
+    Integer,
+    LetStmt,
+    BindingStmt,
+    ReturnStmt,
+    Program,
+    String,
+    UnaryOp,
+)
 
 
 def dump_ast(node, indent: int = 0) -> str:
@@ -13,6 +24,10 @@ def dump_ast(node, indent: int = 0) -> str:
         return "\n".join(lines)
     if isinstance(node, LetStmt):
         lines = [prefix + f"LetStmt(name={node.name})", dump_ast(node.value, indent + 1)]
+        return "\n".join(lines)
+    if isinstance(node, BindingStmt):
+        kind = "static" if node.is_static else "dynamic"
+        lines = [prefix + f"BindingStmt({kind}, name={node.name})", dump_ast(node.value, indent + 1)]
         return "\n".join(lines)
     if isinstance(node, ExprStmt):
         lines = [prefix + "ExprStmt", dump_ast(node.expr, indent + 1)]
@@ -28,6 +43,11 @@ def dump_ast(node, indent: int = 0) -> str:
         return "\n".join(lines)
     if isinstance(node, UnaryOp):
         lines = [prefix + f"UnaryOp({node.op})", dump_ast(node.operand, indent + 1)]
+        return "\n".join(lines)
+    if isinstance(node, ReturnStmt):
+        lines = [prefix + "ReturnStmt"]
+        if node.value is not None:
+            lines.append(dump_ast(node.value, indent + 1))
         return "\n".join(lines)
     if hasattr(node, "__class__") and node.__class__.__name__ == "ForeignFuncDecl":
         lines = [

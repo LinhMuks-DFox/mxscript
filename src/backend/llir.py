@@ -17,6 +17,8 @@ from ..syntax_parser.ast import (
     Integer,
     String,
     LetStmt,
+    BindingStmt,
+    ReturnStmt,
     ImportStmt,
     Program,
     UnaryOp,
@@ -99,6 +101,10 @@ def _compile_stmt(stmt) -> List[Instr]:
         code = _compile_expr(stmt.value)
         code.append(Store(stmt.name))
         return code
+    if isinstance(stmt, BindingStmt):
+        code = _compile_expr(stmt.value)
+        code.append(Store(stmt.name))
+        return code
     if isinstance(stmt, ImportStmt):
         # Import statements produce no executable code
         return []
@@ -109,6 +115,8 @@ def _compile_stmt(stmt) -> List[Instr]:
         return code
     if isinstance(stmt, ExprStmt):
         return _compile_expr(stmt.expr)
+    if isinstance(stmt, ReturnStmt):
+        return _compile_expr(stmt.value) if stmt.value is not None else []
     raise NotImplementedError(f"Unsupported stmt {type(stmt).__name__}")
 
 

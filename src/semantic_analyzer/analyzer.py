@@ -11,6 +11,7 @@ from ..syntax_parser.ast import (
     ForeignFuncDecl,
     ExprStmt,
     ForInStmt,
+    ReturnStmt,
     RaiseStmt,
     RaiseExpr,
     MatchExpr,
@@ -18,6 +19,7 @@ from ..syntax_parser.ast import (
     Integer,
     String,
     LetStmt,
+    BindingStmt,
     ImportStmt,
     Program,
     Statement,
@@ -69,13 +71,16 @@ class SemanticAnalyzer:
         return False
 
     def _visit_statement(self, stmt: Statement) -> None:
-        if isinstance(stmt, LetStmt):
+        if isinstance(stmt, (LetStmt, BindingStmt)):
             self._visit_expression(stmt.value)
             self._current_scope().add(stmt.name)
         elif isinstance(stmt, ExprStmt):
             self._visit_expression(stmt.expr)
         elif isinstance(stmt, RaiseStmt):
             self._visit_expression(stmt.expr)
+        elif isinstance(stmt, ReturnStmt):
+            if stmt.value is not None:
+                self._visit_expression(stmt.value)
         elif isinstance(stmt, ForInStmt):
             self._visit_expression(stmt.iterable)
             self.variables_stack.append({stmt.var})

@@ -10,6 +10,8 @@ from src.syntax_parser import (
     Integer,
     String,
     LetStmt,
+    BindingStmt,
+    ReturnStmt,
     FuncDef,
     Block,
     ImportStmt,
@@ -34,6 +36,23 @@ def test_parse_let_statement():
     assert stmt.name == "x"
     assert isinstance(stmt.value, Integer)
     assert stmt.value.value == 42
+
+
+def test_parse_static_binding():
+    program = parse("static let x = 1;")
+    stmt = program.statements[0]
+    assert isinstance(stmt, BindingStmt)
+    assert stmt.is_static
+    assert stmt.name == "x"
+    assert isinstance(stmt.value, Integer)
+
+
+def test_parse_dynamic_binding():
+    program = parse("dynamic let y = 2;")
+    stmt = program.statements[0]
+    assert isinstance(stmt, BindingStmt)
+    assert not stmt.is_static
+    assert stmt.name == "y"
 
 
 def test_parse_string_literal():
@@ -105,6 +124,12 @@ def test_parse_raise_stmt():
     program = parse("raise 1;")
     stmt = program.statements[0]
     assert isinstance(stmt, RaiseStmt)
+
+
+def test_parse_return_stmt():
+    program = parse("return 1;")
+    stmt = program.statements[0]
+    assert isinstance(stmt, ReturnStmt)
 
 
 def test_parse_match_expr():
