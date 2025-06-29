@@ -29,6 +29,14 @@ class ExprStmt(Statement):
 
 
 @dataclass
+class ImportStmt(Statement):
+    """Import statement capturing module path and optional alias."""
+
+    module: str
+    alias: str | None = None
+
+
+@dataclass
 class FunctionDecl(Statement):
     name: str
     params: List[str]

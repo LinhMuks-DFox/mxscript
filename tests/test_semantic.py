@@ -13,6 +13,7 @@ from src.syntax_parser.ast import (
     FunctionDecl,
     Identifier,
     Integer,
+    ImportStmt,
     LetStmt,
     Program,
 )
@@ -81,3 +82,11 @@ def test_local_variable_not_global():
     )
     with pytest.raises(SemanticError):
         analyze_ast(prog)
+
+
+def test_import_statement_semantic_ok():
+    analyze("import std.io as io;")
+
+
+def test_import_alias_reference():
+    analyze("import foo.bar as bar; bar;")

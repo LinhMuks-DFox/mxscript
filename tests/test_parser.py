@@ -12,6 +12,7 @@ from src.syntax_parser import (
     LetStmt,
     FuncDef,
     Block,
+    ImportStmt,
     Parser,
 )
 
@@ -79,4 +80,12 @@ def test_nested_blocks():
     assert isinstance(inner, Block)
     assert len(inner.statements) == 1
     assert isinstance(inner.statements[0], LetStmt)
+
+
+def test_parse_import():
+    program = parse("import std.io as io;")
+    stmt = program.statements[0]
+    assert isinstance(stmt, ImportStmt)
+    assert stmt.module == "std.io"
+    assert stmt.alias == "io"
 

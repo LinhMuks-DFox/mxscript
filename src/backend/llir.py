@@ -17,6 +17,7 @@ from ..syntax_parser.ast import (
     Integer,
     String,
     LetStmt,
+    ImportStmt,
     Program,
     UnaryOp,
 )
@@ -85,6 +86,9 @@ def compile_program(prog: Program) -> ProgramIR:
             functions[stmt.name] = func_ir
         elif isinstance(stmt, ForeignFuncDecl):
             foreign_functions[stmt.name] = stmt.c_name
+        elif isinstance(stmt, ImportStmt):
+            # imports currently have no effect on code generation
+            continue
         else:
             code.extend(_compile_stmt(stmt))
     return ProgramIR(code, functions, foreign_functions)
@@ -95,6 +99,9 @@ def _compile_stmt(stmt) -> List[Instr]:
         code = _compile_expr(stmt.value)
         code.append(Store(stmt.name))
         return code
+    if isinstance(stmt, ImportStmt):
+        # Import statements produce no executable code
+        return []
     if isinstance(stmt, Block):
         code: List[Instr] = []
         for s in stmt.statements:
