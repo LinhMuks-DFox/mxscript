@@ -1,5 +1,3 @@
-"""Command-line interface for testing the lexer and parser."""
-
 from __future__ import annotations
 
 import sys
@@ -7,6 +5,7 @@ from pathlib import Path
 
 from ..lexer import TokenStream, tokenize
 from ..syntax_parser import Parser, dump_ast
+
 
 
 def main() -> None:
