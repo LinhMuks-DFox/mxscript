@@ -38,6 +38,22 @@ def test_parse_let_statement():
     assert stmt.value.value == 42
 
 
+def test_parse_typed_let():
+    program = parse("let x: int = 42;")
+    stmt = program.statements[0]
+    assert isinstance(stmt, LetStmt)
+    assert stmt.name == "x"
+    assert stmt.type_name == "int"
+    assert isinstance(stmt.value, Integer)
+
+
+def test_parse_mutable_let():
+    program = parse("let mut y = 1;")
+    stmt = program.statements[0]
+    assert isinstance(stmt, LetStmt)
+    assert stmt.is_mut
+
+
 def test_parse_static_binding():
     program = parse("static let x = 1;")
     stmt = program.statements[0]
