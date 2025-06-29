@@ -1,6 +1,21 @@
 !#
     Module: std.FatalError
 #!
+@@template(AlternativeType)
 class Error {
+private:
+    let msg: string;
+    let panic: bool
+    let alternative: AlternativeType;
+
+public:
+    Error() {}
+
+    Error(msg:string) {}
+
+    Error(msg:string, alternative:T) {}
+
+    Error(msg: string, alternative: T, panic: bool) {}
+
 
 }

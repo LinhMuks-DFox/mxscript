@@ -7,5 +7,5 @@ func hello_world() -> nil {
 
 func main() -> int {
     hello_world();
-    return 0;
+    return 111;
 }
