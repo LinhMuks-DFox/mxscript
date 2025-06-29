@@ -9,6 +9,7 @@ from .ast import (
     FunctionCall,
     Identifier,
     Integer,
+    String,
     LetStmt,
     Program,
     Block,
@@ -121,6 +122,9 @@ class Parser:
         if tok.tk_type == 'INTEGER':
             self.stream.next()
             return Integer(int(tok.value))
+        if tok.tk_type == 'STRING':
+            self.stream.next()
+            return String(tok.value)
         if tok.tk_type == 'IDENTIFIER':
             self.stream.next()
             name = tok.value

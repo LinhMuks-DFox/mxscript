@@ -50,6 +50,12 @@ class Integer(Expression):
 
 
 @dataclass
+class String(Expression):
+    """String literal expression."""
+
+    value: str
+
+@dataclass
 class BinaryOp(Expression):
     left: Expression
     op: str
