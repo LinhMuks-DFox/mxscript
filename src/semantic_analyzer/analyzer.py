@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Set
+from typing import List, Set
 
 from ..syntax_parser.ast import (
     BinaryOp,
+    FunctionCall,
+    FunctionDecl,
     ExprStmt,
     Identifier,
     Integer,
@@ -22,29 +24,51 @@ class SemanticError(Exception):
 
 @dataclass
 class SemanticAnalyzer:
-    """A very small semantic analyzer checking variable usage."""
+    """A very small semantic analyzer checking variable usage with functions."""
 
-    variables: Set[str] | None = None
+    variables_stack: List[Set[str]] | None = None
+    functions: Set[str] | None = None
 
     def analyze(self, program: Program) -> None:
-        self.variables = set()
+        # Gather all function names first so they can be referenced before
+        # their declaration.
+        self.functions = {
+            stmt.name for stmt in program.statements if isinstance(stmt, FunctionDecl)
+        }
+        self.variables_stack = [set()]
         for stmt in program.statements:
             self._visit_statement(stmt)
 
     # Internal helpers -------------------------------------------------
+    def _current_scope(self) -> Set[str]:
+        assert self.variables_stack is not None
+        return self.variables_stack[-1]
+
+    def _is_defined(self, name: str) -> bool:
+        assert self.variables_stack is not None
+        for scope in reversed(self.variables_stack):
+            if name in scope:
+                return True
+        return False
+
     def _visit_statement(self, stmt: Statement) -> None:
         if isinstance(stmt, LetStmt):
             self._visit_expression(stmt.value)
-            self.variables.add(stmt.name)
+            self._current_scope().add(stmt.name)
         elif isinstance(stmt, ExprStmt):
             self._visit_expression(stmt.expr)
+        elif isinstance(stmt, FunctionDecl):
+            # Enter a new scope for parameters and locals
+            self.variables_stack.append(set(stmt.params))
+            for s in stmt.body:
+                self._visit_statement(s)
+            self.variables_stack.pop()
         else:
             raise SemanticError(f"Unsupported statement {type(stmt).__name__}")
 
     def _visit_expression(self, expr: Expression) -> None:
         if isinstance(expr, Identifier):
-            assert self.variables is not None
-            if expr.name not in self.variables:
+            if not self._is_defined(expr.name):
                 raise SemanticError(f"Undefined variable '{expr.name}'")
         elif isinstance(expr, Integer):
             pass
@@ -53,5 +77,11 @@ class SemanticAnalyzer:
             self._visit_expression(expr.right)
         elif isinstance(expr, UnaryOp):
             self._visit_expression(expr.operand)
+        elif isinstance(expr, FunctionCall):
+            # Check that the function exists
+            if self.functions is not None and expr.name not in self.functions:
+                raise SemanticError(f"Undefined function '{expr.name}'")
+            for arg in expr.args:
+                self._visit_expression(arg)
         else:
             raise SemanticError(f"Unsupported expression {type(expr).__name__}")
