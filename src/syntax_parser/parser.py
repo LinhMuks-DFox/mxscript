@@ -10,6 +10,10 @@ from .ast import (
     Integer,
     LetStmt,
     Program,
+    Block,
+    Parameter,
+    FuncSig,
+    FuncDef,
 )
 
 BINARY_PRECEDENCE: Dict[str, int] = {
@@ -45,6 +49,10 @@ class Parser:
         tok = self.stream.peek()
         if tok.tk_type == 'KEYWORD' and tok.value == 'let':
             return self.parse_let()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'func':
+            return self.parse_func_def()
+        if tok.tk_type == 'OPERATOR' and tok.value == '{':
+            return self.parse_block()
         else:
             expr = self.parse_expression()
             self.stream.expect('OPERATOR', ';')
@@ -91,3 +99,57 @@ class Parser:
             self.stream.expect('OPERATOR', ')')
             return expr
         raise SyntaxError(f'Unexpected token {tok}')
+
+    # ------------------------------------------------------------------
+    # New parsing rules for functions and blocks
+    def parse_func_def(self) -> FuncDef:
+        self.stream.expect('KEYWORD', 'func')
+        name = self.stream.expect('IDENTIFIER').value
+        sig = self.parse_func_sig()
+        body = self.parse_block()
+        return FuncDef(name, sig, body)
+
+    def parse_func_sig(self) -> FuncSig:
+        self.stream.expect('OPERATOR', '(')
+        params: list[Parameter] = []
+        if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ')'):
+            params.append(self.parse_param())
+            while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+                self.stream.next()
+                params.append(self.parse_param())
+        self.stream.expect('OPERATOR', ')')
+        return_type = None
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '->':
+            self.stream.next()
+            return_type = self.parse_type_spec()
+        return FuncSig(params, return_type)
+
+    def parse_param(self) -> Parameter:
+        names = [self.stream.expect('IDENTIFIER').value]
+        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+            # look ahead to distinguish between identifier list and next param
+            if self.stream.peek(1) and self.stream.peek(1).tk_type == 'IDENTIFIER':
+                self.stream.next()
+                names.append(self.stream.expect('IDENTIFIER').value)
+            else:
+                break
+        self.stream.expect('OPERATOR', ':')
+        type_name = self.parse_type_spec()
+        return Parameter(names, type_name)
+
+    def parse_type_spec(self) -> str:
+        parts = [self.stream.expect('IDENTIFIER').value]
+        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
+            self.stream.next()
+            parts.append(self.stream.expect('IDENTIFIER').value)
+        return '.'.join(parts)
+
+    def parse_block(self) -> Block:
+        self.stream.expect('OPERATOR', '{')
+        statements = []
+        while self.stream.peek() and not (
+            self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '}'
+        ):
+            statements.append(self.parse_statement())
+        self.stream.expect('OPERATOR', '}')
+        return Block(statements)

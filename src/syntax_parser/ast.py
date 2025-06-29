@@ -53,3 +53,29 @@ class BinaryOp(Expression):
 class UnaryOp(Expression):
     op: str
     operand: Expression
+
+
+@dataclass
+class Block(Statement):
+    """A sequence of statements."""
+
+    statements: List[Statement]
+
+
+@dataclass
+class Parameter(Node):
+    names: List[str]
+    type_name: str
+
+
+@dataclass
+class FuncSig(Node):
+    params: List[Parameter]
+    return_type: str | None
+
+
+@dataclass
+class FuncDef(Statement):
+    name: str
+    signature: FuncSig
+    body: Block
