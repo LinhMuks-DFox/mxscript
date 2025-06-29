@@ -8,6 +8,7 @@ from src.syntax_parser import (
     BinaryOp,
     ExprStmt,
     Integer,
+    String,
     LetStmt,
     FuncDef,
     Block,
@@ -29,6 +30,14 @@ def test_parse_let_statement():
     assert stmt.name == "x"
     assert isinstance(stmt.value, Integer)
     assert stmt.value.value == 42
+
+
+def test_parse_string_literal():
+    program = parse('"hello";')
+    stmt = program.statements[0]
+    assert isinstance(stmt, ExprStmt)
+    assert isinstance(stmt.expr, String)
+    assert stmt.expr.value == "hello"
 
 
 def test_operator_precedence():

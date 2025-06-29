@@ -12,6 +12,7 @@ from ..syntax_parser.ast import (
     ExprStmt,
     Identifier,
     Integer,
+    String,
     LetStmt,
     Program,
     Statement,
@@ -91,6 +92,8 @@ class SemanticAnalyzer:
             if not self._is_defined(expr.name):
                 raise SemanticError(f"Undefined variable '{expr.name}'")
         elif isinstance(expr, Integer):
+            pass
+        elif isinstance(expr, String):
             pass
         elif isinstance(expr, BinaryOp):
             self._visit_expression(expr.left)
