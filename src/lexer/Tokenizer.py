@@ -67,6 +67,7 @@ OPERATORS = {
     "}",
     "[",
     "]",
+    "...",
 }
 
 
@@ -129,6 +130,13 @@ class Tokenizer:
                     col += 2
                     tokens.append(Token("COMMENT", "", start_line, start_col))
                     continue
+
+            # Annotation token @@foo
+            if ch == "@" and i + 1 < length and self.source[i + 1] == "@":
+                tokens.append(Token("ANNOTATION", "@@", line, col))
+                i += 2
+                col += 2
+                continue
 
             # String literal
             if ch == '"':

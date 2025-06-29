@@ -15,6 +15,7 @@ from .ast import (
     Parameter,
     FuncSig,
     FuncDef,
+    ForeignFuncDecl,
     UnaryOp,
 )
 
@@ -49,6 +50,13 @@ class Parser:
 
     def parse_statement(self):
         tok = self.stream.peek()
+        if tok.tk_type == 'ANNOTATION':
+            annotation = self.parse_annotation()
+            next_tok = self.stream.peek()
+            if next_tok.tk_type == 'KEYWORD' and next_tok.value == 'func':
+                return self.parse_func_def(annotation)
+            else:
+                raise SyntaxError('Annotation only supported before functions')
         if tok.tk_type == 'KEYWORD' and tok.value == 'let':
             return self.parse_let()
         if tok.tk_type == 'KEYWORD' and tok.value == 'func':
@@ -59,6 +67,19 @@ class Parser:
             expr = self.parse_expression()
             self.stream.expect('OPERATOR', ';')
             return ExprStmt(expr)
+
+    def parse_annotation(self):
+        self.stream.expect('ANNOTATION', '@@')
+        name = self.stream.expect('IDENTIFIER').value
+        args = {}
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '(':
+            self.stream.next()
+            key = self.stream.expect('IDENTIFIER').value
+            self.stream.expect('OPERATOR', '=')
+            val_tok = self.stream.expect('STRING')
+            args[key] = val_tok.value
+            self.stream.expect('OPERATOR', ')')
+        return {"name": name, **args}
 
     def parse_let(self) -> LetStmt:
         self.stream.expect('KEYWORD', 'let')
@@ -123,27 +144,42 @@ class Parser:
 
     # ------------------------------------------------------------------
     # New parsing rules for functions and blocks
-    def parse_func_def(self) -> FuncDef:
+    def parse_func_def(self, annotation=None):
         self.stream.expect('KEYWORD', 'func')
         name = self.stream.expect('IDENTIFIER').value
         sig = self.parse_func_sig()
+        if annotation and annotation.get('name') == 'foreign':
+            self.stream.expect('OPERATOR', ';')
+            c_name = annotation.get('c_name')
+            return ForeignFuncDecl(name, sig, c_name)
         body = self.parse_block()
         return FuncDef(name, sig, body)
 
     def parse_func_sig(self) -> FuncSig:
         self.stream.expect('OPERATOR', '(')
         params: list[Parameter] = []
+        var_arg = False
         if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ')'):
-            params.append(self.parse_param())
-            while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+            if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '...':
                 self.stream.next()
+                var_arg = True
+            else:
                 params.append(self.parse_param())
+                while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+                    # check for vararg
+                    if self.stream.peek(1) and self.stream.peek(1).tk_type == 'OPERATOR' and self.stream.peek(1).value == '...':
+                        self.stream.next()  # consume ','
+                        self.stream.next()  # consume '...'
+                        var_arg = True
+                        break
+                    self.stream.next()
+                    params.append(self.parse_param())
         self.stream.expect('OPERATOR', ')')
         return_type = None
         if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '->':
             self.stream.next()
             return_type = self.parse_type_spec()
-        return FuncSig(params, return_type)
+        return FuncSig(params, return_type, var_arg)
 
     def parse_param(self) -> Parameter:
         names = [self.stream.expect('IDENTIFIER').value]
