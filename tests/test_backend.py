@@ -50,3 +50,25 @@ def test_backend_return_statement():
     result = compile_and_run(src)
     assert result == 1
 
+
+def test_print_functions(capfd):
+    compile_and_run('import std.io as io; io.print("foo"); io.println("bar");')
+    captured = capfd.readouterr()
+    assert captured.out == "foobar\n"
+
+
+def test_file_operations(tmp_path):
+    path = tmp_path / "out.txt"
+    src = (
+        f'import std.io as io;\n'
+        f'func main() -> int {{\n'
+        f'    let fd = io.open_file("{path}", 577, 438);\n'
+        f'    io.write_file(fd, "hello");\n'
+        f'    io.close_file(fd);\n'
+        f'    return 0;\n'
+        f'}}'
+    )
+    result = compile_and_run(src)
+    assert result == 0
+    assert path.read_text() == "hello"
+
