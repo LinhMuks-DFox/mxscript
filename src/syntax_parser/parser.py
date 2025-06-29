@@ -103,12 +103,19 @@ class Parser:
 
     def parse_let(self) -> LetStmt:
         self.stream.expect('KEYWORD', 'let')
-        # optional 'mut' ignored for now
+        is_mut = False
+        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'mut':
+            self.stream.next()
+            is_mut = True
         name = self.stream.expect('IDENTIFIER').value
+        type_name = None
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
+            self.stream.next()
+            type_name = self.parse_type_spec()
         self.stream.expect('OPERATOR', '=')
         value = self.parse_expression()
         self.stream.expect('OPERATOR', ';')
-        return LetStmt(name, value)
+        return LetStmt(name, value, type_name, is_mut)
 
     def parse_binding(self, is_static: bool):
         self.stream.next()  # consume 'static' or 'dynamic'

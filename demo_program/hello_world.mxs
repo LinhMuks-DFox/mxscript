@@ -6,6 +6,8 @@ func hello_world() -> nil {
 }
 
 func main() -> int {
+    let a: string = "This is a string!";
     hello_world();
+    io.println(a);
     return 111;
 }

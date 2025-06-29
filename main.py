@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+import sys
 
 from src.lexer import TokenStream, tokenize
 from src.syntax_parser import Parser, dump_ast
