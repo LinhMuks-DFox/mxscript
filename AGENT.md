@@ -69,30 +69,47 @@ Annotations provide metadata to the compiler and runtime, enabling powerful opti
 @@static_deterministic: A promise to the compiler that the function is pure (same input yields same output, no side effects). This allows for aggressive optimizations like compile-time function evaluation (CTFE) and memoization.
 
 @@template(type T, ...): Declares a function or class as generic. Generics are implemented via Monomorphization at compile-time to ensure zero-cost abstraction.
-5. Development Roadmap
+
+5. Development Roadmap & Status
+
+This section tracks the progress of the project.
 
 Phase 1: Foundation (Parser & AST)
 
-Implement the Tokenizer.
+Implement the Tokenizer:
 
-Implement a Recursive Descent Parser based on the EBNF to produce an AST.
+Status: ✅ Completed.
+
+Implementation Files: src/lexer/Token.py, src/lexer/Tokenizer.py, src/lexer/token_stream.py.
+
+Notes: The final implementation uses C-style comments (// and /* ... */).
+
+Implement a Recursive Descent Parser:
+
+Status: ✅ Completed.
+
+Implementation Files: src/syntax_parser/Parser.py, src/syntax_parser/ast.py (and its submodules).
+
+Notes: The parser successfully consumes the token stream and generates a corresponding Abstract Syntax Tree (AST).
 
 Phase 2: Semantic Analysis
 
-Implement Symbol Tables and a Type Checker.
+Status: ⏳ Next Up.
+
+Goal: Traverse the AST to perform type checking and scope analysis. This involves creating Symbol Tables and type-checking logic.
 
 Phase 3: Code Generation
 
-Implement an AST walker that emits LLVM IR using llvmlite.
+Status: 📝 Not Started.
 
 Phase 4: Execution & Runtime
 
-Implement the JIT execution engine and basic runtime (memory management, object model).
+Status: 📝 Not Started.
 
 Phase 5: Standard Library
 
-Begin implementation of the std library.
+Status: 📝 Not Started.
 
 6. About This Document
 
-This is a living document. It is the single source of truth for the MxScript language design and must be updated before the implementation of any new or modified feature.
+This is a living document and the single source of truth for the MxScript language design. It must be updated as implementation proceeds and design decisions are made.
