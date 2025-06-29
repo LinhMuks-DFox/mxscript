@@ -25,3 +25,9 @@ def test_token_stream_navigation():
     stream.expect("INTEGER", "1")
     stream.expect("OPERATOR", ";")
     assert stream.next().tk_type == "EOF"
+
+
+def test_hash_comment():
+    tokens = tokenize("# a comment\nlet x = 1;")
+    tk_types = [t.tk_type for t in tokens if t.tk_type != "COMMENT"]
+    assert tk_types[:4] == ["KEYWORD", "IDENTIFIER", "OPERATOR", "INTEGER"]
