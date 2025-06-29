@@ -2,6 +2,11 @@
     Module: std.io
 #!
 
+static let stdin = 0;
+static let stdout = 1;
+static let stderr = 2;
+
+
 @@foreign(c_name="write")
 func __internal_write(fd: int, buf: string, len: int) -> int;
 @@foreign(c_name="read")
