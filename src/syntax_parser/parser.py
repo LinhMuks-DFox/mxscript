@@ -6,6 +6,7 @@ from ..lexer import TokenStream
 from .ast import (
     BinaryOp,
     ExprStmt,
+    FunctionCall,
     Identifier,
     Integer,
     LetStmt,
@@ -14,6 +15,7 @@ from .ast import (
     Parameter,
     FuncSig,
     FuncDef,
+    UnaryOp,
 )
 
 BINARY_PRECEDENCE: Dict[str, int] = {
@@ -68,7 +70,7 @@ class Parser:
         return LetStmt(name, value)
 
     def parse_expression(self, precedence: int = 1):
-        expr = self.parse_primary()
+        expr = self.parse_unary()
         while True:
             tok = self.stream.peek()
             if (
@@ -85,6 +87,14 @@ class Parser:
                 break
         return expr
 
+    def parse_unary(self):
+        tok = self.stream.peek()
+        if tok.tk_type == 'OPERATOR' and tok.value in ('+', '-', '!'):
+            self.stream.next()
+            operand = self.parse_unary()
+            return UnaryOp(tok.value, operand)
+        return self.parse_primary()
+
     def parse_primary(self):
         tok = self.stream.peek()
         if tok.tk_type == 'INTEGER':
@@ -92,7 +102,18 @@ class Parser:
             return Integer(int(tok.value))
         if tok.tk_type == 'IDENTIFIER':
             self.stream.next()
-            return Identifier(tok.value)
+            name = tok.value
+            if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '(':
+                self.stream.next()
+                args = []
+                if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ')'):
+                    args.append(self.parse_expression())
+                    while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+                        self.stream.next()
+                        args.append(self.parse_expression())
+                self.stream.expect('OPERATOR', ')')
+                return FunctionCall(name, args)
+            return Identifier(name)
         if tok.tk_type == 'OPERATOR' and tok.value == '(':
             self.stream.next()
             expr = self.parse_expression()
