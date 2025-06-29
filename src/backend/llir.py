@@ -74,6 +74,12 @@ class Function:
 
 
 @dataclass
+class Return(Instr):
+    """Marks the end of a function and optionally yields a value."""
+    pass
+
+
+@dataclass
 class ProgramIR:
     code: List[Instr]
     functions: Dict[str, Function]
@@ -116,10 +122,13 @@ def compile_program(
         module_cache = {}
     if search_paths is None:
         search_paths = [Path("demo_program")]
+    has_main = False
     for stmt in prog.statements:
         if isinstance(stmt, (FuncDef, FunctionDecl)):
             func_ir = _compile_function(stmt)
             functions[stmt.name] = func_ir
+            if stmt.name == "main" and len(func_ir.params) == 0:
+                has_main = True
         elif isinstance(stmt, ForeignFuncDecl):
             foreign_functions[stmt.name] = stmt.c_name
         elif isinstance(stmt, ImportStmt):
@@ -148,6 +157,8 @@ def compile_program(
             continue
         else:
             code.extend(_compile_stmt(stmt))
+    if has_main:
+        code.append(Call("main", 0))
     return ProgramIR(code, functions, foreign_functions)
 
 
@@ -171,7 +182,9 @@ def _compile_stmt(stmt) -> List[Instr]:
     if isinstance(stmt, ExprStmt):
         return _compile_expr(stmt.expr)
     if isinstance(stmt, ReturnStmt):
-        return _compile_expr(stmt.value) if stmt.value is not None else []
+        code = _compile_expr(stmt.value) if stmt.value is not None else []
+        code.append(Return())
+        return code
     raise NotImplementedError(f"Unsupported stmt {type(stmt).__name__}")
 
 
@@ -279,6 +292,8 @@ def execute(program: ProgramIR) -> int | None:
                 env_stack.pop()
                 if result is not None:
                     stack.append(result)
+            elif isinstance(instr, Return):
+                return stack.pop() if stack else None
             elif isinstance(instr, Pop):
                 if stack:
                     stack.pop()
@@ -408,6 +423,10 @@ def to_llvm_ir(program: ProgramIR) -> str:
                 if callee is None:
                     callee = module.get_global(instr.name)
                 stack.append(builder.call(callee, args))
+            elif isinstance(instr, Return):
+                ret_val = stack.pop() if stack else ir.Constant(int_t, 0)
+                builder.ret(ret_val)
+                return None
             elif isinstance(instr, Pop):
                 if stack:
                     stack.pop()
@@ -429,7 +448,8 @@ def to_llvm_ir(program: ProgramIR) -> str:
             vars[name] = ptr
 
         ret_val = emit_code(builder, func_ir.code, vars)
-        builder.ret(ret_val)
+        if ret_val is not None:
+            builder.ret(ret_val)
 
     # Build main from top-level code
     main_ty = ir.FunctionType(int_t, [])
@@ -437,7 +457,8 @@ def to_llvm_ir(program: ProgramIR) -> str:
     block = main_fn.append_basic_block("entry")
     builder = ir.IRBuilder(block)
     ret = emit_code(builder, program.code, {})
-    builder.ret(ret)
+    if ret is not None:
+        builder.ret(ret)
 
     return str(module)
 

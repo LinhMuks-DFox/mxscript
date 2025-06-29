@@ -39,3 +39,14 @@ def test_backend_addition():
 def test_backend_import_hello_world():
     ir = compile_and_run_file(Path("demo_program/hello_world.mxs"))
     assert "io.println" in ir.functions
+
+def test_auto_main_call():
+    src = "func main() -> int { return 42; }"
+    result = compile_and_run(src)
+    assert result == 42
+
+def test_backend_return_statement():
+    src = "func foo() { return 1; 2; } foo();"
+    result = compile_and_run(src)
+    assert result == 1
+
