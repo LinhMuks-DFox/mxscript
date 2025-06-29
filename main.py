@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 import sys
 
@@ -17,7 +18,7 @@ from src.backend import (
 
 
 
-def main(argv: list[str] | None = None) -> None:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="MxScript driver")
     parser.add_argument("source", help="MxScript source file")
     parser.add_argument("--dump-llir", action="store_true", help="print LLVM IR")
@@ -64,9 +65,9 @@ def main(argv: list[str] | None = None) -> None:
     else:
         result = execute_llvm(ir_prog)
 
-    if result is not None:
-        sys.exit(result)
+    return int(result) if result is not None else 0
+
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

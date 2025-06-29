@@ -349,6 +349,29 @@ def _ffi_call(c_name: str, args: List[object]) -> int | None:
         else:
             data = bytes(buf)
         return os.write(fd, data)
+    if c_name == "read":
+        import os
+
+        fd = int(args[0])
+        buf = args[1]
+        count = int(args[2])
+        data = os.read(fd, count)
+        if isinstance(buf, bytearray):
+            buf[: len(data)] = data
+        return len(data)
+    if c_name == "open":
+        import os
+
+        path = str(args[0])
+        flags = int(args[1])
+        mode = int(args[2])
+        return os.open(path, flags, mode)
+    if c_name == "close":
+        import os
+
+        fd = int(args[0])
+        os.close(fd)
+        return 0
     if c_name == "print":
         print(*args)
         return 0
