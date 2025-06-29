@@ -1,0 +1,164 @@
+// File: examples.mx
+// Contains several example programs to test different features of the MxScript language.
+
+// =================================================================
+// Example 1: Hello World
+// Tests: Basic function definition, imports, static binding, I/O.
+// =================================================================
+import std.io as io;
+static let println = io.println;
+
+func hello_world() -> nil {
+    println("Hello, World!");
+}
+
+
+// =================================================================
+// Example 2: Static Deterministic Fibonacci
+// Tests: @@static_deterministic, recursion, compile-time evaluation.
+// =================================================================
+@@static_deterministic
+func fib(n: int) -> int {
+    if n <= 1 {
+        return n;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
+
+func test_fib() -> nil {
+    // 编译器应该在编译时直接计算出 fib(10) 的值 (55)，
+    // 而不是在运行时进行递归调用。
+    let fib_10 = fib(10);
+    println(fib_10); // Should print 55
+}
+
+
+// =================================================================
+// Example 3: Matrix Class & Error Handling
+// Tests: class, private/public, operator overloading, value-based errors,
+//        raise keyword, match expression for error handling.
+// =================================================================
+
+// (假设 std.error 和 std.array 已被实现)
+import std.error.Error as Error;
+import std.array.make_array as make_array;
+
+class Matrix {
+public:
+    // 构造函数
+    Matrix(height: int, width: int) {
+        self.height = height;
+        self.width = width;
+        // 假设 `make_array` 创建一个指定大小、初始化为 0.0 的数组
+        self.data = make_array<float>(height * width, 0.0);
+    }
+
+    // 重载 '+' 运算符
+    operator+(other: Matrix) -> Matrix | Error {
+        if self.height != other.height || self.width != other.width {
+            // 返回一个 Error 对象，而不是抛出异常
+            return raise Error("ShapeError", msg="Matrix dimensions do not match.");
+        }
+
+        let mut result = Matrix(self.height, self.width);
+        for i in 0..(self.height * self.width) {
+            result.data[i] = self.data[i] + other.data[i];
+        }
+        return result;
+    }
+
+private:
+    let height: int;
+    let width: int;
+    let mut data: [float];
+}
+
+func test_matrix() -> nil {
+    let m1 = Matrix(2, 3);
+    let m2 = Matrix(2, 3);
+    let m3 = Matrix(3, 2);
+
+    // 成功的情况
+    let success_result = match (m1 + m2) {
+        case res: Matrix => {
+            println("Matrix addition successful.");
+            res;
+        }
+        case err: Error => {
+            println(err.msg);
+            nil; // 返回 nil
+        }
+    };
+    
+    // 失败的情况
+    let failure_result = match (m1 + m3) {
+        case res: Matrix => {
+            println("This should not happen.");
+            res;
+        }
+        case err: Error => {
+            println("Caught expected error:");
+            println(err.msg); // "Matrix dimensions do not match."
+            nil;
+        }
+    };
+}
+
+
+// =================================================================
+// Example 4: Generic Function with @@template
+// Tests: @@template, generic function declaration, and instantiation.
+// =================================================================
+@@template(type T)
+func swap(a: T, b: T) -> (T, T) {
+    return (b, a);
+}
+
+func test_generics() -> nil {
+    // 实例化泛型函数来交换整数
+    let (x, y) = swap<int>(10, 20);
+    println(x); // 20
+    println(y); // 10
+
+    // 实例化泛型函数来交换字符串
+    let (s1, s2) = swap<string>("hello", "world");
+    println(s1); // "world"
+    println(s2); // "hello"
+}
+
+
+// =================================================================
+// Example 5: Panic
+// Tests: The panic mechanism for unrecoverable errors.
+// =================================================================
+func cause_panic() -> nil {
+    println("About to cause an unrecoverable error...");
+    // `panic=True` 会导致程序立即终止并打印错误信息。
+    raise Error("FatalError", msg="System integrity compromised.", panic=True);
+    println("This line will never be reached.");
+}
+
+// 主入口函数，用于调用所有测试
+func main() -> int {
+    hello_world();
+    test_fib();
+    test_matrix();
+    test_generics();
+    
+    // 取消下面一行的注释来测试 panic 功能。
+    // cause_panic();
+
+    return 0;
+}
+
+@@manual_optimize_level(level=3)
+func matrix_multiply(a: Matrix, b: Matrix) -> Matrix {
+    // ... implementation ...
+}
+
+// For a less critical function, we might choose a lower level
+// to keep compile times fast.
+@@manual_optimize_level(level=1)
+func quick_utility_func() -> nil {
+    // ... implementation ...
+}

@@ -3,10 +3,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from ..lexer import TokenStream, tokenize
-from ..syntax_parser import Parser, dump_ast
-from ..semantic_analyzer import SemanticAnalyzer
-from ..backend import (
+from src.lexer import TokenStream, tokenize
+from src.syntax_parser import Parser, dump_ast
+from src.semantic_analyzer import SemanticAnalyzer
+from src.backend import (
     compile_program,
     execute,
     execute_llvm,
