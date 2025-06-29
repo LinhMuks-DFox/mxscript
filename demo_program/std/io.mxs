@@ -2,15 +2,42 @@
     Module: std.io
 #!
 
-@@foreign(c_name="print")
-func __internal_print(s: string) -> int;
+@@foreign(c_name="write")
+func __internal_write(fd: int, buf: string, len: int) -> int;
+@@foreign(c_name="read")
+func __internal_read(fd: int, buf: byte*, len: int) -> int;
+@@foreign(c_name="open")
+func __internal_open(path: string, flags: int, mode: int) -> int;
+@@foreign(c_name="close")
+func __internal_close(fd: int) -> int;
 
 public func print(s: string) -> nil {
-    __internal_print(s);
+    __internal_write(1, s, 1000);
 }
 
 public func println(s: string) -> nil {
-    __internal_print(s);
-    __internal_print("\n");
+    __internal_write(1, s, 1000);
+    __internal_write(1, "
+", 1);
+}
+
+public func readline(buf: byte*, len: int) -> int {
+    return __internal_read(0, buf, len);
+}
+
+public func open_file(path: string, flags: int, mode: int) -> int {
+    return __internal_open(path, flags, mode);
+}
+
+public func read_file(fd: int, buf: byte*, len: int) -> int {
+    return __internal_read(fd, buf, len);
+}
+
+public func write_file(fd: int, s: string) -> int {
+    return __internal_write(fd, s, 1000);
+}
+
+public func close_file(fd: int) -> int {
+    return __internal_close(fd);
 }
 

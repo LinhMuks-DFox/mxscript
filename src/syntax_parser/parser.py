@@ -325,7 +325,11 @@ class Parser:
         while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
             self.stream.next()
             parts.append(self.stream.expect('IDENTIFIER').value)
-        return '.'.join(parts)
+        typ = '.'.join(parts)
+        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '*':
+            self.stream.next()
+            typ += '*'
+        return typ
 
     def parse_block(self) -> Block:
         self.stream.expect('OPERATOR', '{')
