@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
 
 from src.lexer import TokenStream, tokenize
 from src.syntax_parser import Parser, dump_ast
@@ -64,7 +65,7 @@ def main(argv: list[str] | None = None) -> None:
         result = execute_llvm(ir_prog)
 
     if result is not None:
-        print(result)
+        sys.exit(result)
 
 
 if __name__ == "__main__":

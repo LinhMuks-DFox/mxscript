@@ -38,3 +38,10 @@ def test_bang_hash_comment():
     tokens = tokenize(src)
     tk_types = [t.tk_type for t in tokens if t.tk_type != "COMMENT"]
     assert tk_types[:4] == ["KEYWORD", "IDENTIFIER", "OPERATOR", "INTEGER"]
+
+
+def test_string_escape_sequences():
+    src = "\"foo\\nbar\\t\\\"baz\\\"\\\\\""
+    tokens = tokenize(src)
+    assert tokens[0].tk_type == "STRING"
+    assert tokens[0].value == 'foo\nbar\t"baz"\\'
