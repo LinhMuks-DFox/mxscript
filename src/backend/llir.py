@@ -88,10 +88,13 @@ def compile_program(prog: Program) -> ProgramIR:
     code: List[Instr] = []
     functions: Dict[str, Function] = {}
     foreign_functions: Dict[str, str] = {}
+    has_main = False
     for stmt in prog.statements:
         if isinstance(stmt, (FuncDef, FunctionDecl)):
             func_ir = _compile_function(stmt)
             functions[stmt.name] = func_ir
+            if stmt.name == "main" and len(func_ir.params) == 0:
+                has_main = True
         elif isinstance(stmt, ForeignFuncDecl):
             foreign_functions[stmt.name] = stmt.c_name
         elif isinstance(stmt, ImportStmt):
@@ -99,6 +102,8 @@ def compile_program(prog: Program) -> ProgramIR:
             continue
         else:
             code.extend(_compile_stmt(stmt))
+    if has_main:
+        code.append(Call("main", 0))
     return ProgramIR(code, functions, foreign_functions)
 
 
