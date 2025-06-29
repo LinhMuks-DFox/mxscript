@@ -14,6 +14,7 @@ from ..syntax_parser.ast import (
     Integer,
     String,
     LetStmt,
+    ImportStmt,
     Program,
     Statement,
     Expression,
@@ -69,6 +70,10 @@ class SemanticAnalyzer:
             self._current_scope().add(stmt.name)
         elif isinstance(stmt, ExprStmt):
             self._visit_expression(stmt.expr)
+        elif isinstance(stmt, ImportStmt):
+            # record alias so it can be referenced later
+            if stmt.alias:
+                self._current_scope().add(stmt.alias)
         elif isinstance(stmt, (FunctionDecl, FuncDef)):
             # Enter a new scope for parameters and locals
             if isinstance(stmt, FunctionDecl):

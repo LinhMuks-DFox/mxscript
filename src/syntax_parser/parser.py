@@ -6,6 +6,7 @@ from ..lexer import TokenStream
 from .ast import (
     BinaryOp,
     ExprStmt,
+    ImportStmt,
     FunctionCall,
     Identifier,
     Integer,
@@ -58,6 +59,8 @@ class Parser:
                 return self.parse_func_def(annotation)
             else:
                 raise SyntaxError('Annotation only supported before functions')
+        if tok.tk_type == 'KEYWORD' and tok.value == 'import':
+            return self.parse_import()
         if tok.tk_type == 'KEYWORD' and tok.value == 'let':
             return self.parse_let()
         if tok.tk_type == 'KEYWORD' and tok.value == 'func':
@@ -90,6 +93,21 @@ class Parser:
         value = self.parse_expression()
         self.stream.expect('OPERATOR', ';')
         return LetStmt(name, value)
+
+    def parse_import(self) -> ImportStmt:
+        """Parse an import statement."""
+        self.stream.expect('KEYWORD', 'import')
+        parts = [self.stream.expect('IDENTIFIER').value]
+        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
+            self.stream.next()
+            parts.append(self.stream.expect('IDENTIFIER').value)
+        module = '.'.join(parts)
+        alias = None
+        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'as':
+            self.stream.next()
+            alias = self.stream.expect('IDENTIFIER').value
+        self.stream.expect('OPERATOR', ';')
+        return ImportStmt(module, alias)
 
     def parse_expression(self, precedence: int = 1):
         expr = self.parse_unary()
