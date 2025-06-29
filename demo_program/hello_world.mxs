@@ -4,3 +4,8 @@ import std.io as io;
 func hello_world() -> nil {
     io.println("Hello, World!");
 }
+
+func main() -> int {
+    hello_world();
+    return 0;
+}
