@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Dict
 
 from ..lexer import TokenStream
+from ..errors import SyntaxErrorWithPos
 from .ast import (
     BinaryOp,
     ExprStmt,
@@ -58,7 +59,10 @@ class Parser:
             if next_tok.tk_type == 'KEYWORD' and next_tok.value == 'func':
                 return self.parse_func_def(annotation)
             else:
-                raise SyntaxError('Annotation only supported before functions')
+                raise SyntaxErrorWithPos(
+                    'Annotation only supported before functions',
+                    next_tok,
+                )
         if tok.tk_type == 'KEYWORD' and tok.value == 'import':
             return self.parse_import()
         if tok.tk_type == 'KEYWORD' and tok.value == 'let':
@@ -162,7 +166,7 @@ class Parser:
             expr = self.parse_expression()
             self.stream.expect('OPERATOR', ')')
             return expr
-        raise SyntaxError(f'Unexpected token {tok}')
+        raise SyntaxErrorWithPos(f'Unexpected token {tok.tk_type}', tok)
 
     # ------------------------------------------------------------------
     # New parsing rules for functions and blocks

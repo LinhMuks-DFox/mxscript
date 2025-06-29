@@ -146,4 +146,7 @@ generic_inst     = "<" , type_spec , { "," , type_spec } , ">" ;
 
 field_decl       = identifier_list , ":" , type_spec , ";" ;
 
+(* Comments are handled entirely by the lexer. The lexer recognizes two forms: *)
+(*  - '#'        : single line comment terminating at newline               *)
+(*  - '!##!' ... '!##!' : multi-line comment                                *)
 comment          = ? "Lexer-defined single or multi-line comment" ? ;

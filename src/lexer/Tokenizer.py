@@ -101,35 +101,34 @@ class Tokenizer:
                 col = 1
                 continue
 
-            # Comments
-            if ch == "/" and i + 1 < length and self.source[i + 1] in {"/", "*"}:
+            # Comments: '#' for single-line and '!##!' ... '!##!' for multi-line
+            if ch == "#":
                 start_line, start_col = line, col
-                if self.source[i + 1] == "/":
-                    i += 2
-                    col += 2
-                    while i < length and self.source[i] != "\n":
+                i += 1
+                col += 1
+                while i < length and self.source[i] != "\n":
+                    i += 1
+                    col += 1
+                tokens.append(Token("COMMENT", "", start_line, start_col))
+                continue
+
+            if self.source.startswith("!##!", i):
+                start_line, start_col = line, col
+                i += 4
+                col += 4
+                while i < length and not self.source.startswith("!##!", i):
+                    if self.source[i] == "\n":
+                        line += 1
+                        col = 1
                         i += 1
-                        col += 1
-                    tokens.append(Token("COMMENT", "", start_line, start_col))
-                    continue
-                else:
-                    # multiline comment
-                    i += 2
-                    col += 2
-                    while i < length and not (
-                        self.source[i] == "*" and i + 1 < length and self.source[i + 1] == "/"
-                    ):
-                        if self.source[i] == "\n":
-                            line += 1
-                            col = 1
-                            i += 1
-                            continue
-                        i += 1
-                        col += 1
-                    i += 2
-                    col += 2
-                    tokens.append(Token("COMMENT", "", start_line, start_col))
-                    continue
+                        continue
+                    i += 1
+                    col += 1
+                if i < length:
+                    i += 4
+                    col += 4
+                tokens.append(Token("COMMENT", "", start_line, start_col))
+                continue
 
             # Annotation token @@foo
             if ch == "@" and i + 1 < length and self.source[i + 1] == "@":
