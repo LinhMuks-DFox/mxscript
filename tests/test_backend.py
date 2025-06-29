@@ -22,3 +22,9 @@ def compile_and_run(src: str):
 def test_backend_addition():
     result = compile_and_run("let x = 1 + 2; x + 3;")
     assert result == 6
+
+
+def test_backend_return_statement():
+    src = "func foo() { return 1; 2; } foo();"
+    result = compile_and_run(src)
+    assert result == 1
