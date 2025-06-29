@@ -17,6 +17,11 @@ from .ast import (
     FunctionDecl,
     ForeignFuncDecl,
     FunctionCall,
+    ForInStmt,
+    RaiseStmt,
+    RaiseExpr,
+    MatchExpr,
+    MatchCase,
 )
 
 __all__ = [
@@ -38,4 +43,9 @@ __all__ = [
     "FunctionDecl",
     "ForeignFuncDecl",
     "FunctionCall",
+    "ForInStmt",
+    "RaiseStmt",
+    "RaiseExpr",
+    "MatchExpr",
+    "MatchCase",
 ]

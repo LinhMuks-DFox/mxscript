@@ -48,6 +48,7 @@ OPERATORS = {
     "&&",
     "||",
     "->",
+    "=>",
     "+",
     "-",
     "*",
@@ -62,6 +63,7 @@ OPERATORS = {
     ",",
     ":",
     ";",
+    "..",
     "(",")",
     "{",
     "}",
@@ -165,7 +167,12 @@ class Tokenizer:
                     num += self.source[i]
                     i += 1
                     col += 1
-                if i < length and self.source[i] == ".":
+                if (
+                    i < length
+                    and self.source[i] == "."
+                    and i + 1 < length
+                    and self.source[i + 1].isdigit()
+                ):
                     num += "."
                     i += 1
                     col += 1
