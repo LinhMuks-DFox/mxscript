@@ -17,17 +17,17 @@ func __internal_open(path: string, flags: int, mode: int) -> int;
 func __internal_close(fd: int) -> int;
 
 public func print(s: string) -> nil {
-    __internal_write(1, s, 1000);
+    __internal_write(stdout, s, 1000);
 }
 
 public func println(s: string) -> nil {
-    __internal_write(1, s, 1000);
-    __internal_write(1, "
+    __internal_write(stdout, s, 1000);
+    __internal_write(stdout, "
 ", 1);
 }
 
 public func readline(buf: byte*, len: int) -> int {
-    return __internal_read(0, buf, len);
+    return __internal_read(stdin, buf, len);
 }
 
 public func open_file(path: string, flags: int, mode: int) -> int {

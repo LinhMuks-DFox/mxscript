@@ -8,13 +8,13 @@ func main() -> int {
     io.println("Hello, stdout!");
 
     # Write directly to stderr
-    io.write_file(2, "This goes to stderr\n");
+    io.write_file(io.stderr, "This goes to stderr\n");
 
     # Open a file for writing (flags 577 = O_WRONLY|O_CREAT|O_TRUNC,
     # mode 438 = 0o666)
-    let fd = io.open_file("demo_output.txt", 577, 438);
-    io.write_file(fd, "File contents\n");
-    io.close_file(fd);
+    # let fd = io.open_file("demo_output.txt", 577, 438);
+    # io.write_file(fd, "File contents\n");
+    # io.close_file(fd);
 
     # Reading from stdin requires a byte buffer. The following is a
     # conceptual example; dynamic arrays are not yet implemented.
