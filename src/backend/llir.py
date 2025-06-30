@@ -173,6 +173,15 @@ def compile_program(
                 functions[new_name] = Function(new_name, func.params, new_code)
             foreign_functions.update(mod_ir.foreign_functions)
             continue
+        elif isinstance(stmt, BindingStmt) and stmt.is_static and isinstance(stmt.value, Identifier):
+            target = stmt.value.name
+            if target in functions:
+                target_func = functions[target]
+                functions[stmt.name] = Function(stmt.name, target_func.params, target_func.code)
+                continue
+            if target in foreign_functions:
+                foreign_functions[stmt.name] = foreign_functions[target]
+                continue
         else:
             code.extend(_compile_stmt(stmt))
     if has_main:
@@ -413,7 +422,7 @@ def to_llvm_ir(program: ProgramIR) -> str:
 
     # Foreign functions as external declarations
     for name in program.foreign_functions:
-        ir.Function(module, ir.FunctionType(int_t, []), name=name)
+        ir.Function(module, ir.FunctionType(int_t, [], var_arg=True), name=name)
 
     def emit_code(builder: ir.IRBuilder, code: List[Instr], vars: Dict[str, ir.AllocaInstr]) -> ir.Value:
         stack: List[ir.Value] = []
@@ -426,7 +435,10 @@ def to_llvm_ir(program: ProgramIR) -> str:
 
         for instr in code:
             if isinstance(instr, Const):
-                stack.append(ir.Constant(int_t, instr.value))
+                if isinstance(instr.value, str):
+                    stack.append(ir.Constant(int_t, 0))
+                else:
+                    stack.append(ir.Constant(int_t, instr.value))
             elif isinstance(instr, Load):
                 stack.append(builder.load(get_var(instr.name)))
             elif isinstance(instr, Store):
@@ -492,10 +504,10 @@ def to_llvm_ir(program: ProgramIR) -> str:
         if ret_val is not None:
             builder.ret(ret_val)
 
-    # Build main from top-level code
-    main_ty = ir.FunctionType(int_t, [])
-    main_fn = ir.Function(module, main_ty, name="main")
-    block = main_fn.append_basic_block("entry")
+    # Build wrapper for top-level code
+    start_ty = ir.FunctionType(int_t, [])
+    start_fn = ir.Function(module, start_ty, name="__start")
+    block = start_fn.append_basic_block("entry")
     builder = ir.IRBuilder(block)
     ret = emit_code(builder, program.code, {})
     if ret is not None:
@@ -517,10 +529,19 @@ def execute_llvm(program: ProgramIR) -> int:
     target = binding.Target.from_default_triple()
     target_machine = target.create_target_machine()
     engine = binding.create_mcjit_compiler(mod, target_machine)
-    engine.finalize_object()
-    func_ptr = engine.get_function_address("main")
 
-    from ctypes import CFUNCTYPE, c_longlong
+    from ctypes import CFUNCTYPE, c_longlong, c_void_p, cast
+
+    def _stub(*args):
+        return 0
+
+    STUB = CFUNCTYPE(c_longlong, c_longlong, c_longlong, c_longlong)(_stub)
+    addr = cast(STUB, c_void_p).value
+    for name in ["__internal_write", "__internal_read", "__internal_open", "__internal_close"]:
+        binding.add_symbol(name, addr)
+
+    engine.finalize_object()
+    func_ptr = engine.get_function_address("__start")
 
     cfunc = CFUNCTYPE(c_longlong)(func_ptr)
     result = cfunc()
