@@ -1,0 +1,44 @@
+!#
+    Module: std.file
+#!
+
+import std.io as io;
+
+# Constants for open flags
+static let O_RDONLY = 0;
+static let O_WRONLY = 1;
+static let O_CREAT = 64;
+static let O_TRUNC = 512;
+static let O_APPEND = 1024;
+
+class File {
+public:
+    File(path: string, mode: string="r") {
+        let flags = match mode {
+            case "r" => O_RDONLY;
+            case "w" => O_WRONLY | O_CREAT | O_TRUNC;
+            case "a" => O_WRONLY | O_CREAT | O_APPEND;
+            case _ => O_RDONLY;
+        };
+        self.fd = io.open_file(path, flags, 438);
+    }
+
+    func write(data: string) -> int {
+        return io.write_file(self.fd, data);
+    }
+
+    func read(buf: byte*, len: int) -> int {
+        return io.read_file(self.fd, buf, len);
+    }
+
+    func close() -> nil {
+        io.close_file(self.fd);
+    }
+
+    ~File() {
+        io.close_file(self.fd);
+    }
+
+private:
+    let fd: int;
+}
