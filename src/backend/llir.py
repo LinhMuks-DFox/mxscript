@@ -166,6 +166,8 @@ def compile_program(
                 mod_ir = module_cache[mod_name]
             except FileNotFoundError:
                 continue
+            # Pull in top-level initialization code from the imported module
+            code.extend(mod_ir.code)
             prefix = f"{stmt.alias or stmt.module}."
             rename_map = {n: prefix + n for n in mod_ir.functions}
             for name, func in mod_ir.functions.items():
