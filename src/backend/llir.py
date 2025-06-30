@@ -91,7 +91,7 @@ class ProgramIR:
 def load_module_ast(module: str, search_paths: List[str | Path] | None = None) -> Program:
     """Locate ``module`` and parse it into an AST."""
     if search_paths is None:
-        search_paths = [Path("demo_program")]
+        search_paths = [Path("demo_program/examples"), Path("demo_program")]
     rel = Path(module.replace(".", "/") + ".mxs")
     for base in search_paths:
         path = Path(base) / rel
@@ -121,7 +121,7 @@ def compile_program(
     if module_cache is None:
         module_cache = {}
     if search_paths is None:
-        search_paths = [Path("demo_program")]
+        search_paths = [Path("demo_program/examples"), Path("demo_program")]
     has_main = False
     for stmt in prog.statements:
         if isinstance(stmt, (FuncDef, FunctionDecl)):
