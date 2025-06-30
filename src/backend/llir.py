@@ -118,14 +118,20 @@ def compile_program(
     code: List[Instr] = []
     functions: Dict[str, Function] = {}
     foreign_functions: Dict[str, str] = {}
+    alias_map: Dict[str, str] = {}
     if module_cache is None:
         module_cache = {}
     if search_paths is None:
         search_paths = [Path("demo_program/examples"), Path("demo_program")]
     has_main = False
+    # First gather static aliases
+    for stmt in prog.statements:
+        if isinstance(stmt, BindingStmt) and stmt.is_static and isinstance(stmt.value, Identifier):
+            alias_map[stmt.name] = stmt.value.name
+
     for stmt in prog.statements:
         if isinstance(stmt, (FuncDef, FunctionDecl)):
-            func_ir = _compile_function(stmt)
+            func_ir = _compile_function(stmt, alias_map)
             functions[stmt.name] = func_ir
             if stmt.name == "main" and len(func_ir.params) == 0:
                 has_main = True
@@ -156,19 +162,25 @@ def compile_program(
             foreign_functions.update(mod_ir.foreign_functions)
             continue
         else:
-            code.extend(_compile_stmt(stmt))
+            code.extend(_compile_stmt(stmt, alias_map))
     if has_main:
         code.append(Call("main", 0))
     return ProgramIR(code, functions, foreign_functions)
 
 
-def _compile_stmt(stmt) -> List[Instr]:
+def _compile_stmt(stmt, alias_map: Dict[str, str]) -> List[Instr]:
     if isinstance(stmt, LetStmt):
-        code = _compile_expr(stmt.value)
+        code = _compile_expr(stmt.value, alias_map)
         code.append(Store(stmt.name))
         return code
     if isinstance(stmt, BindingStmt):
-        code = _compile_expr(stmt.value)
+        if stmt.is_static and isinstance(stmt.value, Identifier):
+            target = stmt.value.name
+            while target in alias_map:
+                target = alias_map[target]
+            alias_map[stmt.name] = target
+            return []
+        code = _compile_expr(stmt.value, alias_map)
         code.append(Store(stmt.name))
         return code
     if isinstance(stmt, ImportStmt):
@@ -177,40 +189,46 @@ def _compile_stmt(stmt) -> List[Instr]:
     if isinstance(stmt, Block):
         code: List[Instr] = []
         for s in stmt.statements:
-            code.extend(_compile_stmt(s))
+            code.extend(_compile_stmt(s, alias_map))
         return code
     if isinstance(stmt, ExprStmt):
-        return _compile_expr(stmt.expr)
+        return _compile_expr(stmt.expr, alias_map)
     if isinstance(stmt, ReturnStmt):
-        code = _compile_expr(stmt.value) if stmt.value is not None else []
+        code = _compile_expr(stmt.value, alias_map) if stmt.value is not None else []
         code.append(Return())
         return code
     raise NotImplementedError(f"Unsupported stmt {type(stmt).__name__}")
 
 
-def _compile_expr(expr) -> List[Instr]:
+def _compile_expr(expr, alias_map: Dict[str, str]) -> List[Instr]:
     if isinstance(expr, Integer):
         return [Const(expr.value)]
     if isinstance(expr, String):
         return [Const(expr.value)]
     if isinstance(expr, Identifier):
-        return [Load(expr.name)]
+        name = expr.name
+        while name in alias_map:
+            name = alias_map[name]
+        return [Load(name)]
     if isinstance(expr, BinaryOp):
-        return _compile_expr(expr.left) + _compile_expr(expr.right) + [BinOpInstr(expr.op)]
+        return _compile_expr(expr.left, alias_map) + _compile_expr(expr.right, alias_map) + [BinOpInstr(expr.op)]
     if isinstance(expr, UnaryOp):
         # Only unary '-' supported
         if expr.op == '-':
-            return [Const(0)] + _compile_expr(expr.operand) + [BinOpInstr('-')]
+            return [Const(0)] + _compile_expr(expr.operand, alias_map) + [BinOpInstr('-')]
     if isinstance(expr, FunctionCall):
         code: List[Instr] = []
         for arg in expr.args:
-            code.extend(_compile_expr(arg))
-        code.append(Call(expr.name, len(expr.args)))
+            code.extend(_compile_expr(arg, alias_map))
+        name = expr.name
+        while name in alias_map:
+            name = alias_map[name]
+        code.append(Call(name, len(expr.args)))
         return code
     raise NotImplementedError(f"Unsupported expr {type(expr).__name__}")
 
 
-def _compile_function(func: FuncDef | FunctionDecl) -> Function:
+def _compile_function(func: FuncDef | FunctionDecl, alias_map: Dict[str, str]) -> Function:
     if isinstance(func, FuncDef):
         params = [name for p in func.signature.params for name in p.names]
         body_stmts = func.body.statements
@@ -219,7 +237,7 @@ def _compile_function(func: FuncDef | FunctionDecl) -> Function:
         body_stmts = func.body
     body_code: List[Instr] = []
     for stmt in body_stmts:
-        body_code.extend(_compile_stmt(stmt))
+        body_code.extend(_compile_stmt(stmt, alias_map))
     return Function(func.name, params, body_code)
 
 
@@ -397,7 +415,10 @@ def to_llvm_ir(program: ProgramIR) -> str:
     for name in program.foreign_functions:
         ir.Function(module, ir.FunctionType(int_t, []), name=name)
 
+    string_idx = 0
+
     def emit_code(builder: ir.IRBuilder, code: List[Instr], vars: Dict[str, ir.AllocaInstr]) -> ir.Value:
+        nonlocal string_idx
         stack: List[ir.Value] = []
 
         def get_var(name: str) -> ir.AllocaInstr:
@@ -408,7 +429,19 @@ def to_llvm_ir(program: ProgramIR) -> str:
 
         for instr in code:
             if isinstance(instr, Const):
-                stack.append(ir.Constant(int_t, instr.value))
+                if isinstance(instr.value, str):
+                    arr_ty = ir.ArrayType(ir.IntType(8), len(instr.value.encode()) + 1)
+                    const_val = ir.Constant(arr_ty, bytearray(instr.value.encode() + b"\x00"))
+                    global_name = f".str{string_idx}"
+                    gvar = ir.GlobalVariable(module, arr_ty, name=global_name)
+                    gvar.linkage = "internal"
+                    gvar.global_constant = True
+                    gvar.initializer = const_val
+                    ptr = builder.gep(gvar, [ir.Constant(int_t, 0), ir.Constant(int_t, 0)])
+                    stack.append(builder.ptrtoint(ptr, int_t))
+                    string_idx += 1
+                else:
+                    stack.append(ir.Constant(int_t, instr.value))
             elif isinstance(instr, Load):
                 stack.append(builder.load(get_var(instr.name)))
             elif isinstance(instr, Store):
