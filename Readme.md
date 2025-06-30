@@ -16,7 +16,7 @@ The repository contains a minimal driver which wires all stages together so you
 can parse and execute `.mxs` files:
 
 ```bash
-python main.py demo_program/hello_world.mxs
+python main.py demo_program/examples/hello_world.mxs
 ```
 
 Additional examples are located in `demo_program/examples`. Each file focuses on

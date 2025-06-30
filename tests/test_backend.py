@@ -37,7 +37,7 @@ def test_backend_addition():
 
 
 def test_backend_import_hello_world():
-    ir = compile_and_run_file(Path("demo_program/hello_world.mxs"))
+    ir = compile_and_run_file(Path("demo_program/examples/hello_world.mxs"))
     assert "io.println" in ir.functions
 
 def test_auto_main_call():
