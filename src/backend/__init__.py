@@ -13,6 +13,7 @@ from .llir import (
     optimize,
     to_llvm_ir,
     execute_llvm,
+    build_search_paths,
 )
 
 __all__ = [
@@ -30,4 +31,5 @@ __all__ = [
     "execute",
     "to_llvm_ir",
     "execute_llvm",
+    "build_search_paths",
 ]

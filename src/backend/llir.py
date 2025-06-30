@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
+import os
 
 from llvmlite import binding, ir
 
@@ -27,6 +28,23 @@ from ..syntax_parser.ast import (
     Program,
     UnaryOp,
 )
+
+
+STD_LIB_DIR = Path(__file__).resolve().parents[2] / "demo_program" / "examples" / "std"
+ENV_VAR = "MXSCRIPT_PATH"
+
+
+def build_search_paths(extra_paths: List[str | Path] | None = None) -> List[Path]:
+    """Return module search paths including stdlib and user overrides."""
+    paths: List[Path] = [STD_LIB_DIR.parent]
+    env = os.environ.get(ENV_VAR)
+    if env:
+        for p in env.split(os.pathsep):
+            if p:
+                paths.append(Path(p))
+    if extra_paths:
+        paths.extend(Path(p) for p in extra_paths)
+    return paths
 
 
 # ------------ LLIR Instructions ------------------------------------------------
@@ -91,7 +109,7 @@ class ProgramIR:
 def load_module_ast(module: str, search_paths: List[str | Path] | None = None) -> Program:
     """Locate ``module`` and parse it into an AST."""
     if search_paths is None:
-        search_paths = [Path("demo_program/examples"), Path("demo_program")]
+        search_paths = build_search_paths()
     rel = Path(module.replace(".", "/") + ".mxs")
     for base in search_paths:
         path = Path(base) / rel
@@ -122,7 +140,7 @@ def compile_program(
     if module_cache is None:
         module_cache = {}
     if search_paths is None:
-        search_paths = [Path("demo_program/examples"), Path("demo_program")]
+        search_paths = build_search_paths()
     has_main = False
     # First gather static aliases
     for stmt in prog.statements:
@@ -161,6 +179,15 @@ def compile_program(
                 functions[new_name] = Function(new_name, func.params, new_code)
             foreign_functions.update(mod_ir.foreign_functions)
             continue
+        elif isinstance(stmt, BindingStmt) and stmt.is_static and isinstance(stmt.value, Identifier):
+            target = stmt.value.name
+            if target in functions:
+                target_func = functions[target]
+                functions[stmt.name] = Function(stmt.name, target_func.params, target_func.code)
+                continue
+            if target in foreign_functions:
+                foreign_functions[stmt.name] = foreign_functions[target]
+                continue
         else:
             code.extend(_compile_stmt(stmt, alias_map))
     if has_main:
@@ -413,7 +440,7 @@ def to_llvm_ir(program: ProgramIR) -> str:
 
     # Foreign functions as external declarations
     for name in program.foreign_functions:
-        ir.Function(module, ir.FunctionType(int_t, []), name=name)
+        ir.Function(module, ir.FunctionType(int_t, [], var_arg=True), name=name)
 
     string_idx = 0
 
@@ -440,6 +467,7 @@ def to_llvm_ir(program: ProgramIR) -> str:
                     ptr = builder.gep(gvar, [ir.Constant(int_t, 0), ir.Constant(int_t, 0)])
                     stack.append(builder.ptrtoint(ptr, int_t))
                     string_idx += 1
+                    stack.append(ir.Constant(int_t, 0))
                 else:
                     stack.append(ir.Constant(int_t, instr.value))
             elif isinstance(instr, Load):
@@ -507,10 +535,10 @@ def to_llvm_ir(program: ProgramIR) -> str:
         if ret_val is not None:
             builder.ret(ret_val)
 
-    # Build main from top-level code
-    main_ty = ir.FunctionType(int_t, [])
-    main_fn = ir.Function(module, main_ty, name="main")
-    block = main_fn.append_basic_block("entry")
+    # Build wrapper for top-level code
+    start_ty = ir.FunctionType(int_t, [])
+    start_fn = ir.Function(module, start_ty, name="__start")
+    block = start_fn.append_basic_block("entry")
     builder = ir.IRBuilder(block)
     ret = emit_code(builder, program.code, {})
     if ret is not None:
@@ -532,10 +560,19 @@ def execute_llvm(program: ProgramIR) -> int:
     target = binding.Target.from_default_triple()
     target_machine = target.create_target_machine()
     engine = binding.create_mcjit_compiler(mod, target_machine)
-    engine.finalize_object()
-    func_ptr = engine.get_function_address("main")
 
-    from ctypes import CFUNCTYPE, c_longlong
+    from ctypes import CFUNCTYPE, c_longlong, c_void_p, cast
+
+    def _stub(*args):
+        return 0
+
+    STUB = CFUNCTYPE(c_longlong, c_longlong, c_longlong, c_longlong)(_stub)
+    addr = cast(STUB, c_void_p).value
+    for name in ["__internal_write", "__internal_read", "__internal_open", "__internal_close"]:
+        binding.add_symbol(name, addr)
+
+    engine.finalize_object()
+    func_ptr = engine.get_function_address("__start")
 
     cfunc = CFUNCTYPE(c_longlong)(func_ptr)
     result = cfunc()
