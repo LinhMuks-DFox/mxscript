@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-import sys
 
 from src.lexer import TokenStream, tokenize
 from src.syntax_parser import Parser, dump_ast
@@ -14,6 +13,7 @@ from src.backend import (
     execute_llvm,
     optimize,
     to_llvm_ir,
+    build_search_paths,
 )
 
 
@@ -33,6 +33,13 @@ def main(argv: list[str] | None = None) -> int:
         "-O", "--optimization", type=int, default=0, help="optimization level"
     )
     parser.add_argument("--dump-ast", action="store_true", help="print parsed AST")
+    parser.add_argument(
+        "-I",
+        "--search-path",
+        action="append",
+        dest="search_paths",
+        help="additional module search path",
+    )
 
     args = parser.parse_args(argv)
 
@@ -49,7 +56,8 @@ def main(argv: list[str] | None = None) -> int:
     sema = SemanticAnalyzer()
     sema.analyze(ast)
 
-    ir_prog = compile_program(ast)
+    search_paths = build_search_paths(args.search_paths)
+    ir_prog = compile_program(ast, search_paths=search_paths)
     if args.optimization > 0:
         ir_prog = optimize(ir_prog)
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
+import os
 
 from llvmlite import binding, ir
 
@@ -27,6 +28,23 @@ from ..syntax_parser.ast import (
     Program,
     UnaryOp,
 )
+
+
+STD_LIB_DIR = Path(__file__).resolve().parents[2] / "demo_program" / "examples" / "std"
+ENV_VAR = "MXSCRIPT_PATH"
+
+
+def build_search_paths(extra_paths: List[str | Path] | None = None) -> List[Path]:
+    """Return module search paths including stdlib and user overrides."""
+    paths: List[Path] = [STD_LIB_DIR.parent]
+    env = os.environ.get(ENV_VAR)
+    if env:
+        for p in env.split(os.pathsep):
+            if p:
+                paths.append(Path(p))
+    if extra_paths:
+        paths.extend(Path(p) for p in extra_paths)
+    return paths
 
 
 # ------------ LLIR Instructions ------------------------------------------------
@@ -91,7 +109,7 @@ class ProgramIR:
 def load_module_ast(module: str, search_paths: List[str | Path] | None = None) -> Program:
     """Locate ``module`` and parse it into an AST."""
     if search_paths is None:
-        search_paths = [Path("demo_program/examples"), Path("demo_program")]
+        search_paths = build_search_paths()
     rel = Path(module.replace(".", "/") + ".mxs")
     for base in search_paths:
         path = Path(base) / rel
@@ -121,7 +139,7 @@ def compile_program(
     if module_cache is None:
         module_cache = {}
     if search_paths is None:
-        search_paths = [Path("demo_program/examples"), Path("demo_program")]
+        search_paths = build_search_paths()
     has_main = False
     for stmt in prog.statements:
         if isinstance(stmt, (FuncDef, FunctionDecl)):
