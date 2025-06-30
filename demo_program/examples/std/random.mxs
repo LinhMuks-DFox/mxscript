@@ -1,0 +1,10 @@
+!#
+    Module: std.random
+#!
+
+@@foreign(c_name="random")
+func __internal_random() -> int;
+
+public func rand() -> int {
+    return __internal_random();
+}

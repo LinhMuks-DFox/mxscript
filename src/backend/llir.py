@@ -424,6 +424,14 @@ def _ffi_call(c_name: str, args: List[object]) -> int | None:
         fd = int(args[0])
         os.close(fd)
         return 0
+    if c_name == "time":
+        import time as _time
+
+        return int(_time.time())
+    if c_name == "random":
+        import random as _random
+
+        return _random.randint(0, 2**31 - 1)
     if c_name == "print":
         print(*args)
         return 0
@@ -574,7 +582,14 @@ def execute_llvm(program: ProgramIR) -> int:
 
     STUB = CFUNCTYPE(c_longlong, c_longlong, c_longlong, c_longlong)(_stub)
     addr = cast(STUB, c_void_p).value
-    for name in ["__internal_write", "__internal_read", "__internal_open", "__internal_close"]:
+    for name in [
+        "__internal_write",
+        "__internal_read",
+        "__internal_open",
+        "__internal_close",
+        "__internal_time",
+        "__internal_random",
+    ]:
         binding.add_symbol(name, addr)
 
     engine.finalize_object()

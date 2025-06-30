@@ -1,0 +1,10 @@
+!#
+    Module: std.time
+#!
+
+@@foreign(c_name="time")
+func __internal_time() -> int;
+
+public func now() -> int {
+    return __internal_time();
+}

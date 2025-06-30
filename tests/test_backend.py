@@ -87,3 +87,13 @@ def test_static_alias_println(capfd):
     assert captured.out == "hi\n"
     assert result == 0
 
+
+def test_time_module():
+    result = compile_and_run('import std.time as t; t.now();')
+    assert isinstance(result, int)
+
+
+def test_random_module():
+    result = compile_and_run('import std.random as r; r.rand();')
+    assert isinstance(result, int)
+

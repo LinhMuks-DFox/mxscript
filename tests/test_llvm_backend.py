@@ -67,3 +67,10 @@ def test_llvm_hello_world_example():
     assert result == 0
 
 
+def test_llvm_time_random_modules():
+    ir_text = compile_to_ir('import std.time as t; t.now();')
+    assert "__internal_time" in ir_text
+    ir_text = compile_to_ir('import std.random as r; r.rand();')
+    assert "__internal_random" in ir_text
+
+
