@@ -72,3 +72,18 @@ def test_file_operations(tmp_path):
     assert result == 0
     assert path.read_text() == "hello"
 
+
+def test_static_alias_println(capfd):
+    src = (
+        'import std.io as io;\n'
+        'static let println = io.println;\n'
+        'func main() -> int {\n'
+        '    println("hi");\n'
+        '    return 0;\n'
+        '}'
+    )
+    result = compile_and_run(src)
+    captured = capfd.readouterr()
+    assert captured.out == "hi\n"
+    assert result == 0
+
