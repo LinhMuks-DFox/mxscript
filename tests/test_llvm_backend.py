@@ -23,6 +23,11 @@ def compile_and_run(src: str) -> int:
 
 def compile_to_ir(src: str) -> str:
     tokens = tokenize(src)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+    SemanticAnalyzer().analyze(ast)
+    ir_prog = optimize(compile_program(ast))
+    return to_llvm_ir(ir_prog)
 
 def compile_and_run_file(file_path: Path) -> int:
     source = file_path.read_text()
