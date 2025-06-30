@@ -178,6 +178,11 @@ def compile_program(
                         new_code.append(instr)
                 functions[new_name] = Function(new_name, func.params, new_code)
             foreign_functions.update(mod_ir.foreign_functions)
+            for instr in mod_ir.code:
+                if isinstance(instr, Call) and instr.name in rename_map:
+                    code.append(Call(rename_map[instr.name], instr.argc))
+                else:
+                    code.append(instr)
             continue
         elif isinstance(stmt, BindingStmt) and stmt.is_static and isinstance(stmt.value, Identifier):
             target = stmt.value.name
@@ -467,7 +472,6 @@ def to_llvm_ir(program: ProgramIR) -> str:
                     ptr = builder.gep(gvar, [ir.Constant(int_t, 0), ir.Constant(int_t, 0)])
                     stack.append(builder.ptrtoint(ptr, int_t))
                     string_idx += 1
-                    stack.append(ir.Constant(int_t, 0))
                 else:
                     stack.append(ir.Constant(int_t, instr.value))
             elif isinstance(instr, Load):
