@@ -57,15 +57,15 @@ class LLVMGenerator:
 
     # Symbol table helpers ---------------------------------------------
     def _get_or_alloc_mut(self, name: str) -> ir.AllocaInstr:
-        try:
-            ptr = self.ctx.get_var(name)
-            if isinstance(ptr.type, ir.PointerType):
-                return ptr
-        except KeyError:
-            pass
+        """Get an existing alloca from the **current** scope or allocate a new one."""
+        current_scope = self.ctx.scopes[-1]
+        val = current_scope.get(name)
+        if val is not None and isinstance(val.type, ir.PointerType):
+            return val
+
         assert self.ctx.entry_builder is not None
         ptr = self.ctx.entry_builder.alloca(self.ctx.int_t, name=name)
-        self.ctx.set_var(name, ptr)
+        current_scope[name] = ptr
         return ptr
 
     def _lookup_var_info(self, name: str) -> Dict[str, ir.Value | str | None]:
@@ -136,14 +136,8 @@ class LLVMGenerator:
                 if instr.is_mut or instr.type_name is not None:
                     ptr = self._get_or_alloc_mut(instr.name)
 
-                    # Determine if the variable already exists in any scope.
-                    existing_scope = None
-                    info = None
-                    for scope in reversed(self.var_info_stack):
-                        if instr.name in scope:
-                            existing_scope = scope
-                            info = scope[instr.name]
-                            break
+                    current_scope = self.var_info_stack[-1]
+                    info = current_scope.get(instr.name)
 
                     # If the variable already holds an ARC-managed object,
                     # release the previous value before overwriting it.
@@ -152,19 +146,14 @@ class LLVMGenerator:
                         and info.get("type_name") is not None
                         and info.get("ptr") is not None
                     ):
-                        arc_release = self.ffi.get_or_declare_function(
-                            "arc_release"
-                        )
+                        arc_release = self.ffi.get_or_declare_function("arc_release")
                         loaded_old = self.ctx.builder.load(info["ptr"])
-                        obj_ptr = self.ctx.builder.inttoptr(
-                            loaded_old, self.ctx.obj_ptr_t
-                        )
+                        obj_ptr = self.ctx.builder.inttoptr(loaded_old, self.ctx.obj_ptr_t)
                         self.ctx.builder.call(arc_release, [obj_ptr])
 
                     self.ctx.builder.store(val, ptr)
 
-                    target_scope = existing_scope or self.var_info_stack[-1]
-                    target_scope[instr.name] = {
+                    current_scope[instr.name] = {
                         "type_name": instr.type_name,
                         "ptr": ptr,
                     }
