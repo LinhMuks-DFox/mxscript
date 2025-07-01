@@ -271,16 +271,28 @@ def _compile_stmt(
         code: List[Instr] = []
         if stmt.value is not None:
             code.extend(_compile_expr(stmt.value, alias_map, symtab, type_registry))
-        code.append(Store(stmt.name, stmt.type_name, stmt.is_mut))
+
+        resolved_type = stmt.type_name
         needs_destruction = False
-        if (
-            type_registry is not None
-            and stmt.type_name is not None
-            and stmt.type_name in type_registry
-            and type_registry[stmt.type_name].has_destructor
-        ):
-            needs_destruction = True
-        symtab.add_symbol(Symbol(stmt.name, stmt.type_name, needs_destruction))
+
+        if type_registry is not None:
+            if (
+                resolved_type is None
+                and isinstance(stmt.value, FunctionCall)
+                and stmt.value.name in type_registry
+                and type_registry[stmt.value.name].has_destructor
+            ):
+                resolved_type = stmt.value.name
+                needs_destruction = True
+            elif (
+                resolved_type is not None
+                and resolved_type in type_registry
+                and type_registry[resolved_type].has_destructor
+            ):
+                needs_destruction = True
+
+        code.append(Store(stmt.name, resolved_type, stmt.is_mut))
+        symtab.add_symbol(Symbol(stmt.name, resolved_type, needs_destruction))
         return code
     if isinstance(stmt, BindingStmt):
         if stmt.is_static and isinstance(stmt.value, (Identifier, MemberAccess)):
