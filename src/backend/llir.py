@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Union
+
 from llvmlite import binding
 
 from .compiler import (
@@ -28,6 +31,51 @@ from .ir import (
 )
 from .runtime import execute
 
+class LLIRInstr:
+    """Base class for low-level IR instructions."""
+
+
+@dataclass
+class Label(LLIRInstr):
+    """A labeled jump target."""
+
+    name: str
+
+
+@dataclass
+class Br(LLIRInstr):
+    """Unconditional branch to ``label``."""
+
+    label: str
+
+
+@dataclass
+class CondBr(LLIRInstr):
+    """Conditional branch based on ``cond``."""
+
+    cond: str
+    then_label: str
+    else_label: str
+
+LLIRInstr = Union[
+    Instr,
+    Const,
+    Alloc,
+    Dup,
+    Load,
+    Store,
+    BinOpInstr,
+    Pop,
+    Call,
+    Return,
+    DestructorCall,
+    ScopeEnter,
+    ScopeExit,
+    Label,
+    Br,
+    CondBr,
+]
+
 __all__ = [
     "Const",
     "Load",
@@ -42,6 +90,9 @@ __all__ = [
     "DestructorCall",
     "ScopeEnter",
     "ScopeExit",
+    "Label",
+    "Br",
+    "CondBr",
     "ProgramIR",
     "Instr",
     "ErrorValue",
