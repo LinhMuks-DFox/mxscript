@@ -137,6 +137,24 @@ class FuncDef(Statement):
 
 
 @dataclass
+class MethodDef(Statement):
+    """Method definition inside a class."""
+
+    name: str
+    signature: FuncSig
+    body: Block
+
+
+@dataclass
+class OperatorDef(Statement):
+    """Operator overload definition inside a class."""
+
+    op: str
+    signature: FuncSig
+    body: Block
+
+
+@dataclass
 class ConstructorDef(Statement):
     """Constructor inside a class definition."""
 

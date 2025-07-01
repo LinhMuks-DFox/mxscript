@@ -254,6 +254,7 @@ def test_parse_class_with_constructor():
     assert ctor_found
 
 
+
 def test_parse_class_with_access_specifiers():
     source = """
     class Foo {
@@ -261,10 +262,37 @@ def test_parse_class_with_access_specifiers():
         let x: int;
         private:
         let y: int;
+
     }
     """
     tokens = tokenize(source)
     stream = TokenStream(tokens)
     ast = Parser(stream).parse()
+
+    struct_def = ast.statements[0]
+    from src.syntax_parser.ast import MethodDef
+    methods = [s for s in struct_def.body.statements if isinstance(s, MethodDef)]
+    assert len(methods) == 1
+    m = methods[0]
+    assert m.name == "bar"
+
+
+def test_parse_class_with_operator():
+    source = """
+    class Foo {
+        operator+(other: Foo) -> Foo { return self; }
+    }
+    """
+    tokens = tokenize(source)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+
+    struct_def = ast.statements[0]
+    from src.syntax_parser.ast import OperatorDef
+    ops = [s for s in struct_def.body.statements if isinstance(s, OperatorDef)]
+    assert len(ops) == 1
+    op = ops[0]
+    assert op.op == "+"
     assert isinstance(ast.statements[0], ClassDef)
+
 
