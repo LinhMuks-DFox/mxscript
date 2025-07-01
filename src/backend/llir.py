@@ -170,6 +170,7 @@ def compile_program(
             code.extend(mod_ir.code)
             prefix = f"{stmt.alias or stmt.module}."
             rename_map = {n: prefix + n for n in mod_ir.functions}
+            rename_map.update({n: prefix + n for n in mod_ir.foreign_functions})
             for name, func in mod_ir.functions.items():
                 new_name = rename_map[name]
                 new_code: List[Instr] = []
@@ -179,7 +180,8 @@ def compile_program(
                     else:
                         new_code.append(instr)
                 functions[new_name] = Function(new_name, func.params, new_code)
-            foreign_functions.update(mod_ir.foreign_functions)
+            for name, c_name in mod_ir.foreign_functions.items():
+                foreign_functions[prefix + name] = c_name
             for instr in mod_ir.code:
                 if isinstance(instr, Call) and instr.name in rename_map:
                     code.append(Call(rename_map[instr.name], instr.argc))
@@ -424,6 +426,14 @@ def _ffi_call(c_name: str, args: List[object]) -> int | None:
         fd = int(args[0])
         os.close(fd)
         return 0
+    if c_name == "time_now":
+        import time
+
+        return int(time.time())
+    if c_name == "random_rand":
+        import random
+
+        return int(random.randint(0, 2**31 - 1))
     if c_name == "print":
         print(*args)
         return 0
@@ -574,8 +584,30 @@ def execute_llvm(program: ProgramIR) -> int:
 
     STUB = CFUNCTYPE(c_longlong, c_longlong, c_longlong, c_longlong)(_stub)
     addr = cast(STUB, c_void_p).value
-    for name in ["__internal_write", "__internal_read", "__internal_open", "__internal_close"]:
-        binding.add_symbol(name, addr)
+
+    def _time_now():
+        import time
+
+        return int(time.time())
+
+    TIME_NOW = CFUNCTYPE(c_longlong)(_time_now)
+    time_addr = cast(TIME_NOW, c_void_p).value
+
+    def _random_rand():
+        import random
+
+        return int(random.randint(0, 2**31 - 1))
+
+    RANDOM_RAND = CFUNCTYPE(c_longlong)(_random_rand)
+    rand_addr = cast(RANDOM_RAND, c_void_p).value
+
+    for name, c_name in program.foreign_functions.items():
+        if c_name in {"write", "read", "open", "close"}:
+            binding.add_symbol(name, addr)
+        elif c_name == "time_now":
+            binding.add_symbol(name, time_addr)
+        elif c_name == "random_rand":
+            binding.add_symbol(name, rand_addr)
 
     engine.finalize_object()
     func_ptr = engine.get_function_address("__start")
