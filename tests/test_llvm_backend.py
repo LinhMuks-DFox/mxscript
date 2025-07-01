@@ -202,3 +202,36 @@ def test_llvm_destructor_inferred_type(capfd):
         '}\n'
     )
     pytest.skip("Destructor semantics not fully implemented")
+
+
+# ------------------------------------------------------------------------------
+# If/Else statement integration tests
+
+
+def test_if_true_condition():
+    src = 'if 1 == 1 { return 100; } return -1;'
+    result = compile_and_run(src)
+    assert result == 100
+
+
+def test_if_false_condition():
+    src = 'if 1 == 0 { return 100; } return -1;'
+    result = compile_and_run(src)
+    assert result == -1
+
+
+def test_if_else_path_taken():
+    src = 'if 1 > 5 { return 1; } else { return 2; }'
+    result = compile_and_run(src)
+    assert result == 2
+
+
+def test_if_else_if_chain():
+    src = (
+        'let x = 2; '
+        'if x == 1 { return 10; } '
+        'else if x == 2 { return 20; } '
+        'else { return 30; }'
+    )
+    result = compile_and_run(src)
+    assert result == 20
