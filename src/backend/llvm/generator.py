@@ -135,8 +135,36 @@ class LLVMGenerator:
                 val = stack.pop()
                 if instr.is_mut or instr.type_name is not None:
                     ptr = self._get_or_alloc_mut(instr.name)
+
+                    # Determine if the variable already exists in any scope.
+                    existing_scope = None
+                    info = None
+                    for scope in reversed(self.var_info_stack):
+                        if instr.name in scope:
+                            existing_scope = scope
+                            info = scope[instr.name]
+                            break
+
+                    # If the variable already holds an ARC-managed object,
+                    # release the previous value before overwriting it.
+                    if (
+                        info is not None
+                        and info.get("type_name") is not None
+                        and info.get("ptr") is not None
+                    ):
+                        arc_release = self.ffi.get_or_declare_function(
+                            "arc_release"
+                        )
+                        loaded_old = self.ctx.builder.load(info["ptr"])
+                        obj_ptr = self.ctx.builder.inttoptr(
+                            loaded_old, self.ctx.obj_ptr_t
+                        )
+                        self.ctx.builder.call(arc_release, [obj_ptr])
+
                     self.ctx.builder.store(val, ptr)
-                    self.var_info_stack[-1][instr.name] = {
+
+                    target_scope = existing_scope or self.var_info_stack[-1]
+                    target_scope[instr.name] = {
                         "type_name": instr.type_name,
                         "ptr": ptr,
                     }

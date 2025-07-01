@@ -80,3 +80,17 @@ def test_arc_retain_on_assignment():
     ir = compile_to_ir(src)
     assert 'call i8* @"arc_retain"' in ir
 
+
+def test_arc_release_on_reassignment():
+    src = (
+        'struct Data {\n'
+        '    func Data() {}\n'
+        '}\n'
+        'func main() {\n'
+        '    let d: Data = Data();\n'
+        '    let d: Data = Data();\n'
+        '}\n'
+    )
+    ir = compile_to_ir(src)
+    assert ir.count('call void @"arc_release"') == 1
+
