@@ -12,6 +12,8 @@ from ..syntax_parser.ast import (
     FunctionCall,
     FunctionDecl,
     FuncDef,
+    MethodDef,
+    OperatorDef,
     ForeignFuncDecl,
     ExprStmt,
     ForInStmt,
@@ -173,6 +175,13 @@ class SemanticAnalyzer:
             elif isinstance(member, ConstructorDef):
                 type_info.constructor = member.signature
                 self.variables_stack.append({"self"})
+                for stmt in member.body.statements:
+                    self._visit_statement(stmt)
+                self.variables_stack.pop()
+            elif isinstance(member, (MethodDef, OperatorDef)):
+                param_names = {n for p in member.signature.params for n in p.names}
+                param_names.add("self")
+                self.variables_stack.append(param_names)
                 for stmt in member.body.statements:
                     self._visit_statement(stmt)
                 self.variables_stack.pop()

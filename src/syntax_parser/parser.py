@@ -387,6 +387,10 @@ class Parser:
                 and self.stream.peek(1).value == name
             ):
                 statements.append(self.parse_constructor_def())
+            elif tok.tk_type == 'KEYWORD' and tok.value == 'func':
+                statements.append(self.parse_method_def())
+            elif tok.tk_type == 'KEYWORD' and tok.value == 'operator':
+                statements.append(self.parse_operator_def())
             else:
                 statements.append(self.parse_statement())
         self._expect('OPERATOR', '}')
@@ -425,6 +429,22 @@ class Parser:
         body = self.parse_block()
         from .ast import ConstructorDef
         return ConstructorDef(sig, body, loc=start)
+
+    def parse_method_def(self):
+        start = self._expect('KEYWORD', 'func')
+        name = self._expect('IDENTIFIER').value
+        sig = self.parse_func_sig()
+        body = self.parse_block()
+        from .ast import MethodDef
+        return MethodDef(name, sig, body, loc=start)
+
+    def parse_operator_def(self):
+        start = self._expect('KEYWORD', 'operator')
+        op_token = self._expect('OPERATOR')
+        sig = self.parse_func_sig()
+        body = self.parse_block()
+        from .ast import OperatorDef
+        return OperatorDef(op_token.value, sig, body, loc=start)
 
     def parse_func_sig(self) -> FuncSig:
         start = self._expect('OPERATOR', '(')
