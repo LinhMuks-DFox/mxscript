@@ -19,6 +19,9 @@ from ..llir import (
     Function,
     ScopeEnter,
     ScopeExit,
+    Label,
+    Br,
+    CondBr,
 )
 from .context import LLVMContext
 from ..ffi import FFIManager
@@ -33,6 +36,8 @@ class LLVMGenerator:
         self.functions: Dict[str, ir.Function] = {}
         self.string_idx = 0
         self.var_info_stack: List[Dict[str, Dict[str, ir.Value | str | None]]] = []
+        # Mapping of label names to LLVM basic blocks for the current function
+        self.blocks: Dict[str, ir.Block] = {}
 
     # ------------------------------------------------------------------
     def declare_functions(self, program) -> None:
@@ -242,6 +247,27 @@ class LLVMGenerator:
                 self.ctx.pop_scope()
                 if self.var_info_stack:
                     self.var_info_stack.pop()
+            elif isinstance(instr, Label):
+                block = self.blocks.get(instr.name)
+                if block is None:
+                    raise RuntimeError(f"Unknown label {instr.name}")
+                self.ctx.builder.position_at_end(block)
+            elif isinstance(instr, Br):
+                target = self.blocks.get(instr.label)
+                if target is None:
+                    raise RuntimeError(f"Unknown label {instr.label}")
+                self.ctx.builder.branch(target)
+            elif isinstance(instr, CondBr):
+                cond_val = self.ctx.get_var(instr.cond)
+                if isinstance(cond_val.type, ir.PointerType):
+                    cond_val = self.ctx.builder.load(cond_val)
+                then_block = self.blocks.get(instr.then_label)
+                else_block = self.blocks.get(instr.else_label)
+                if then_block is None or else_block is None:
+                    raise RuntimeError(
+                        f"Unknown labels {instr.then_label} or {instr.else_label}"
+                    )
+                self.ctx.builder.cbranch(cond_val, then_block, else_block)
             else:
                 raise RuntimeError(f"Unknown instruction {instr}")
         return stack[-1] if stack else None
@@ -250,6 +276,13 @@ class LLVMGenerator:
     def build_function(self, func_ir: Function) -> None:
         func = self.functions[func_ir.name]
         entry = func.append_basic_block("entry")
+        # reset blocks mapping for this function
+        self.blocks = {}
+        # first pass: create blocks for all labels
+        for instr in func_ir.code:
+            if isinstance(instr, Label):
+                self.blocks[instr.name] = func.append_basic_block(instr.name)
+
         self.ctx.builder = ir.IRBuilder(entry)
         self.ctx.entry_builder = self.ctx.builder
         self.ctx.push_scope()
@@ -264,6 +297,8 @@ class LLVMGenerator:
             self.ctx.builder.ret(ir.Constant(self.ctx.int_t, 0))
         self.ctx.pop_scope()
         self.var_info_stack.pop()
+        # clear label map after finishing this function
+        self.blocks = {}
 
     def build_start(self, code: List[Instr]) -> None:
         start_ty = ir.FunctionType(self.ctx.int_t, [])
