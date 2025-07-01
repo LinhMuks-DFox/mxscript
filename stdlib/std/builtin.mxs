@@ -1,0 +1,27 @@
+class Error{}
+
+class int {}
+
+class string {
+
+public:
+    func from_type_int() {
+    }
+}
+
+class bool {}
+
+class float {}
+
+@@template(Target, Origin)
+func cast(target_type:Target, value: T) -> Target | Error {
+    return match target_type.from_type<T>(value) {
+        case res: Target => {
+            res;
+        }
+        case err: Error => {
+            err;
+        }
+    };
+    
+}
