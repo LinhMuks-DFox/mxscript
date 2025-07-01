@@ -64,6 +64,14 @@ class Identifier(Expression):
 
 
 @dataclass
+class MemberAccess(Expression):
+    """Access to ``member`` of ``object`` via the ``.`` operator."""
+
+    object: Expression
+    member: Identifier
+
+
+@dataclass
 class Integer(Expression):
     value: int
 

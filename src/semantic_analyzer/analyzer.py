@@ -18,6 +18,7 @@ from ..syntax_parser.ast import (
     RaiseStmt,
     RaiseExpr,
     MatchExpr,
+    MemberAccess,
     Identifier,
     Integer,
     String,
@@ -166,6 +167,8 @@ class SemanticAnalyzer:
             self._visit_expression(expr.right)
         elif isinstance(expr, UnaryOp):
             self._visit_expression(expr.operand)
+        elif isinstance(expr, MemberAccess):
+            self._visit_expression(expr.object)
         elif isinstance(expr, RaiseExpr):
             self._visit_expression(expr.expr)
         elif isinstance(expr, MatchExpr):
