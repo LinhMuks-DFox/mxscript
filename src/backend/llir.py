@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Union
+import subprocess
+from pathlib import Path
+import os
 
 from llvmlite import binding
 
@@ -30,6 +33,35 @@ from .ir import (
     ErrorValue,
 )
 from .runtime import execute
+
+_RUNTIME_LOADED = False
+
+
+def _load_arc_runtime() -> None:
+    """Compile and load the ARC runtime as a shared library."""
+    global _RUNTIME_LOADED
+    if _RUNTIME_LOADED:
+        return
+
+    base_dir = Path(__file__).resolve().parents[2]
+    src_path = base_dir / "runtime" / "arc_runtime.c"
+    so_path = base_dir / "runtime" / "arc_runtime.so"
+
+    if not so_path.exists():
+        subprocess.run(
+            [
+                "clang",
+                "-shared",
+                "-fPIC",
+                "-o",
+                str(so_path),
+                str(src_path),
+            ],
+            check=True,
+        )
+
+    binding.load_library_permanently(str(so_path))
+    _RUNTIME_LOADED = True
 
 class LLIRInstr:
     """Base class for low-level IR instructions."""
@@ -115,6 +147,7 @@ def to_llvm_ir(program: ProgramIR) -> str:
 
 def execute_llvm(program: ProgramIR) -> int:
     """JIT compile and execute program via LLVM."""
+    _load_arc_runtime()
 
     binding.initialize()
     binding.initialize_native_target()
