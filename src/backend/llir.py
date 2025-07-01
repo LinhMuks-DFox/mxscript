@@ -474,7 +474,11 @@ def _optimize_list(code: List[Instr]) -> List[Instr]:
 # ------------ Execution --------------------------------------------------------
 
 def execute(program: ProgramIR) -> int | None:
-    def run(code: List[Instr], env_stack: List[Dict[str, object]]) -> object | None:
+    def run(
+        code: List[Instr],
+        env_stack: List[Dict[str, object]],
+        var_info_stack: List[Dict[str, Dict[str, object | None]]],
+    ) -> object | None:
         stack: List[object] = []
         for instr in code:
             if isinstance(instr, Const):
@@ -492,7 +496,12 @@ def execute(program: ProgramIR) -> int | None:
                 if stack:
                     stack.append(stack[-1])
             elif isinstance(instr, Store):
-                env_stack[-1][instr.name] = stack.pop()
+                val = stack.pop()
+                env_stack[-1][instr.name] = val
+                var_info_stack[-1][instr.name] = {
+                    "type_name": instr.type_name,
+                    "ptr": val,
+                }
             elif isinstance(instr, BinOpInstr):
                 b = stack.pop()
                 a = stack.pop()
@@ -507,15 +516,43 @@ def execute(program: ProgramIR) -> int | None:
                     raise RuntimeError(f"Undefined function {instr.name}")
                 new_env = dict(zip(func.params, args))
                 env_stack.append(new_env)
-                result = run(func.code, env_stack)
+                var_info_stack.append({})
+                result = run(func.code, env_stack, var_info_stack)
                 env_stack.pop()
+                var_info_stack.pop()
                 if result is not None:
                     stack.append(result)
             elif isinstance(instr, Return):
                 return stack.pop() if stack else None
             elif isinstance(instr, DestructorCall):
-                # Destructor calls are placeholders in the interpreter.
-                pass
+                info = None
+                for scope in reversed(var_info_stack):
+                    if instr.name in scope:
+                        info = scope[instr.name]
+                        break
+                if info is not None:
+                    type_name = info.get("type_name")
+                    ptr = info.get("ptr")
+                    if type_name:
+                        func_name = f"{type_name}_destructor"
+                        func = program.functions.get(func_name)
+                        if func is None:
+                            raise RuntimeError(
+                                f"Could not find destructor function '{func_name}'"
+                            )
+                        env_stack.append({func.params[0]: ptr})
+                        var_info_stack.append({func.params[0]: {"type_name": None, "ptr": ptr}})
+                        run(func.code, env_stack, var_info_stack)
+                        env_stack.pop()
+                        var_info_stack.pop()
+                    for scope in reversed(var_info_stack):
+                        if instr.name in scope:
+                            del scope[instr.name]
+                            break
+                    for env in reversed(env_stack):
+                        if instr.name in env:
+                            del env[instr.name]
+                            break
             elif isinstance(instr, Pop):
                 if stack:
                     stack.pop()
@@ -523,7 +560,7 @@ def execute(program: ProgramIR) -> int | None:
                 raise RuntimeError(f"Unknown instruction {instr}")
         return stack[-1] if stack else None
 
-    return run(program.code, [{}])
+    return run(program.code, [{}], [{}])
 
 
 # ------------ Helpers ----------------------------------------------------------
