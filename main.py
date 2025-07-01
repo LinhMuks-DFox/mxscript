@@ -10,7 +10,6 @@ from src.semantic_analyzer import SemanticAnalyzer
 from src.errors import CompilerError, SourceLocation
 from src.backend import (
     compile_program,
-    execute,
     execute_llvm,
     optimize,
     to_llvm_ir,
@@ -32,12 +31,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="MxScript driver")
     parser.add_argument("source", help="MxScript source file")
     parser.add_argument("--dump-llir", action="store_true", help="print LLVM IR")
-    parser.add_argument(
-        "--compile-mode",
-        choices=["interpreter", "llvm"],
-        default="interpreter",
-        help="execution backend",
-    )
     parser.add_argument("-o", "--output", help="write LLVM IR to file")
     parser.add_argument(
         "-O", "--optimization", type=int, default=0, help="optimization level"
@@ -80,10 +73,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.output:
                 Path(args.output).write_text(llvm_ir)
 
-        if args.compile_mode == "interpreter":
-            result = execute(ir_prog)
-        else:
-            result = execute_llvm(ir_prog)
+        result = execute_llvm(ir_prog)
     except CompilerError as e:
         print_error(e)
         return 1

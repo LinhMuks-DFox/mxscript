@@ -26,7 +26,7 @@ a single feature. You can run them the same way:
 python main.py demo_program/examples/generic_swap.mxs
 ```
 
-To execute using the LLVM backend, pass `--compile-mode llvm`.
+The driver always uses the LLVM backend for execution.
 
 ### Module search path
 
