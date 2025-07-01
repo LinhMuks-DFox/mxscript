@@ -1,11 +1,9 @@
-class Error{}
+class Object {
+}
 
 
+class Error : Object {}
 
-
-class bool {}
-
-class float {}
 
 
 @@template(Origin)
