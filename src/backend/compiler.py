@@ -532,6 +532,26 @@ def _compile_expr(
 
         code.append(Store(name, resolved_type))
         return code
+    if isinstance(expr, AssignExpr):
+        code = _compile_expr(expr.value, alias_map, symtab, type_registry)
+
+        if isinstance(expr.value, Identifier) and type_registry is not None:
+            sym = symtab.lookup(expr.value.name)
+            if (
+                sym is not None
+                and sym.type_name is not None
+                and sym.type_name in type_registry
+            ):
+                code.append(Call("arc_retain", 1))
+
+        if not isinstance(expr.target, Identifier):
+            raise NotImplementedError("Invalid assignment target")
+
+        target_sym = symtab.lookup(expr.target.name)
+        resolved_type = target_sym.type_name if target_sym is not None else None
+        is_mut = target_sym.type_name is None if target_sym is not None else False
+        code.append(Store(expr.target.name, resolved_type, is_mut))
+        return code
     if isinstance(expr, BinaryOp):
         return _compile_expr(expr.left, alias_map, symtab, type_registry) + _compile_expr(expr.right, alias_map, symtab, type_registry) + [BinOpInstr(expr.op)]
     if isinstance(expr, UnaryOp):
