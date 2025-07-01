@@ -17,6 +17,7 @@ from ..syntax_parser.ast import (
     ForeignFuncDecl,
     ExprStmt,
     ForInStmt,
+    IfStmt,
     ReturnStmt,
     RaiseStmt,
     RaiseExpr,
@@ -95,6 +96,10 @@ class SemanticAnalyzer:
         source_line = self.source_lines[line - 1] if 0 <= line - 1 < len(self.source_lines) else ""
         return SourceLocation(self.filename, line, column, source_line)
 
+    def _visit_block(self, block: Block) -> None:
+        for s in block.statements:
+            self._visit_statement(s)
+
     def _visit_statement(self, stmt: Statement) -> None:
         if isinstance(stmt, (LetStmt, BindingStmt)):
             if stmt.value is not None:
@@ -113,6 +118,8 @@ class SemanticAnalyzer:
             for s in stmt.body.statements:
                 self._visit_statement(s)
             self.variables_stack.pop()
+        elif isinstance(stmt, IfStmt):
+            self._visit_if_stmt(stmt)
         elif isinstance(stmt, Block):
             self.variables_stack.append(set())
             for s in stmt.statements:
@@ -152,6 +159,20 @@ class SemanticAnalyzer:
                 f"Unsupported statement {type(stmt).__name__}",
                 self._get_location(stmt.loc),
             )
+
+    def _visit_if_stmt(self, stmt: IfStmt) -> None:
+        self._visit_expression(stmt.condition)
+        self.variables_stack.append(set())
+        self._visit_block(stmt.then_block)
+        self.variables_stack.pop()
+
+        if stmt.else_block is not None:
+            self.variables_stack.append(set())
+            if isinstance(stmt.else_block, IfStmt):
+                self._visit_if_stmt(stmt.else_block)
+            else:
+                self._visit_block(stmt.else_block)
+            self.variables_stack.pop()
 
     def _visit_class_def(self, cls: ClassDef) -> None:
         assert self.type_registry is not None
