@@ -27,6 +27,7 @@ from ..syntax_parser.ast import (
     MatchExpr,
     MemberAccess,
     MemberAssign,
+    AssignExpr,
     Identifier,
     Integer,
     String,
@@ -46,10 +47,17 @@ from ..lexer.Token import Token
 
 
 @dataclass
+class VarInfo:
+    name: str
+    type_name: str | None = None
+    is_mut: bool = False
+
+
+@dataclass
 class SemanticAnalyzer:
     """A very small semantic analyzer checking variable usage with functions."""
 
-    variables_stack: List[Set[str]] | None = None
+    variables_stack: List[Dict[str, VarInfo]] | None = None
     functions: Set[str] | None = None
     type_registry: Dict[str, TypeInfo] | None = None
     filename: str = "<stdin>"
@@ -61,7 +69,7 @@ class SemanticAnalyzer:
         self.functions = set()
         self._collect_functions(program)
         self.type_registry = {}
-        self.variables_stack = [set()]
+        self.variables_stack = [{}]
         self._visit_program(program)
 
     def _collect_functions(self, program: Program) -> None:
@@ -80,16 +88,19 @@ class SemanticAnalyzer:
             self._visit_statement(stmt)
 
     # Internal helpers -------------------------------------------------
-    def _current_scope(self) -> Set[str]:
+    def _current_scope(self) -> Dict[str, VarInfo]:
         assert self.variables_stack is not None
         return self.variables_stack[-1]
 
-    def _is_defined(self, name: str) -> bool:
+    def _lookup_var(self, name: str) -> VarInfo | None:
         assert self.variables_stack is not None
         for scope in reversed(self.variables_stack):
             if name in scope:
-                return True
-        return False
+                return scope[name]
+        return None
+
+    def _is_defined(self, name: str) -> bool:
+        return self._lookup_var(name) is not None
 
     def _get_location(self, token: Token | None) -> SourceLocation | None:
         if token is None:
@@ -107,7 +118,8 @@ class SemanticAnalyzer:
         if isinstance(stmt, (LetStmt, BindingStmt)):
             if stmt.value is not None:
                 self._visit_expression(stmt.value)
-            self._current_scope().add(stmt.name)
+            is_mut = stmt.is_mut if isinstance(stmt, LetStmt) else False
+            self._current_scope()[stmt.name] = VarInfo(stmt.name, getattr(stmt, 'type_name', None), is_mut)
         elif isinstance(stmt, ExprStmt):
             self._visit_expression(stmt.expr)
         elif isinstance(stmt, RaiseStmt):
@@ -117,23 +129,23 @@ class SemanticAnalyzer:
                 self._visit_expression(stmt.value)
         elif isinstance(stmt, ForInStmt):
             self._visit_expression(stmt.iterable)
-            self.variables_stack.append({stmt.var})
+            self.variables_stack.append({stmt.var: VarInfo(stmt.var, None, stmt.is_mut)})
             for s in stmt.body.statements:
                 self._visit_statement(s)
             self.variables_stack.pop()
         elif isinstance(stmt, LoopStmt):
-            self.variables_stack.append(set())
+            self.variables_stack.append({})
             for s in stmt.body.statements:
                 self._visit_statement(s)
             self.variables_stack.pop()
         elif isinstance(stmt, UntilStmt):
             self._visit_expression(stmt.condition)
-            self.variables_stack.append(set())
+            self.variables_stack.append({})
             for s in stmt.body.statements:
                 self._visit_statement(s)
             self.variables_stack.pop()
         elif isinstance(stmt, DoUntilStmt):
-            self.variables_stack.append(set())
+            self.variables_stack.append({})
             for s in stmt.body.statements:
                 self._visit_statement(s)
             self.variables_stack.pop()
@@ -141,29 +153,29 @@ class SemanticAnalyzer:
         elif isinstance(stmt, IfStmt):
             self._visit_if_stmt(stmt)
         elif isinstance(stmt, Block):
-            self.variables_stack.append(set())
+            self.variables_stack.append({})
             for s in stmt.statements:
                 self._visit_statement(s)
             self.variables_stack.pop()
         elif isinstance(stmt, ImportStmt):
             # record alias so it can be referenced later
             if stmt.alias:
-                self._current_scope().add(stmt.alias)
+                self._current_scope()[stmt.alias] = VarInfo(stmt.alias)
             try:
                 mod_ast = load_module_ast(stmt.module)
             except FileNotFoundError:
                 return
-            self.variables_stack.append(set())
+            self.variables_stack.append({})
             for s in mod_ast.statements:
                 self._visit_statement(s)
             self.variables_stack.pop()
         elif isinstance(stmt, (FunctionDecl, FuncDef)):
             # Enter a new scope for parameters and locals
             if isinstance(stmt, FunctionDecl):
-                params = set(stmt.params)
+                params = {name: VarInfo(name) for name in stmt.params}
                 body = stmt.body
             else:
-                params = {n for p in stmt.signature.params for n in p.names}
+                params = {n: VarInfo(n) for p in stmt.signature.params for n in p.names}
                 body = stmt.body.statements
             self.variables_stack.append(params)
             for s in body:
@@ -182,12 +194,12 @@ class SemanticAnalyzer:
 
     def _visit_if_stmt(self, stmt: IfStmt) -> None:
         self._visit_expression(stmt.condition)
-        self.variables_stack.append(set())
+        self.variables_stack.append({})
         self._visit_block(stmt.then_block)
         self.variables_stack.pop()
 
         if stmt.else_block is not None:
-            self.variables_stack.append(set())
+            self.variables_stack.append({})
             if isinstance(stmt.else_block, IfStmt):
                 self._visit_if_stmt(stmt.else_block)
             else:
@@ -209,19 +221,19 @@ class SemanticAnalyzer:
             if isinstance(member, DestructorDef):
                 type_info.has_destructor = True
                 # analyze destructor body in its own scope with 'self'
-                self.variables_stack.append({"self"})
+                self.variables_stack.append({"self": VarInfo("self")})
                 for stmt in member.body.statements:
                     self._visit_statement(stmt)
                 self.variables_stack.pop()
             elif isinstance(member, ConstructorDef):
                 type_info.constructor = member.signature
-                self.variables_stack.append({"self"})
+                self.variables_stack.append({"self": VarInfo("self")})
                 for stmt in member.body.statements:
                     self._visit_statement(stmt)
                 self.variables_stack.pop()
             elif isinstance(member, (MethodDef, OperatorDef)):
-                param_names = {n for p in member.signature.params for n in p.names}
-                param_names.add("self")
+                param_names = {n: VarInfo(n) for p in member.signature.params for n in p.names}
+                param_names["self"] = VarInfo("self")
                 self.variables_stack.append(param_names)
                 for stmt in member.body.statements:
                     self._visit_statement(stmt)
@@ -255,12 +267,30 @@ class SemanticAnalyzer:
         elif isinstance(expr, MemberAssign):
             self._visit_expression(expr.object)
             self._visit_expression(expr.value)
+        elif isinstance(expr, AssignExpr):
+            if not isinstance(expr.target, Identifier):
+                raise SemanticError(
+                    "Invalid assignment target",
+                    self._get_location(expr.loc),
+                )
+            var = self._lookup_var(expr.target.name)
+            if var is None:
+                raise NameError(
+                    f"Undefined variable '{expr.target.name}'",
+                    self._get_location(expr.target.loc),
+                )
+            if not var.is_mut:
+                raise SemanticError(
+                    f"Cannot assign to immutable variable '{expr.target.name}'",
+                    self._get_location(expr.loc),
+                )
+            self._visit_expression(expr.value)
         elif isinstance(expr, RaiseExpr):
             self._visit_expression(expr.expr)
         elif isinstance(expr, MatchExpr):
             self._visit_expression(expr.value)
             for case in expr.cases:
-                self.variables_stack.append({case.name})
+                self.variables_stack.append({case.name: VarInfo(case.name)})
                 if isinstance(case.body, Expression):
                     self._visit_expression(case.body)
                 else:

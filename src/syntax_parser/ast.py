@@ -86,6 +86,14 @@ class MemberAssign(Expression):
 
 
 @dataclass
+class AssignExpr(Expression):
+    """Assignment expression like ``x = value``."""
+
+    target: Expression
+    value: Expression
+
+
+@dataclass
 class Integer(Expression):
     value: int
 

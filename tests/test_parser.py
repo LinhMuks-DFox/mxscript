@@ -60,6 +60,16 @@ def test_parse_mutable_let():
     assert stmt.is_mut
 
 
+def test_parse_variable_assignment():
+    program = parse("x = 5;")
+    stmt = program.statements[0]
+    assert isinstance(stmt, ExprStmt)
+    from src.syntax_parser.ast import AssignExpr
+    assert isinstance(stmt.expr, AssignExpr)
+    assert isinstance(stmt.expr.target, Identifier)
+    assert stmt.expr.target.name == "x"
+
+
 def test_parse_static_binding():
     program = parse("static let x = 1;")
     stmt = program.statements[0]

@@ -55,11 +55,14 @@ class ExpressionParserMixin:
             precedence == 1
             and self.stream.peek().tk_type == 'OPERATOR'
             and self.stream.peek().value == '='
-            and isinstance(expr, MemberAccess)
         ):
             assign_tok = self.stream.next()
             value = self.parse_expression()
-            expr = MemberAssign(expr.object, expr.member, value, loc=assign_tok)
+            if isinstance(expr, MemberAccess):
+                expr = MemberAssign(expr.object, expr.member, value, loc=assign_tok)
+            else:
+                from .ast import AssignExpr
+                expr = AssignExpr(expr, value, loc=assign_tok)
         return expr
 
     def parse_unary(self):
