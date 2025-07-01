@@ -79,6 +79,7 @@ class Load(Instr):
 class Store(Instr):
     name: str
     type_name: str | None = None
+    is_mut: bool = False
 
 
 @dataclass
@@ -115,6 +116,167 @@ class ProgramIR:
     code: List[Instr]
     functions: Dict[str, Function]
     foreign_functions: Dict[str, str]
+
+
+class LLVMGenerator:
+    """Stateful generator producing SSA-based LLVM IR."""
+
+    def __init__(self) -> None:
+        self.module = ir.Module(name="mxscript")
+        self.int_t = ir.IntType(64)
+        self.obj_ptr_t = ir.IntType(8).as_pointer()
+        self.string_idx = 0
+        self.arc_retain = ir.Function(
+            self.module,
+            ir.FunctionType(ir.VoidType(), [self.obj_ptr_t]),
+            name="arc_retain",
+        )
+        self.arc_release = ir.Function(
+            self.module,
+            ir.FunctionType(ir.VoidType(), [self.obj_ptr_t]),
+            name="arc_release",
+        )
+        self.functions: Dict[str, ir.Function] = {}
+        # First scope holds globals shared by all functions
+        self.scopes: List[Dict[str, ir.Value]] = [{}]
+        self.entry_builder: ir.IRBuilder | None = None
+        self.builder: ir.IRBuilder | None = None
+
+    # Symbol table helpers -------------------------------------------------
+    def push_scope(self) -> None:
+        self.scopes.append({})
+
+    def pop_scope(self) -> None:
+        self.scopes.pop()
+
+    def set_var(self, name: str, value: ir.Value) -> None:
+        self.scopes[-1][name] = value
+
+    def get_var(self, name: str) -> ir.Value:
+        for scope in reversed(self.scopes):
+            if name in scope:
+                return scope[name]
+        raise KeyError(name)
+
+    # IR building ----------------------------------------------------------
+    def declare_functions(self, program: ProgramIR) -> None:
+        for func in program.functions.values():
+            ty = ir.FunctionType(self.int_t, [self.int_t] * len(func.params))
+            self.functions[func.name] = ir.Function(self.module, ty, name=func.name)
+        for name in program.foreign_functions:
+            ir.Function(self.module, ir.FunctionType(self.int_t, [], var_arg=True), name=name)
+
+    def _get_or_alloc_mut(self, name: str) -> ir.AllocaInstr:
+        try:
+            ptr = self.get_var(name)
+            if isinstance(ptr.type, ir.PointerType):
+                return ptr  # already pointer
+        except KeyError:
+            pass
+        assert self.entry_builder is not None
+        ptr = self.entry_builder.alloca(self.int_t, name=name)
+        self.set_var(name, ptr)
+        return ptr
+
+    def emit_code(self, code: List[Instr]) -> ir.Value | None:
+        assert self.builder is not None
+        stack: List[ir.Value] = []
+        for instr in code:
+            if isinstance(instr, Const):
+                if isinstance(instr.value, str):
+                    arr_ty = ir.ArrayType(ir.IntType(8), len(instr.value.encode()) + 1)
+                    const_val = ir.Constant(arr_ty, bytearray(instr.value.encode() + b"\x00"))
+                    global_name = f".str{self.string_idx}"
+                    gvar = ir.GlobalVariable(self.module, arr_ty, name=global_name)
+                    gvar.linkage = "internal"
+                    gvar.global_constant = True
+                    gvar.initializer = const_val
+                    ptr = self.builder.gep(gvar, [ir.Constant(self.int_t, 0), ir.Constant(self.int_t, 0)])
+                    stack.append(self.builder.ptrtoint(ptr, self.int_t))
+                    self.string_idx += 1
+                else:
+                    stack.append(ir.Constant(self.int_t, instr.value))
+            elif isinstance(instr, Load):
+                val = self.get_var(instr.name)
+                if isinstance(val.type, ir.PointerType):
+                    stack.append(self.builder.load(val))
+                else:
+                    stack.append(val)
+            elif isinstance(instr, Store):
+                val = stack.pop()
+                if instr.is_mut:
+                    ptr = self._get_or_alloc_mut(instr.name)
+                    self.builder.store(val, ptr)
+                else:
+                    self.set_var(instr.name, val)
+            elif isinstance(instr, BinOpInstr):
+                b = stack.pop()
+                a = stack.pop()
+                op = instr.op
+                if op == '+':
+                    stack.append(self.builder.add(a, b))
+                elif op == '-':
+                    stack.append(self.builder.sub(a, b))
+                elif op == '*':
+                    stack.append(self.builder.mul(a, b))
+                elif op == '/':
+                    stack.append(self.builder.sdiv(a, b))
+                elif op == '%':
+                    stack.append(self.builder.srem(a, b))
+                elif op == '==':
+                    stack.append(self.builder.icmp_signed('==', a, b))
+                elif op == '!=':
+                    stack.append(self.builder.icmp_signed('!=', a, b))
+                elif op == '>':
+                    stack.append(self.builder.icmp_signed('>', a, b))
+                elif op == '<':
+                    stack.append(self.builder.icmp_signed('<', a, b))
+                elif op == '>=':
+                    stack.append(self.builder.icmp_signed('>=', a, b))
+                elif op == '<=':
+                    stack.append(self.builder.icmp_signed('<=', a, b))
+                else:
+                    raise RuntimeError(f"Unsupported op {op}")
+            elif isinstance(instr, Call):
+                args = [stack.pop() for _ in range(instr.argc)][::-1]
+                callee = self.functions.get(instr.name)
+                if callee is None:
+                    callee = self.module.get_global(instr.name)
+                stack.append(self.builder.call(callee, args))
+            elif isinstance(instr, Return):
+                ret_val = stack.pop() if stack else ir.Constant(self.int_t, 0)
+                self.builder.ret(ret_val)
+                return None
+            elif isinstance(instr, Pop):
+                if stack:
+                    stack.pop()
+            else:
+                raise RuntimeError(f"Unknown instruction {instr}")
+        return stack[-1] if stack else None
+
+    def build_function(self, func_ir: Function) -> None:
+        func = self.functions[func_ir.name]
+        entry = func.append_basic_block("entry")
+        self.builder = ir.IRBuilder(entry)
+        self.entry_builder = self.builder
+        self.push_scope()
+        for arg, name in zip(func.args, func_ir.params):
+            self.set_var(name, arg)
+        ret = self.emit_code(func_ir.code)
+        if ret is not None:
+            self.builder.ret(ret)
+        self.pop_scope()
+
+    def build_start(self, code: List[Instr]) -> None:
+        start_ty = ir.FunctionType(self.int_t, [])
+        fn = ir.Function(self.module, start_ty, name="__start")
+        block = fn.append_basic_block("entry")
+        self.builder = ir.IRBuilder(block)
+        self.entry_builder = self.builder
+        ret = self.emit_code(code)
+        if ret is not None:
+            self.builder.ret(ret)
+
 
 
 # ------------ Module Loading --------------------------------------------------
@@ -220,7 +382,7 @@ def compile_program(
 def _compile_stmt(stmt, alias_map: Dict[str, str]) -> List[Instr]:
     if isinstance(stmt, LetStmt):
         code = _compile_expr(stmt.value, alias_map)
-        code.append(Store(stmt.name, stmt.type_name))
+        code.append(Store(stmt.name, stmt.type_name, stmt.is_mut))
         return code
     if isinstance(stmt, BindingStmt):
         if stmt.is_static and isinstance(stmt.value, Identifier):
@@ -460,185 +622,14 @@ def _ffi_call(c_name: str, args: List[object]) -> int | None:
 # ------------ LLVM IR Generation ---------------------------------------------
 
 def to_llvm_ir(program: ProgramIR) -> str:
-    """Convert :class:`ProgramIR` to LLVM IR string."""
-
-    int_t = ir.IntType(64)
-    module = ir.Module(name="mxscript")
-
-    # ARC runtime declarations
-    obj_ptr_t = ir.IntType(8).as_pointer()
-    arc_retain_fn = ir.Function(
-        module, ir.FunctionType(ir.VoidType(), [obj_ptr_t]), name="arc_retain"
-    )
-    arc_release_fn = ir.Function(
-        module, ir.FunctionType(ir.VoidType(), [obj_ptr_t]), name="arc_release"
-    )
-
-    # Declare all functions first
-    llvm_funcs: Dict[str, ir.Function] = {}
-
+    """Convert :class:`ProgramIR` to LLVM IR string using SSA."""
+    gen = LLVMGenerator()
+    gen.declare_functions(program)
+    gen.build_start(program.code)
     for func in program.functions.values():
-        func_ty = ir.FunctionType(int_t, [int_t] * len(func.params))
-        llvm_funcs[func.name] = ir.Function(module, func_ty, name=func.name)
 
-
-    ffi_mgr = FFIManager(module)
-
-    string_idx = 0
-
-    def emit_code(
-        builder: ir.IRBuilder,
-        code: List[Instr],
-        vars: Dict[str, ir.AllocaInstr],
-        var_types: Dict[str, str | None],
-    ) -> ir.Value:
-        nonlocal string_idx
-        stack: List[ir.Value] = []
-
-        def get_var(name: str) -> ir.AllocaInstr:
-            if name not in vars:
-                vars[name] = builder.alloca(int_t, name=name)
-                builder.store(ir.Constant(int_t, 0), vars[name])
-            return vars[name]
-
-        def release_all() -> None:
-            for n, ptr in vars.items():
-                typ = var_types.get(n)
-                if typ and (typ == "object" or typ.endswith("*")):
-                    val = builder.load(ptr)
-                    builder.call(arc_release_fn, [builder.inttoptr(val, obj_ptr_t)])
-
-        for instr in code:
-            if isinstance(instr, Const):
-                if isinstance(instr.value, str):
-                    arr_ty = ir.ArrayType(ir.IntType(8), len(instr.value.encode()) + 1)
-                    const_val = ir.Constant(arr_ty, bytearray(instr.value.encode() + b"\x00"))
-                    global_name = f".str{string_idx}"
-                    gvar = ir.GlobalVariable(module, arr_ty, name=global_name)
-                    gvar.linkage = "internal"
-                    gvar.global_constant = True
-                    gvar.initializer = const_val
-                    ptr = builder.gep(gvar, [ir.Constant(int_t, 0), ir.Constant(int_t, 0)])
-                    stack.append(builder.ptrtoint(ptr, int_t))
-                    string_idx += 1
-                else:
-                    stack.append(ir.Constant(int_t, instr.value))
-            elif isinstance(instr, Load):
-                stack.append(builder.load(get_var(instr.name)))
-            elif isinstance(instr, Store):
-                val = stack.pop()
-                ptr = get_var(instr.name)
-                if instr.type_name:
-                    var_types[instr.name] = instr.type_name
-                if instr.type_name and (
-                    instr.type_name == "object" or instr.type_name.endswith("*")
-                ):
-                    old_val = builder.load(ptr)
-                    builder.call(
-                        arc_release_fn, [builder.inttoptr(old_val, obj_ptr_t)]
-                    )
-                    builder.call(arc_retain_fn, [builder.inttoptr(val, obj_ptr_t)])
-                builder.store(val, ptr)
-            elif isinstance(instr, BinOpInstr):
-                b = stack.pop()
-                a = stack.pop()
-                if instr.op == '+':
-                    stack.append(builder.add(a, b))
-                elif instr.op == '-':
-                    stack.append(builder.sub(a, b))
-                elif instr.op == '*':
-                    stack.append(builder.mul(a, b))
-                elif instr.op == '/':
-                    stack.append(builder.sdiv(a, b))
-                elif instr.op == '%':
-                    stack.append(builder.srem(a, b))
-                elif instr.op == '==':
-                    stack.append(builder.icmp_signed('==', a, b))
-                elif instr.op == '!=':
-                    stack.append(builder.icmp_signed('!=', a, b))
-                elif instr.op == '>':
-                    stack.append(builder.icmp_signed('>', a, b))
-                elif instr.op == '<':
-                    stack.append(builder.icmp_signed('<', a, b))
-                elif instr.op == '>=':
-                    stack.append(builder.icmp_signed('>=', a, b))
-                elif instr.op == '<=':
-                    stack.append(builder.icmp_signed('<=', a, b))
-                else:
-                    raise RuntimeError(f"Unsupported op {instr.op}")
-            elif isinstance(instr, Call):
-                args = [stack.pop() for _ in range(instr.argc)][::-1]
-                if instr.name in program.foreign_functions:
-                    c_name = program.foreign_functions[instr.name]
-                    callee = ffi_mgr.get_or_declare_function(c_name)
-                    fixed_args = []
-                    for a, ty in zip(args, callee.function_type.args):
-                        if a.type != ty:
-                            if isinstance(ty, ir.PointerType) and a.type == int_t:
-                                a = builder.inttoptr(a, ty)
-                            elif isinstance(ty, ir.IntType) and a.type != ty:
-                                if a.type.width > ty.width:
-                                    a = builder.trunc(a, ty)
-                                else:
-                                    a = builder.sext(a, ty)
-                        fixed_args.append(a)
-                    result = builder.call(callee, fixed_args)
-                    if result.type != int_t:
-                        if isinstance(result.type, ir.IntType):
-                            if result.type.width < int_t.width:
-                                result = builder.sext(result, int_t)
-                            elif result.type.width > int_t.width:
-                                result = builder.trunc(result, int_t)
-                        elif isinstance(result.type, ir.PointerType):
-                            result = builder.ptrtoint(result, int_t)
-                    stack.append(result)
-                else:
-                    callee = llvm_funcs.get(instr.name)
-                    if callee is None:
-                        callee = module.get_global(instr.name)
-                    stack.append(builder.call(callee, args))
-            elif isinstance(instr, Return):
-                ret_val = stack.pop() if stack else ir.Constant(int_t, 0)
-                release_all()
-                builder.ret(ret_val)
-                return None
-            elif isinstance(instr, Pop):
-                if stack:
-                    stack.pop()
-            else:
-                raise RuntimeError(f"Unknown instruction {instr}")
-
-        release_all()
-        return stack[-1] if stack else ir.Constant(int_t, 0)
-
-    # Build function bodies
-    for func_ir in program.functions.values():
-        func = llvm_funcs[func_ir.name]
-        block = func.append_basic_block("entry")
-        builder = ir.IRBuilder(block)
-
-        vars: Dict[str, ir.AllocaInstr] = {}
-        var_types: Dict[str, str | None] = {}
-        for arg, name in zip(func.args, func_ir.params):
-            ptr = builder.alloca(int_t, name=name)
-            builder.store(arg, ptr)
-            vars[name] = ptr
-            var_types[name] = None
-
-        ret_val = emit_code(builder, func_ir.code, vars, var_types)
-        if ret_val is not None:
-            builder.ret(ret_val)
-
-    # Build wrapper for top-level code
-    start_ty = ir.FunctionType(int_t, [])
-    start_fn = ir.Function(module, start_ty, name="__start")
-    block = start_fn.append_basic_block("entry")
-    builder = ir.IRBuilder(block)
-    ret = emit_code(builder, program.code, {}, {})
-    if ret is not None:
-        builder.ret(ret)
-
-    return str(module)
+        gen.build_function(func)
+    return str(gen.module)
 
 
 def execute_llvm(program: ProgramIR) -> int:
@@ -658,14 +649,16 @@ def execute_llvm(program: ProgramIR) -> int:
     from ctypes import CDLL, CFUNCTYPE, c_longlong, c_void_p, cast
 
     libc = CDLL(None)
-    used_symbols = {resolve_symbol(c) for c in program.foreign_functions.values()}
-    for cname in used_symbols:
-        try:
-            func = getattr(libc, cname)
-        except AttributeError:
-            continue
+
+    for name, c_name in program.foreign_functions.items():
+        target = c_name
+        if c_name == "time_now":
+            target = "time"
+        elif c_name == "random_rand":
+            target = "rand"
+        func = getattr(libc, target)
         addr = cast(func, c_void_p).value
-        binding.add_symbol(cname, addr)
+        binding.add_symbol(name, addr)
 
 
     engine.finalize_object()
