@@ -40,6 +40,23 @@ class LLVMGenerator:
         self.blocks: Dict[str, ir.Block] = {}
 
     # ------------------------------------------------------------------
+    def _create_global_string(self, value: str) -> ir.Value:
+        """Create a null-terminated global string and return its pointer."""
+        terminated = value.encode("utf-8") + b"\0"
+        arr_ty = ir.ArrayType(ir.IntType(8), len(terminated))
+        global_name = f".str{self.string_idx}"
+        gvar = ir.GlobalVariable(self.ctx.module, arr_ty, name=global_name)
+        gvar.linkage = "internal"
+        gvar.global_constant = True
+        gvar.initializer = ir.Constant(arr_ty, bytearray(terminated))
+        self.string_idx += 1
+        ptr = self.ctx.builder.gep(
+            gvar,
+            [ir.Constant(self.ctx.int_t, 0), ir.Constant(self.ctx.int_t, 0)],
+        )
+        return self.ctx.builder.ptrtoint(ptr, self.ctx.int_t)
+
+    # ------------------------------------------------------------------
     def declare_functions(self, program) -> None:
         for func in program.functions.values():
             arg_types = [self.ctx.int_t] * len(func.params)
@@ -113,16 +130,7 @@ class LLVMGenerator:
                 continue
             if isinstance(instr, Const):
                 if isinstance(instr.value, str):
-                    arr_ty = ir.ArrayType(ir.IntType(8), len(instr.value.encode()) + 1)
-                    const_val = ir.Constant(arr_ty, bytearray(instr.value.encode() + b"\x00"))
-                    global_name = f".str{self.string_idx}"
-                    gvar = ir.GlobalVariable(self.ctx.module, arr_ty, name=global_name)
-                    gvar.linkage = "internal"
-                    gvar.global_constant = True
-                    gvar.initializer = const_val
-                    ptr = self.ctx.builder.gep(gvar, [ir.Constant(self.ctx.int_t, 0), ir.Constant(self.ctx.int_t, 0)])
-                    stack.append(self.ctx.builder.ptrtoint(ptr, self.ctx.int_t))
-                    self.string_idx += 1
+                    stack.append(self._create_global_string(instr.value))
                 else:
                     stack.append(ir.Constant(self.ctx.int_t, instr.value))
             elif isinstance(instr, Load):
