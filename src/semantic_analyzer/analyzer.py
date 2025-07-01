@@ -20,6 +20,7 @@ from ..syntax_parser.ast import (
     LoopStmt,
     UntilStmt,
     DoUntilStmt,
+    BreakStmt,
     IfStmt,
     ReturnStmt,
     RaiseStmt,
@@ -62,6 +63,7 @@ class SemanticAnalyzer:
     type_registry: Dict[str, TypeInfo] | None = None
     filename: str = "<stdin>"
     source_lines: List[str] = field(default_factory=list)
+    loop_depth: int = 0
 
     def analyze(self, program: Program, *, source: str = "", filename: str = "<stdin>") -> None:
         self.filename = filename
@@ -137,26 +139,40 @@ class SemanticAnalyzer:
         elif isinstance(stmt, ForInStmt):
             self._visit_expression(stmt.iterable)
             self.variables_stack.append({stmt.var: VarInfo(stmt.var, None, stmt.is_mut)})
+            self.loop_depth += 1
             for s in stmt.body.statements:
                 self._visit_statement(s)
+            self.loop_depth -= 1
             self.variables_stack.pop()
         elif isinstance(stmt, LoopStmt):
             self.variables_stack.append({})
+            self.loop_depth += 1
             for s in stmt.body.statements:
                 self._visit_statement(s)
+            self.loop_depth -= 1
             self.variables_stack.pop()
         elif isinstance(stmt, UntilStmt):
             self._visit_expression(stmt.condition)
             self.variables_stack.append({})
+            self.loop_depth += 1
             for s in stmt.body.statements:
                 self._visit_statement(s)
+            self.loop_depth -= 1
             self.variables_stack.pop()
         elif isinstance(stmt, DoUntilStmt):
             self.variables_stack.append({})
+            self.loop_depth += 1
             for s in stmt.body.statements:
                 self._visit_statement(s)
+            self.loop_depth -= 1
             self.variables_stack.pop()
             self._visit_expression(stmt.condition)
+        elif isinstance(stmt, BreakStmt):
+            if self.loop_depth == 0:
+                raise SemanticError(
+                    "break statement outside of loop",
+                    self._get_location(stmt.loc),
+                )
         elif isinstance(stmt, IfStmt):
             self._visit_if_stmt(stmt)
         elif isinstance(stmt, Block):

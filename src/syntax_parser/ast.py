@@ -231,6 +231,13 @@ class DoUntilStmt(Statement):
 
 
 @dataclass
+class BreakStmt(Statement):
+    """Terminate the innermost enclosing loop."""
+
+    pass
+
+
+@dataclass
 class IfStmt(Statement):
     """Classic if-else statement."""
 

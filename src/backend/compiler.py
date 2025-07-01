@@ -32,6 +32,7 @@ from ..syntax_parser.ast import (
     LoopStmt,
     UntilStmt,
     DoUntilStmt,
+    BreakStmt,
     IfStmt,
     Program,
     UnaryOp,
@@ -205,7 +206,9 @@ def compile_program(
                 foreign_functions[stmt.name] = foreign_functions[target]
                 continue
         else:
-            code.extend(_compile_stmt(stmt, alias_map, symtab, type_registry))
+            code.extend(
+                _compile_stmt(stmt, alias_map, symtab, type_registry, break_targets=[])
+            )
     if has_main:
         code.append(Call("main", 0))
     # emit destructor calls for globals
@@ -220,6 +223,7 @@ def _compile_stmt(
     alias_map: Dict[str, str],
     symtab: ScopedSymbolTable,
     type_registry: Dict[str, TypeInfo] | None,
+    break_targets: List[str],
 ) -> List[Instr]:
     if isinstance(stmt, LetStmt):
         code: List[Instr] = []
@@ -275,7 +279,9 @@ def _compile_stmt(
         code: List[Instr] = [ScopeEnter()]
         symtab.enter_scope()
         for s in stmt.statements:
-            code.extend(_compile_stmt(s, alias_map, symtab, type_registry))
+            code.extend(
+                _compile_stmt(s, alias_map, symtab, type_registry, break_targets)
+            )
         scope = symtab.leave_scope()
         for sym in reversed(list(scope.values())):
             if sym.needs_destruction:
@@ -306,7 +312,13 @@ def _compile_stmt(
         # then block
         code.append(Label(name=then_label))
         code.extend(
-            _compile_stmt(stmt.then_block, alias_map, symtab, type_registry)
+            _compile_stmt(
+                stmt.then_block,
+                alias_map,
+                symtab,
+                type_registry,
+                break_targets,
+            )
         )
         if stmt.else_block is not None:
             code.append(Br(label=end_label))
@@ -315,7 +327,13 @@ def _compile_stmt(
         if stmt.else_block is not None:
             code.append(Label(name=else_label))
             code.extend(
-                _compile_stmt(stmt.else_block, alias_map, symtab, type_registry)
+                _compile_stmt(
+                    stmt.else_block,
+                    alias_map,
+                    symtab,
+                    type_registry,
+                    break_targets,
+                )
             )
 
         # end label
@@ -329,7 +347,11 @@ def _compile_stmt(
         body_label = _new_label("loop_body")
         end_label = _new_label("loop_end")
         code.append(Label(name=body_label))
-        code.extend(_compile_stmt(stmt.body, alias_map, symtab, type_registry))
+        break_targets.append(end_label)
+        code.extend(
+            _compile_stmt(stmt.body, alias_map, symtab, type_registry, break_targets)
+        )
+        break_targets.pop()
         code.append(Br(label=body_label))
         code.append(Label(name=end_label))
         return code
@@ -350,7 +372,11 @@ def _compile_stmt(
         symtab.leave_scope()
         code.append(ScopeExit())
         code.append(Label(name=body_label))
-        code.extend(_compile_stmt(stmt.body, alias_map, symtab, type_registry))
+        break_targets.append(end_label)
+        code.extend(
+            _compile_stmt(stmt.body, alias_map, symtab, type_registry, break_targets)
+        )
+        break_targets.pop()
         code.append(Br(label=cond_label))
         code.append(Label(name=end_label))
         return code
@@ -360,6 +386,11 @@ def _compile_stmt(
         body_label = _new_label("do_body")
         end_label = _new_label("do_end")
         code.append(Label(name=body_label))
+        break_targets.append(end_label)
+        code.extend(
+            _compile_stmt(stmt.body, alias_map, symtab, type_registry, break_targets)
+        )
+        break_targets.pop()
         code.extend(_compile_stmt(stmt.body, alias_map, symtab, type_registry))
         code.append(ScopeEnter())
         symtab.enter_scope()
@@ -399,8 +430,12 @@ def _compile_stmt(
         code.append(Call("iter_next", 1))
         code.append(Store(stmt.var, None, stmt.is_mut))
         symtab.add_symbol(Symbol(stmt.var, None, False))
+        break_targets.append(end_label)
         for s in stmt.body.statements:
-            code.extend(_compile_stmt(s, alias_map, symtab, type_registry))
+            code.extend(
+                _compile_stmt(s, alias_map, symtab, type_registry, break_targets)
+            )
+        break_targets.pop()
         scope = symtab.leave_scope()
         for sym in reversed(list(scope.values())):
             if sym.needs_destruction:
@@ -409,6 +444,10 @@ def _compile_stmt(
         code.append(Br(label=cond_label))
         code.append(Label(name=end_label))
         return code
+    if isinstance(stmt, BreakStmt):
+        from .llir import Br
+        target = break_targets[-1]
+        return [Br(label=target)]
     if isinstance(stmt, RaiseStmt):
         code = _compile_expr(stmt.expr, alias_map, symtab, type_registry)
         for scope in reversed(symtab.scopes):
@@ -549,8 +588,11 @@ def _compile_function(
         body_stmts = func.body
     body_code: List[Instr] = []
     symtab = ScopedSymbolTable()
+    break_targets: List[str] = []
     for stmt in body_stmts:
-        body_code.extend(_compile_stmt(stmt, alias_map, symtab, type_registry))
+        body_code.extend(
+            _compile_stmt(stmt, alias_map, symtab, type_registry, break_targets)
+        )
     for sym in reversed(list(symtab.scopes[-1].values())):
         if sym.needs_destruction:
             body_code.append(DestructorCall(sym.name))
@@ -567,8 +609,11 @@ def _compile_constructor(
     body_code: List[Instr] = []
     symtab = ScopedSymbolTable()
     symtab.add_symbol(Symbol("self", class_name, False))
+    break_targets: List[str] = []
     for stmt in constructor.body.statements:
-        body_code.extend(_compile_stmt(stmt, alias_map, symtab, type_registry))
+        body_code.extend(
+            _compile_stmt(stmt, alias_map, symtab, type_registry, break_targets)
+        )
     for sym in reversed(list(symtab.scopes[-1].values())):
         if sym.needs_destruction:
             body_code.append(DestructorCall(sym.name))
@@ -586,8 +631,11 @@ def _compile_destructor(
     body_code: List[Instr] = []
     symtab = ScopedSymbolTable()
     symtab.add_symbol(Symbol("self", class_name, False))
+    break_targets: List[str] = []
     for stmt in destructor.body.statements:
-        body_code.extend(_compile_stmt(stmt, alias_map, symtab, type_registry))
+        body_code.extend(
+            _compile_stmt(stmt, alias_map, symtab, type_registry, break_targets)
+        )
     for sym in reversed(list(symtab.scopes[-1].values())):
         if sym.needs_destruction:
             body_code.append(DestructorCall(sym.name))
