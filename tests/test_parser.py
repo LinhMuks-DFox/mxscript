@@ -253,3 +253,18 @@ def test_parse_class_with_constructor():
     ctor_found = any(isinstance(s, ConstructorDef) for s in struct_def.body.statements)
     assert ctor_found
 
+
+def test_parse_class_with_access_specifiers():
+    source = """
+    class Foo {
+        public:
+        let x: int;
+        private:
+        let y: int;
+    }
+    """
+    tokens = tokenize(source)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+    assert isinstance(ast.statements[0], ClassDef)
+
