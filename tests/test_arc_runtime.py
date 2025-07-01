@@ -49,3 +49,19 @@ def test_arc_runtime_calls_emit_correct_ir():
     assert 'call i8* @"arc_retain"' in ir
     assert 'call void @"arc_release"' in ir
 
+
+def test_struct_allocation_uses_arc_runtime():
+    src = (
+        'struct Point {\n'
+        '    func Point() {}\n'
+        '    func ~Point() {}\n'
+        '}\n'
+        'func main() -> int {\n'
+        '    let p: Point = Point();\n'
+        '    return 0;\n'
+        '}\n'
+    )
+    ir = compile_to_ir(src)
+    assert 'call i8* @"arc_alloc"' in ir
+    assert 'call void @"arc_release"' in ir
+

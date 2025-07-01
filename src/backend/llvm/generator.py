@@ -88,6 +88,10 @@ class LLVMGenerator:
             except KeyError:
                 raise RuntimeError(f"Could not find destructor function '{func_name}'")
         self.ctx.builder.call(callee, [ptr])
+        arc_release = self.ffi.get_or_declare_function("arc_release")
+        loaded = self.ctx.builder.load(ptr)
+        obj_ptr = self.ctx.builder.inttoptr(loaded, self.ctx.obj_ptr_t)
+        self.ctx.builder.call(arc_release, [obj_ptr])
         # remove variable after destruction
         for scope in reversed(self.var_info_stack):
             if instr.name in scope:
@@ -120,8 +124,9 @@ class LLVMGenerator:
                 else:
                     stack.append(val)
             elif isinstance(instr, Alloc):
-                assert self.ctx.entry_builder is not None
-                ptr = self.ctx.entry_builder.alloca(self.ctx.int_t)
+                arc_alloc = self.ffi.get_or_declare_function("arc_alloc")
+                size_val = ir.Constant(self.ctx.int_t, instr.size)
+                ptr = self.ctx.builder.call(arc_alloc, [size_val])
                 stack.append(self.ctx.builder.ptrtoint(ptr, self.ctx.int_t))
             elif isinstance(instr, Dup):
                 if stack:
