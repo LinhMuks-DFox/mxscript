@@ -73,3 +73,38 @@ def test_llvm_ffi_time_random():
     assert isinstance(res_time, int)
     res_rand = compile_and_run('import std.random as random; random.rand();')
     assert isinstance(res_rand, int)
+
+def test_llvm_print_functions(capfd):
+    src = (
+        '@@foreign(c_name="write")\n'
+        'func __internal_write(fd: int, buf: byte*, len: int) -> int;\n'
+        'func main() -> int {\n'
+        '    __internal_write(1, "foo", 3);\n'
+        '    __internal_write(1, "bar\\n", 4);\n'
+        '    return 0;\n'
+        '}'
+    )
+    compile_and_run(src)
+    captured = capfd.readouterr()
+    assert captured.out == "foobar\n"
+
+
+def test_llvm_file_operations(tmp_path):
+    path = tmp_path / "out.txt"
+    src = (
+        '@@foreign(c_name="open")\n'
+        'func __internal_open(path: string, flags: int, mode: int) -> int;\n'
+        '@@foreign(c_name="write")\n'
+        'func __internal_write(fd: int, buf: byte*, len: int) -> int;\n'
+        '@@foreign(c_name="close")\n'
+        'func __internal_close(fd: int) -> int;\n'
+        'func main() -> int {\n'
+        f'    let fd = __internal_open("{path}", 577, 438);\n'
+        '    __internal_write(fd, "hello", 5);\n'
+        '    __internal_close(fd);\n'
+        '    return 0;\n'
+        '}'
+    )
+    result = compile_and_run(src)
+    assert result == 0
+    assert path.read_text() == "hello"

@@ -66,6 +66,7 @@ class Load(Instr):
 @dataclass
 class Store(Instr):
     name: str
+    type_name: str | None = None
 
 
 @dataclass
@@ -207,7 +208,7 @@ def compile_program(
 def _compile_stmt(stmt, alias_map: Dict[str, str]) -> List[Instr]:
     if isinstance(stmt, LetStmt):
         code = _compile_expr(stmt.value, alias_map)
-        code.append(Store(stmt.name))
+        code.append(Store(stmt.name, stmt.type_name))
         return code
     if isinstance(stmt, BindingStmt):
         if stmt.is_static and isinstance(stmt.value, Identifier):
@@ -217,7 +218,7 @@ def _compile_stmt(stmt, alias_map: Dict[str, str]) -> List[Instr]:
             alias_map[stmt.name] = target
             return []
         code = _compile_expr(stmt.value, alias_map)
-        code.append(Store(stmt.name))
+        code.append(Store(stmt.name, None))
         return code
     if isinstance(stmt, ImportStmt):
         # Import statements produce no executable code
@@ -448,6 +449,15 @@ def to_llvm_ir(program: ProgramIR) -> str:
     int_t = ir.IntType(64)
     module = ir.Module(name="mxscript")
 
+    # ARC runtime declarations
+    obj_ptr_t = ir.IntType(8).as_pointer()
+    arc_retain_fn = ir.Function(
+        module, ir.FunctionType(ir.VoidType(), [obj_ptr_t]), name="arc_retain"
+    )
+    arc_release_fn = ir.Function(
+        module, ir.FunctionType(ir.VoidType(), [obj_ptr_t]), name="arc_release"
+    )
+
     # Declare all functions first
     llvm_funcs: Dict[str, ir.Function] = {}
 
@@ -461,7 +471,12 @@ def to_llvm_ir(program: ProgramIR) -> str:
 
     string_idx = 0
 
-    def emit_code(builder: ir.IRBuilder, code: List[Instr], vars: Dict[str, ir.AllocaInstr]) -> ir.Value:
+    def emit_code(
+        builder: ir.IRBuilder,
+        code: List[Instr],
+        vars: Dict[str, ir.AllocaInstr],
+        var_types: Dict[str, str | None],
+    ) -> ir.Value:
         nonlocal string_idx
         stack: List[ir.Value] = []
 
@@ -470,6 +485,13 @@ def to_llvm_ir(program: ProgramIR) -> str:
                 vars[name] = builder.alloca(int_t, name=name)
                 builder.store(ir.Constant(int_t, 0), vars[name])
             return vars[name]
+
+        def release_all() -> None:
+            for n, ptr in vars.items():
+                typ = var_types.get(n)
+                if typ and (typ == "object" or typ.endswith("*")):
+                    val = builder.load(ptr)
+                    builder.call(arc_release_fn, [builder.inttoptr(val, obj_ptr_t)])
 
         for instr in code:
             if isinstance(instr, Const):
@@ -489,7 +511,19 @@ def to_llvm_ir(program: ProgramIR) -> str:
             elif isinstance(instr, Load):
                 stack.append(builder.load(get_var(instr.name)))
             elif isinstance(instr, Store):
-                builder.store(stack.pop(), get_var(instr.name))
+                val = stack.pop()
+                ptr = get_var(instr.name)
+                if instr.type_name:
+                    var_types[instr.name] = instr.type_name
+                if instr.type_name and (
+                    instr.type_name == "object" or instr.type_name.endswith("*")
+                ):
+                    old_val = builder.load(ptr)
+                    builder.call(
+                        arc_release_fn, [builder.inttoptr(old_val, obj_ptr_t)]
+                    )
+                    builder.call(arc_retain_fn, [builder.inttoptr(val, obj_ptr_t)])
+                builder.store(val, ptr)
             elif isinstance(instr, BinOpInstr):
                 b = stack.pop()
                 a = stack.pop()
@@ -525,6 +559,7 @@ def to_llvm_ir(program: ProgramIR) -> str:
                 stack.append(builder.call(callee, args))
             elif isinstance(instr, Return):
                 ret_val = stack.pop() if stack else ir.Constant(int_t, 0)
+                release_all()
                 builder.ret(ret_val)
                 return None
             elif isinstance(instr, Pop):
@@ -533,6 +568,7 @@ def to_llvm_ir(program: ProgramIR) -> str:
             else:
                 raise RuntimeError(f"Unknown instruction {instr}")
 
+        release_all()
         return stack[-1] if stack else ir.Constant(int_t, 0)
 
     # Build function bodies
@@ -542,12 +578,14 @@ def to_llvm_ir(program: ProgramIR) -> str:
         builder = ir.IRBuilder(block)
 
         vars: Dict[str, ir.AllocaInstr] = {}
+        var_types: Dict[str, str | None] = {}
         for arg, name in zip(func.args, func_ir.params):
             ptr = builder.alloca(int_t, name=name)
             builder.store(arg, ptr)
             vars[name] = ptr
+            var_types[name] = None
 
-        ret_val = emit_code(builder, func_ir.code, vars)
+        ret_val = emit_code(builder, func_ir.code, vars, var_types)
         if ret_val is not None:
             builder.ret(ret_val)
 
@@ -556,7 +594,7 @@ def to_llvm_ir(program: ProgramIR) -> str:
     start_fn = ir.Function(module, start_ty, name="__start")
     block = start_fn.append_basic_block("entry")
     builder = ir.IRBuilder(block)
-    ret = emit_code(builder, program.code, {})
+    ret = emit_code(builder, program.code, {}, {})
     if ret is not None:
         builder.ret(ret)
 
@@ -577,10 +615,8 @@ def execute_llvm(program: ProgramIR) -> int:
     target_machine = target.create_target_machine()
     engine = binding.create_mcjit_compiler(mod, target_machine)
 
-    from ctypes import CFUNCTYPE, c_longlong, c_void_p, cast
+    from ctypes import CDLL, CFUNCTYPE, c_longlong, c_void_p, cast
 
-    def _stub(*args):
-        return 0
 
     STUB = CFUNCTYPE(c_longlong, c_longlong, c_longlong, c_longlong)(_stub)
     addr = cast(STUB, c_void_p).value
@@ -608,6 +644,13 @@ def execute_llvm(program: ProgramIR) -> int:
             binding.add_symbol(name, time_addr)
         elif c_name == "random_rand":
             binding.add_symbol(name, rand_addr)
+
+    libc = CDLL(None)
+    for cname in ["write", "read", "open", "close", "time", "rand"]:
+        func = getattr(libc, cname)
+        addr = cast(func, c_void_p).value
+        binding.add_symbol(f"__internal_{cname}", addr)
+
 
     engine.finalize_object()
     func_ptr = engine.get_function_address("__start")
