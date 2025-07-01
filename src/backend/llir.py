@@ -484,19 +484,7 @@ def execute_llvm(program: ProgramIR) -> int:
     target_machine = target.create_target_machine()
     engine = binding.create_mcjit_compiler(mod, target_machine)
 
-    from ctypes import CDLL, CFUNCTYPE, c_longlong, c_void_p, cast
-
-    libc = CDLL(None)
-
-    for name, c_name in program.foreign_functions.items():
-        target = c_name
-        if c_name == "time_now":
-            target = "time"
-        elif c_name == "random_rand":
-            target = "rand"
-        func = getattr(libc, target)
-        addr = cast(func, c_void_p).value
-        binding.add_symbol(name, addr)
+    from ctypes import CFUNCTYPE, c_longlong
 
 
     engine.finalize_object()

@@ -16,7 +16,7 @@ from ..llir import (
     Function,
 )
 from .context import LLVMContext
-from .ffi import FFIManager
+from ..ffi import FFIManager
 
 
 class LLVMGenerator:
@@ -33,15 +33,16 @@ class LLVMGenerator:
         for func in program.functions.values():
             ty = ir.FunctionType(self.ctx.int_t, [self.ctx.int_t] * len(func.params))
             self.functions[func.name] = ir.Function(self.ctx.module, ty, name=func.name)
-        for name in program.foreign_functions:
+        for alias, c_name in program.foreign_functions.items():
             try:
-                self.ffi.get_or_declare_function(name)
+                func = self.ffi.get_or_declare_function(c_name)
             except KeyError:
-                ir.Function(
+                func = ir.Function(
                     self.ctx.module,
                     ir.FunctionType(self.ctx.int_t, [], var_arg=True),
-                    name=name,
+                    name=c_name,
                 )
+            self.functions[alias] = func
 
     # Symbol table helpers ---------------------------------------------
     def _get_or_alloc_mut(self, name: str) -> ir.AllocaInstr:
@@ -121,7 +122,37 @@ class LLVMGenerator:
                 callee = self.functions.get(instr.name)
                 if callee is None:
                     callee = self.ctx.module.get_global(instr.name)
-                stack.append(self.ctx.builder.call(callee, args))
+                func_ty = callee.function_type
+                cast_args: List[ir.Value] = []
+                for i, arg in enumerate(args):
+                    if i < len(func_ty.args):
+                        target_ty = func_ty.args[i]
+                        if arg.type != target_ty:
+                            if isinstance(target_ty, ir.PointerType) and isinstance(arg.type, ir.IntType):
+                                arg = self.ctx.builder.inttoptr(arg, target_ty)
+                            elif isinstance(target_ty, ir.IntType) and isinstance(arg.type, ir.PointerType):
+                                arg = self.ctx.builder.ptrtoint(arg, target_ty)
+                            elif isinstance(target_ty, ir.IntType) and isinstance(arg.type, ir.IntType):
+                                if arg.type.width > target_ty.width:
+                                    arg = self.ctx.builder.trunc(arg, target_ty)
+                                elif arg.type.width < target_ty.width:
+                                    arg = self.ctx.builder.zext(arg, target_ty)
+                                # widths equal handled above
+                            else:
+                                arg = self.ctx.builder.bitcast(arg, target_ty)
+                    cast_args.append(arg)
+                result = self.ctx.builder.call(callee, cast_args)
+                if result.type != self.ctx.int_t:
+                    if isinstance(result.type, ir.IntType):
+                        if result.type.width < self.ctx.int_t.width:
+                            result = self.ctx.builder.zext(result, self.ctx.int_t)
+                        elif result.type.width > self.ctx.int_t.width:
+                            result = self.ctx.builder.trunc(result, self.ctx.int_t)
+                    elif isinstance(result.type, ir.PointerType):
+                        result = self.ctx.builder.ptrtoint(result, self.ctx.int_t)
+                    else:
+                        result = self.ctx.builder.bitcast(result, self.ctx.int_t)
+                stack.append(result)
             elif isinstance(instr, Return):
                 ret_val = stack.pop() if stack else ir.Constant(self.ctx.int_t, 0)
                 self.ctx.builder.ret(ret_val)
