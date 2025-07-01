@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
+
+from ..lexer.Token import Token
 
 
+@dataclass(kw_only=True)
 class Node:
     """Base class for all AST nodes."""
+
+    loc: Optional[Token] = None
 
 
 @dataclass

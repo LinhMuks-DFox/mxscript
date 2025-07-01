@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Set
 
 from ..backend.llir import load_module_ast
 from .types import TypeInfo
+from ..errors import SemanticError, SourceLocation, NameError
 
 from ..syntax_parser.ast import (
     BinaryOp,
@@ -32,10 +33,7 @@ from ..syntax_parser.ast import (
     Expression,
     UnaryOp,
 )
-
-
-class SemanticError(Exception):
-    """Raised when semantic analysis fails."""
+from ..lexer.Token import Token
 
 
 @dataclass
@@ -45,8 +43,12 @@ class SemanticAnalyzer:
     variables_stack: List[Set[str]] | None = None
     functions: Set[str] | None = None
     type_registry: Dict[str, TypeInfo] | None = None
+    filename: str = "<stdin>"
+    source_lines: List[str] = field(default_factory=list)
 
-    def analyze(self, program: Program) -> None:
+    def analyze(self, program: Program, *, source: str = "", filename: str = "<stdin>") -> None:
+        self.filename = filename
+        self.source_lines = source.splitlines()
         self.functions = set()
         self._collect_functions(program)
         self.type_registry = {}
@@ -79,6 +81,14 @@ class SemanticAnalyzer:
             if name in scope:
                 return True
         return False
+
+    def _get_location(self, token: Token | None) -> SourceLocation | None:
+        if token is None:
+            return None
+        line = token.line
+        column = token.col
+        source_line = self.source_lines[line - 1] if 0 <= line - 1 < len(self.source_lines) else ""
+        return SourceLocation(self.filename, line, column, source_line)
 
     def _visit_statement(self, stmt: Statement) -> None:
         if isinstance(stmt, (LetStmt, BindingStmt)):
@@ -128,12 +138,18 @@ class SemanticAnalyzer:
         elif isinstance(stmt, StructDef):
             self._visit_struct_def(stmt)
         else:
-            raise SemanticError(f"Unsupported statement {type(stmt).__name__}")
+            raise SemanticError(
+                f"Unsupported statement {type(stmt).__name__}",
+                self._get_location(stmt.loc),
+            )
 
     def _visit_struct_def(self, struct: StructDef) -> None:
         assert self.type_registry is not None
         if struct.name in self.type_registry:
-            raise SemanticError(f"Type '{struct.name}' is already defined.")
+            raise SemanticError(
+                f"Type '{struct.name}' is already defined.",
+                self._get_location(struct.loc),
+            )
 
         type_info = TypeInfo(name=struct.name)
         self.type_registry[struct.name] = type_info
@@ -157,7 +173,10 @@ class SemanticAnalyzer:
         if isinstance(expr, Identifier):
             name = expr.name.split('.')[0]
             if not self._is_defined(name):
-                raise SemanticError(f"Undefined variable '{expr.name}'")
+                raise NameError(
+                    f"Undefined variable '{expr.name}'",
+                    self._get_location(expr.loc),
+                )
         elif isinstance(expr, Integer):
             pass
         elif isinstance(expr, String):
@@ -184,8 +203,14 @@ class SemanticAnalyzer:
         elif isinstance(expr, FunctionCall):
             # Check that the function exists
             if '.' not in expr.name and self.functions is not None and expr.name not in self.functions:
-                raise SemanticError(f"Undefined function '{expr.name}'")
+                raise NameError(
+                    f"Undefined function '{expr.name}'",
+                    self._get_location(expr.loc),
+                )
             for arg in expr.args:
                 self._visit_expression(arg)
         else:
-            raise SemanticError(f"Unsupported expression {type(expr).__name__}")
+            raise SemanticError(
+                f"Unsupported expression {type(expr).__name__}",
+                self._get_location(expr.loc),
+            )

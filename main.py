@@ -7,6 +7,7 @@ from pathlib import Path
 from src.lexer import TokenStream, tokenize
 from src.syntax_parser import Parser, dump_ast
 from src.semantic_analyzer import SemanticAnalyzer
+from src.errors import CompilerError, SourceLocation
 from src.backend import (
     compile_program,
     execute,
@@ -15,6 +16,15 @@ from src.backend import (
     to_llvm_ir,
     build_search_paths,
 )
+
+
+def print_error(err: CompilerError) -> None:
+    print(f"Error: {err.message}", file=sys.stderr)
+    if err.location:
+        loc = err.location
+        print(f"  --> {loc.filename}:{loc.line}:{loc.column}", file=sys.stderr)
+        print(f"{loc.line:4} | {loc.source_line}", file=sys.stderr)
+        print(f"{' ' * 4} | {' ' * (loc.column - 1)}^", file=sys.stderr)
 
 
 
@@ -45,33 +55,38 @@ def main(argv: list[str] | None = None) -> int:
 
     path = Path(args.source)
     source = path.read_text()
-    tokens = tokenize(source)
-    stream = TokenStream(tokens)
-    parser_obj = Parser(stream)
-    ast = parser_obj.parse()
 
-    if args.dump_ast:
-        print(dump_ast(ast))
+    try:
+        tokens = tokenize(source)
+        stream = TokenStream(tokens)
+        parser_obj = Parser(stream, source=source, filename=str(path))
+        ast = parser_obj.parse()
 
-    sema = SemanticAnalyzer()
-    sema.analyze(ast)
+        if args.dump_ast:
+            print(dump_ast(ast))
 
-    search_paths = build_search_paths(args.search_paths)
-    ir_prog = compile_program(ast, search_paths=search_paths)
-    if args.optimization > 0:
-        ir_prog = optimize(ir_prog)
+        sema = SemanticAnalyzer()
+        sema.analyze(ast, source=source, filename=str(path))
 
-    if args.dump_llir or args.output:
-        llvm_ir = to_llvm_ir(ir_prog)
-        if args.dump_llir:
-            print(llvm_ir)
-        if args.output:
-            Path(args.output).write_text(llvm_ir)
+        search_paths = build_search_paths(args.search_paths)
+        ir_prog = compile_program(ast, search_paths=search_paths)
+        if args.optimization > 0:
+            ir_prog = optimize(ir_prog)
 
-    if args.compile_mode == "interpreter":
-        result = execute(ir_prog)
-    else:
-        result = execute_llvm(ir_prog)
+        if args.dump_llir or args.output:
+            llvm_ir = to_llvm_ir(ir_prog)
+            if args.dump_llir:
+                print(llvm_ir)
+            if args.output:
+                Path(args.output).write_text(llvm_ir)
+
+        if args.compile_mode == "interpreter":
+            result = execute(ir_prog)
+        else:
+            result = execute_llvm(ir_prog)
+    except CompilerError as e:
+        print_error(e)
+        return 1
 
     return int(result) if result is not None else 0
 
