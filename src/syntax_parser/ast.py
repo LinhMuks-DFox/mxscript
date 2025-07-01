@@ -138,15 +138,15 @@ class FuncDef(Statement):
 
 @dataclass
 class ConstructorDef(Statement):
-    """Constructor inside a struct definition."""
+    """Constructor inside a class definition."""
 
     signature: FuncSig
     body: Block
 
 
 @dataclass
-class StructDef(Statement):
-    """Definition of a user-defined struct."""
+class ClassDef(Statement):
+    """Definition of a user-defined class."""
 
     name: str
     body: Block
@@ -154,7 +154,7 @@ class StructDef(Statement):
 
 @dataclass
 class DestructorDef(Statement):
-    """Destructor within a struct definition."""
+    """Destructor within a class definition."""
 
     body: Block
 

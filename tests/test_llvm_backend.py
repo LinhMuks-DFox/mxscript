@@ -117,7 +117,7 @@ def test_llvm_file_operations(tmp_path):
 def test_llvm_destructor_call(capfd):
     src = (
         'import std.io as io;\n'
-        'struct Loud {\n'
+        'class Loud {\n'
         '    func ~Loud() {\n'
         '        io.println("Object destroyed!");\n'
         '    }\n'
@@ -137,7 +137,7 @@ def test_llvm_destructor_call(capfd):
 def test_llvm_shadowed_destructors(capfd):
     src = (
         'import std.io as io;\n'
-        'struct Loud {\n'
+        'class Loud {\n'
         '    func ~Loud() { io.println("dtor"); }\n'
         '}\n'
         'func main() -> int {\n'
@@ -154,7 +154,7 @@ def test_llvm_shadowed_destructors(capfd):
 def test_llvm_constructor(capfd):
     src = (
         'import std.io as io;\n'
-        'struct Box {\n'
+        'class Box {\n'
         '    func Box() { io.println("ctor"); }\n'
         '    func ~Box() { io.println("dtor"); }\n'
         '}\n'
@@ -172,9 +172,9 @@ def test_llvm_constructor(capfd):
 def test_llvm_destructors_scopes(capfd):
     src = (
         'import std.io as io;\n'
-        'struct G { func ~G() { io.println("dg"); } }\n'
-        'struct Outer { func ~Outer() { io.println("do"); } }\n'
-        'struct Inner { func ~Inner() { io.println("di"); } }\n'
+        'class G { func ~G() { io.println("dg"); } }\n'
+        'class Outer { func ~Outer() { io.println("do"); } }\n'
+        'class Inner { func ~Inner() { io.println("di"); } }\n'
         'let g: G = 0;\n'
         'func main() -> int {\n'
         '    let x: Outer = 0;\n'
@@ -192,7 +192,7 @@ def test_llvm_destructors_scopes(capfd):
 def test_llvm_destructor_inferred_type(capfd):
     src = (
         'import std.io as io;\n'
-        'struct Box {\n'
+        'class Box {\n'
         '    func Box() {}\n'
         '    func ~Box() { io.println("drop"); }\n'
         '}\n'

@@ -22,10 +22,10 @@ def compile_and_run(source: str) -> int:
 
 def test_complex_member_lifecycle():
     src = (
-        'struct Inner {\n'
+        'class Inner {\n'
         '    func Inner() {}\n'
         '}\n'
-        'struct Outer {\n'
+        'class Outer {\n'
         '    let mut member: Inner;\n'
         '    func Outer() {}\n'
         '}\n'
@@ -41,10 +41,10 @@ def test_complex_member_lifecycle():
 
 def test_member_reassignment():
     src = (
-        'struct Inner {\n'
+        'class Inner {\n'
         '    func Inner() {}\n'
         '}\n'
-        'struct Outer {\n'
+        'class Outer {\n'
         '    let mut member: Inner;\n'
         '    func Outer() {}\n'
         '}\n'
@@ -61,7 +61,7 @@ def test_member_reassignment():
 
 def test_function_call_chain():
     src = (
-        'struct Data {\n'
+        'class Data {\n'
         '    func Data() {}\n'
         '}\n'
         'func make_data() -> Data {\n'
@@ -83,7 +83,7 @@ def test_function_call_chain():
 def test_allocation_in_loop():
     pytest.skip("For loops not yet implemented")
     src = (
-        'struct Data {\n'
+        'class Data {\n'
         '    func Data() {}\n'
         '}\n'
         'func main() -> int {\n'

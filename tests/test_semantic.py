@@ -91,8 +91,8 @@ def test_import_alias_reference():
     analyze("import foo.bar as bar; bar;")
 
 
-def test_analyzer_registers_struct_and_destructor():
-    source = "struct File { func ~File() {} }"
+def test_analyzer_registers_class_and_destructor():
+    source = "class File { func ~File() {} }"
     ast = Parser(TokenStream(tokenize(source))).parse()
 
     analyzer = SemanticAnalyzer()
@@ -104,7 +104,7 @@ def test_analyzer_registers_struct_and_destructor():
 
 
 def test_analyzer_registers_constructor():
-    source = "struct Box { func Box(v: int) {} }"
+    source = "class Box { func Box(v: int) {} }"
     ast = Parser(TokenStream(tokenize(source))).parse()
     analyzer = SemanticAnalyzer()
     analyzer.analyze(ast)

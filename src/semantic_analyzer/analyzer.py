@@ -28,7 +28,7 @@ from ..syntax_parser.ast import (
     BindingStmt,
     ImportStmt,
     Block,
-    StructDef,
+    ClassDef,
     DestructorDef,
     ConstructorDef,
     Program,
@@ -143,26 +143,26 @@ class SemanticAnalyzer:
         elif isinstance(stmt, ForeignFuncDecl):
             # no body to check
             pass
-        elif isinstance(stmt, StructDef):
-            self._visit_struct_def(stmt)
+        elif isinstance(stmt, ClassDef):
+            self._visit_class_def(stmt)
         else:
             raise SemanticError(
                 f"Unsupported statement {type(stmt).__name__}",
                 self._get_location(stmt.loc),
             )
 
-    def _visit_struct_def(self, struct: StructDef) -> None:
+    def _visit_class_def(self, cls: ClassDef) -> None:
         assert self.type_registry is not None
-        if struct.name in self.type_registry:
+        if cls.name in self.type_registry:
             raise SemanticError(
-                f"Type '{struct.name}' is already defined.",
-                self._get_location(struct.loc),
+                f"Type '{cls.name}' is already defined.",
+                self._get_location(cls.loc),
             )
 
-        type_info = TypeInfo(name=struct.name)
-        self.type_registry[struct.name] = type_info
+        type_info = TypeInfo(name=cls.name)
+        self.type_registry[cls.name] = type_info
 
-        for member in struct.body.statements:
+        for member in cls.body.statements:
             if isinstance(member, DestructorDef):
                 type_info.has_destructor = True
                 # analyze destructor body in its own scope with 'self'
