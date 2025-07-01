@@ -76,7 +76,8 @@ class SemanticAnalyzer:
 
     def _visit_statement(self, stmt: Statement) -> None:
         if isinstance(stmt, (LetStmt, BindingStmt)):
-            self._visit_expression(stmt.value)
+            if stmt.value is not None:
+                self._visit_expression(stmt.value)
             self._current_scope().add(stmt.name)
         elif isinstance(stmt, ExprStmt):
             self._visit_expression(stmt.expr)
