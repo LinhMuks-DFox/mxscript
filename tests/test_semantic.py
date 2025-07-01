@@ -111,3 +111,14 @@ def test_analyzer_registers_constructor():
     info = analyzer.type_registry["Box"]
     assert info.constructor is not None
 
+
+def test_assignment_to_immutable_error():
+    src = "let x = 3; x = 5;"
+    with pytest.raises(SemanticError):
+        analyze(src)
+
+
+def test_assignment_to_mutable_ok():
+    src = "let mut x = 3; x = 5;"
+    analyze(src)
+
