@@ -20,6 +20,8 @@ from src.syntax_parser import (
     ForInStmt,
     RaiseStmt,
     MatchExpr,
+    MemberAccess,
+    Identifier,
     Parser,
 )
 
@@ -181,4 +183,34 @@ def test_parse_struct_with_destructor():
             destructor_found = True
             break
     assert destructor_found
+
+
+def test_parse_struct_with_members_and_access():
+    source = """
+    struct Box {
+        let value: int;
+    }
+    func main() {
+        let b = Box();
+        b.value;
+    }
+    """
+    tokens = tokenize(source)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+
+    struct_def = ast.statements[0]
+    assert isinstance(struct_def, StructDef)
+    member_decl = struct_def.body.statements[0]
+    assert isinstance(member_decl, LetStmt)
+    assert member_decl.name == "value"
+
+    main_func = ast.statements[1]
+    stmt = main_func.body.statements[1]
+    assert isinstance(stmt, ExprStmt)
+    assert isinstance(stmt.expr, MemberAccess)
+    access = stmt.expr
+    assert isinstance(access.object, Identifier)
+    assert access.object.name == "b"
+    assert access.member.name == "value"
 

@@ -256,43 +256,71 @@ class Parser:
 
     def parse_primary(self):
         tok = self.stream.peek()
+        expr = None
+
         if tok.tk_type == 'INTEGER':
             self.stream.next()
-            return Integer(int(tok.value), loc=tok)
-        if tok.tk_type == 'STRING':
+            # 结合: 从 codex 分支获取 loc=tok
+            expr = Integer(int(tok.value), loc=tok)
+        elif tok.tk_type == 'STRING':
             self.stream.next()
-            return String(tok.value, loc=tok)
-        if tok.tk_type == 'KEYWORD' and tok.value == 'raise':
+            # 结合: 从 codex 分支获取 loc=tok
+            expr = String(tok.value, loc=tok)
+        elif tok.tk_type == 'KEYWORD' and tok.value == 'raise':
+            self.stream.next()
+            from .ast import RaiseExpr
+            # 结合: 使用 master 的逻辑，但从 codex 获取 loc
+            expr_to_raise = self.parse_expression()
+            expr = RaiseExpr(expr_to_raise, loc=tok)
+        elif tok.tk_type == 'KEYWORD' and tok.value == 'match':
+            expr = self.parse_match_expr()
+        elif tok.tk_type == 'IDENTIFIER':
+            self.stream.next()
+            # 结合: 从 codex 分支获取 loc=tok
+            expr = Identifier(tok.value, loc=tok)
+        elif tok.tk_type == 'OPERATOR' and tok.value == '(':
             self.stream.next()
             expr = self.parse_expression()
-            from .ast import RaiseExpr
-            return RaiseExpr(expr, loc=tok)
-        if tok.tk_type == 'KEYWORD' and tok.value == 'match':
-            return self.parse_match_expr()
-        if tok.tk_type == 'IDENTIFIER':
-            self.stream.next()
-            parts = [tok.value]
-            while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
-                self.stream.next()
-                parts.append(self._expect('IDENTIFIER').value)
-            name = '.'.join(parts)
-            if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '(':
-                self.stream.next()
+            self._expect('OPERATOR', ')')
+        else:
+            # 结合: 使用 codex 分支的新错误报告机制
+            raise SyntaxError(f'Unexpected token {tok.tk_type}', self._get_location(tok))
+
+        # 采纳 master 分支的链式解析循环结构，这是正确的逻辑
+        from .ast import MemberAccess, FunctionCall
+
+        while True:
+            peek_tok = self.stream.peek()
+            
+            # 处理成员访问 '.'
+            if peek_tok.tk_type == 'OPERATOR' and peek_tok.value == '.':
+                dot_tok = self.stream.next()
+                member_tok = self._expect('IDENTIFIER')
+                member_ident = Identifier(member_tok.value, loc=member_tok)
+                # 结合: 创建 MemberAccess 节点时，从 codex 获取 loc
+                expr = MemberAccess(expr, member_ident, loc=dot_tok)
+                continue
+
+            # 处理函数调用 '('
+            if peek_tok.tk_type == 'OPERATOR' and peek_tok.value == '(':
+                paren_tok = self.stream.next()
                 args = []
                 if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ')'):
                     args.append(self.parse_expression())
                     while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
                         self.stream.next()
                         args.append(self.parse_expression())
+                
                 self._expect('OPERATOR', ')')
-                return FunctionCall(name, args, loc=tok)
-            return Identifier(name, loc=tok)
-        if tok.tk_type == 'OPERATOR' and tok.value == '(':
-            self.stream.next()
-            expr = self.parse_expression()
-            self._expect('OPERATOR', ')')
-            return expr
-        raise SyntaxError(f'Unexpected token {tok.tk_type}', self._get_location(tok))
+                
+                # 优化：创建一个更健壮的 FunctionCall 节点，它接受一个表达式作为 callee
+                # 而不是一个扁平化的字符串。这可能需要你将 FunctionCall 的 AST 定义从
+                # name: str 改为 callee: Expr。
+                expr = FunctionCall(expr, args, loc=paren_tok)
+                continue
+            
+            break
+        return expr
 
     # ------------------------------------------------------------------
     # New parsing rules for functions and blocks
