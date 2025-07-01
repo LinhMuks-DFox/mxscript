@@ -27,10 +27,8 @@ def test_destructor_call_injection():
     analyzer = SemanticAnalyzer()
     analyzer.analyze(ast)
 
-    # remove struct definition before compilation
-    ast.statements = [s for s in ast.statements if not isinstance(s, StructDef)]
-
     ir = compile_program(ast, analyzer.type_registry)
+    assert "File_destructor" in ir.functions
 
     code = ir.functions["main"].code
     assert isinstance(code[-1], DestructorCall)

@@ -13,6 +13,7 @@ from ..llir import (
     Call,
     Return,
     Pop,
+    DestructorCall,
     Function,
 )
 from .context import LLVMContext
@@ -27,11 +28,15 @@ class LLVMGenerator:
         self.ffi = FFIManager(self.ctx.module)
         self.functions: Dict[str, ir.Function] = {}
         self.string_idx = 0
+        self.var_info_stack: List[Dict[str, Dict[str, ir.Value | str | None]]] = []
 
     # ------------------------------------------------------------------
     def declare_functions(self, program) -> None:
         for func in program.functions.values():
-            ty = ir.FunctionType(self.ctx.int_t, [self.ctx.int_t] * len(func.params))
+            arg_types = [self.ctx.int_t] * len(func.params)
+            if func.name.endswith("_destructor"):
+                arg_types = [self.ctx.int_t.as_pointer()]
+            ty = ir.FunctionType(self.ctx.int_t, arg_types)
             self.functions[func.name] = ir.Function(self.ctx.module, ty, name=func.name)
         for alias, c_name in program.foreign_functions.items():
             try:
@@ -56,6 +61,32 @@ class LLVMGenerator:
         ptr = self.ctx.entry_builder.alloca(self.ctx.int_t, name=name)
         self.ctx.set_var(name, ptr)
         return ptr
+
+    def _lookup_var_info(self, name: str) -> Dict[str, ir.Value | str | None]:
+        for scope in reversed(self.var_info_stack):
+            if name in scope:
+                return scope[name]
+        raise KeyError(name)
+
+    def _process_DestructorCall(self, instr: DestructorCall) -> None:
+        info = self._lookup_var_info(instr.name)
+        type_name = info.get("type_name")
+        ptr = info.get("ptr")
+        if type_name is None or ptr is None:
+            return
+        func_name = f"{type_name}_destructor"
+        callee = self.functions.get(func_name)
+        if callee is None:
+            try:
+                callee = self.ctx.module.get_global(func_name)
+            except KeyError:
+                raise RuntimeError(f"Could not find destructor function '{func_name}'")
+        self.ctx.builder.call(callee, [ptr])
+        # remove variable after destruction
+        for scope in reversed(self.var_info_stack):
+            if instr.name in scope:
+                del scope[instr.name]
+                break
 
     # IR emission ------------------------------------------------------
     def _emit_code(self, code: List[Instr]) -> ir.Value | None:
@@ -84,9 +115,13 @@ class LLVMGenerator:
                     stack.append(val)
             elif isinstance(instr, Store):
                 val = stack.pop()
-                if instr.is_mut:
+                if instr.is_mut or instr.type_name is not None:
                     ptr = self._get_or_alloc_mut(instr.name)
                     self.ctx.builder.store(val, ptr)
+                    self.var_info_stack[-1][instr.name] = {
+                        "type_name": instr.type_name,
+                        "ptr": ptr,
+                    }
                 else:
                     self.ctx.set_var(instr.name, val)
             elif isinstance(instr, BinOpInstr):
@@ -153,6 +188,8 @@ class LLVMGenerator:
                     else:
                         result = self.ctx.builder.bitcast(result, self.ctx.int_t)
                 stack.append(result)
+            elif isinstance(instr, DestructorCall):
+                self._process_DestructorCall(instr)
             elif isinstance(instr, Return):
                 ret_val = stack.pop() if stack else ir.Constant(self.ctx.int_t, 0)
                 self.ctx.builder.ret(ret_val)
@@ -171,12 +208,15 @@ class LLVMGenerator:
         self.ctx.builder = ir.IRBuilder(entry)
         self.ctx.entry_builder = self.ctx.builder
         self.ctx.push_scope()
+        self.var_info_stack.append({})
         for arg, name in zip(func.args, func_ir.params):
             self.ctx.set_var(name, arg)
+            self.var_info_stack[-1][name] = {"type_name": None, "ptr": arg}
         ret = self._emit_code(func_ir.code)
         if ret is not None:
             self.ctx.builder.ret(ret)
         self.ctx.pop_scope()
+        self.var_info_stack.pop()
 
     def build_start(self, code: List[Instr]) -> None:
         start_ty = ir.FunctionType(self.ctx.int_t, [])
@@ -184,6 +224,8 @@ class LLVMGenerator:
         block = fn.append_basic_block("entry")
         self.ctx.builder = ir.IRBuilder(block)
         self.ctx.entry_builder = self.ctx.builder
+        self.var_info_stack.append({})
         ret = self._emit_code(code)
         if ret is not None:
             self.ctx.builder.ret(ret)
+        self.var_info_stack.pop()
