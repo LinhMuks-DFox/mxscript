@@ -1,0 +1,6 @@
+!#
+    Module: std.random
+#!
+
+@@foreign(c_name="random_rand")
+func rand() -> int;

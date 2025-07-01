@@ -67,6 +67,13 @@ def test_llvm_hello_world_example():
     assert result == 0
 
 
+
+def test_llvm_ffi_time_random():
+    res_time = compile_and_run('import std.time as time; time.now();')
+    assert isinstance(res_time, int)
+    res_rand = compile_and_run('import std.random as random; random.rand();')
+    assert isinstance(res_rand, int)
+
 def test_llvm_print_functions(capfd):
     src = (
         '@@foreign(c_name="write")\n'
@@ -101,5 +108,3 @@ def test_llvm_file_operations(tmp_path):
     result = compile_and_run(src)
     assert result == 0
     assert path.read_text() == "hello"
-
-
