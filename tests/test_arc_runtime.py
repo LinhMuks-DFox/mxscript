@@ -1,0 +1,51 @@
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+from src.lexer import TokenStream, tokenize
+from src.syntax_parser import Parser
+from src.semantic_analyzer import SemanticAnalyzer
+from src.backend import compile_program, optimize, to_llvm_ir
+from src.backend.ffi import LIBC_FUNCTIONS
+
+
+def compile_to_ir(src: str) -> str:
+    tokens = tokenize(src)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+    analyzer = SemanticAnalyzer()
+    analyzer.analyze(ast)
+    ir_prog = optimize(compile_program(ast, analyzer.type_registry))
+    return to_llvm_ir(ir_prog)
+
+
+def test_ffi_registry_contains_arc_functions():
+    assert "arc_alloc" in LIBC_FUNCTIONS
+    assert "arc_retain" in LIBC_FUNCTIONS
+    assert "arc_release" in LIBC_FUNCTIONS
+
+
+def test_arc_runtime_calls_emit_correct_ir():
+    src = (
+        '@@foreign(c_name="arc_alloc")\n'
+        'func arc_alloc(size: int) -> byte*;\n'
+        '@@foreign(c_name="arc_retain")\n'
+        'func arc_retain(ptr: byte*) -> byte*;\n'
+        '@@foreign(c_name="arc_release")\n'
+        'func arc_release(ptr: byte*);\n'
+        'func main() -> int {\n'
+        '    let p: byte* = arc_alloc(4);\n'
+        '    arc_retain(p);\n'
+        '    arc_release(p);\n'
+        '    return 0;\n'
+        '}\n'
+    )
+    ir = compile_to_ir(src)
+    assert 'declare i8* @"arc_alloc"(i64' in ir
+    assert 'declare i8* @"arc_retain"(i8*' in ir
+    assert 'declare void @"arc_release"(i8*' in ir
+    assert 'call i8* @"arc_alloc"' in ir
+    assert 'call i8* @"arc_retain"' in ir
+    assert 'call void @"arc_release"' in ir
+
