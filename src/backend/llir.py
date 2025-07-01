@@ -134,6 +134,16 @@ class DestructorCall(Instr):
 
 
 @dataclass
+class ScopeEnter(Instr):
+    """Marks entering a new lexical scope."""
+
+
+@dataclass
+class ScopeExit(Instr):
+    """Marks leaving a lexical scope."""
+
+
+@dataclass
 class ProgramIR:
     code: List[Instr]
     functions: Dict[str, Function]
@@ -296,7 +306,7 @@ def _compile_stmt(
         # Import statements produce no executable code
         return []
     if isinstance(stmt, Block):
-        code: List[Instr] = []
+        code: List[Instr] = [ScopeEnter()]
         symtab.enter_scope()
         for s in stmt.statements:
             code.extend(_compile_stmt(s, alias_map, symtab, type_registry))
@@ -304,6 +314,7 @@ def _compile_stmt(
         for sym in reversed(list(scope.values())):
             if sym.needs_destruction:
                 code.append(DestructorCall(sym.name))
+        code.append(ScopeExit())
         return code
     if isinstance(stmt, ExprStmt):
         return _compile_expr(stmt.expr, alias_map, symtab, type_registry)
@@ -516,6 +527,10 @@ def execute(program: ProgramIR) -> int | None:
             elif isinstance(instr, DestructorCall):
                 # Destructor calls are placeholders in the interpreter.
                 pass
+            elif isinstance(instr, ScopeEnter):
+                env_stack.append({})
+            elif isinstance(instr, ScopeExit):
+                env_stack.pop()
             elif isinstance(instr, Pop):
                 if stack:
                     stack.pop()
