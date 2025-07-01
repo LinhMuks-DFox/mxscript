@@ -8,6 +8,8 @@ import ctypes
 
 from llvmlite import binding, ir
 
+from .ffi import FFIManager, resolve_symbol
+
 from ..lexer import TokenStream, tokenize
 from ..syntax_parser import Parser
 
@@ -479,9 +481,8 @@ def to_llvm_ir(program: ProgramIR) -> str:
         func_ty = ir.FunctionType(int_t, [int_t] * len(func.params))
         llvm_funcs[func.name] = ir.Function(module, func_ty, name=func.name)
 
-    # Foreign functions as external declarations
-    for name in program.foreign_functions:
-        ir.Function(module, ir.FunctionType(int_t, [], var_arg=True), name=name)
+
+    ffi_mgr = FFIManager(module)
 
     string_idx = 0
 
@@ -567,10 +568,35 @@ def to_llvm_ir(program: ProgramIR) -> str:
                     raise RuntimeError(f"Unsupported op {instr.op}")
             elif isinstance(instr, Call):
                 args = [stack.pop() for _ in range(instr.argc)][::-1]
-                callee = llvm_funcs.get(instr.name)
-                if callee is None:
-                    callee = module.get_global(instr.name)
-                stack.append(builder.call(callee, args))
+                if instr.name in program.foreign_functions:
+                    c_name = program.foreign_functions[instr.name]
+                    callee = ffi_mgr.get_or_declare_function(c_name)
+                    fixed_args = []
+                    for a, ty in zip(args, callee.function_type.args):
+                        if a.type != ty:
+                            if isinstance(ty, ir.PointerType) and a.type == int_t:
+                                a = builder.inttoptr(a, ty)
+                            elif isinstance(ty, ir.IntType) and a.type != ty:
+                                if a.type.width > ty.width:
+                                    a = builder.trunc(a, ty)
+                                else:
+                                    a = builder.sext(a, ty)
+                        fixed_args.append(a)
+                    result = builder.call(callee, fixed_args)
+                    if result.type != int_t:
+                        if isinstance(result.type, ir.IntType):
+                            if result.type.width < int_t.width:
+                                result = builder.sext(result, int_t)
+                            elif result.type.width > int_t.width:
+                                result = builder.trunc(result, int_t)
+                        elif isinstance(result.type, ir.PointerType):
+                            result = builder.ptrtoint(result, int_t)
+                    stack.append(result)
+                else:
+                    callee = llvm_funcs.get(instr.name)
+                    if callee is None:
+                        callee = module.get_global(instr.name)
+                    stack.append(builder.call(callee, args))
             elif isinstance(instr, Return):
                 ret_val = stack.pop() if stack else ir.Constant(int_t, 0)
                 release_all()
@@ -631,39 +657,15 @@ def execute_llvm(program: ProgramIR) -> int:
 
     from ctypes import CDLL, CFUNCTYPE, c_longlong, c_void_p, cast
 
-
-    STUB = CFUNCTYPE(c_longlong, c_longlong, c_longlong, c_longlong)(_stub)
-    addr = cast(STUB, c_void_p).value
-
-    def _time_now():
-        import time
-
-        return int(time.time())
-
-    TIME_NOW = CFUNCTYPE(c_longlong)(_time_now)
-    time_addr = cast(TIME_NOW, c_void_p).value
-
-    def _random_rand():
-        import random
-
-        return int(random.randint(0, 2**31 - 1))
-
-    RANDOM_RAND = CFUNCTYPE(c_longlong)(_random_rand)
-    rand_addr = cast(RANDOM_RAND, c_void_p).value
-
-    for name, c_name in program.foreign_functions.items():
-        if c_name in {"write", "read", "open", "close"}:
-            binding.add_symbol(name, addr)
-        elif c_name == "time_now":
-            binding.add_symbol(name, time_addr)
-        elif c_name == "random_rand":
-            binding.add_symbol(name, rand_addr)
-
     libc = CDLL(None)
-    for cname in ["write", "read", "open", "close", "time", "rand"]:
-        func = getattr(libc, cname)
+    used_symbols = {resolve_symbol(c) for c in program.foreign_functions.values()}
+    for cname in used_symbols:
+        try:
+            func = getattr(libc, cname)
+        except AttributeError:
+            continue
         addr = cast(func, c_void_p).value
-        binding.add_symbol(f"__internal_{cname}", addr)
+        binding.add_symbol(cname, addr)
 
 
     engine.finalize_object()
