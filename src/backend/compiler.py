@@ -28,6 +28,7 @@ from ..syntax_parser.ast import (
     ConstructorDef,
     ReturnStmt,
     ImportStmt,
+    IfStmt,
     Program,
     UnaryOp,
 )
@@ -52,9 +53,31 @@ from .ir import (
     ScopeExit,
 )
 from .runtime import _apply_op
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - only for type hints
+    from .llir import Label, Br, CondBr
 
 STD_LIB_DIR = Path(__file__).resolve().parents[2] / "stdlib"
 ENV_VAR = "MXSCRIPT_PATH"
+
+# Global counters for generating unique labels and temporaries
+_label_counter = 0
+_temp_counter = 0
+
+
+def _new_label(prefix: str) -> str:
+    """Generate a unique label name."""
+    global _label_counter
+    _label_counter += 1
+    return f".{prefix}_{_label_counter}"
+
+
+def _new_temp() -> str:
+    """Generate a unique temporary variable name."""
+    global _temp_counter
+    _temp_counter += 1
+    return f"__tmp_{_temp_counter}"
 
 
 def build_search_paths(extra_paths: List[str | Path] | None = None) -> List[Path]:
@@ -254,6 +277,32 @@ def _compile_stmt(
             if sym.needs_destruction:
                 code.append(DestructorCall(sym.name))
         code.append(ScopeExit())
+        return code
+    if isinstance(stmt, IfStmt):
+        from .llir import Label, Br, CondBr  # local import to avoid circular
+
+        code: List[Instr] = []
+        then_label = _new_label("if_then")
+        else_label = _new_label("if_else")
+        end_label = _new_label("if_end")
+
+        code.extend(_compile_expr(stmt.condition, alias_map, symtab, type_registry))
+        cond_var = _new_temp()
+        code.append(Store(cond_var))
+        code.append(CondBr(cond=cond_var, then_label=then_label, else_label=else_label))
+
+        # then block
+        code.append(Label(name=then_label))
+        code.extend(_compile_stmt(stmt.then_block, alias_map, symtab, type_registry))
+        code.append(Br(label=end_label))
+
+        # else block
+        code.append(Label(name=else_label))
+        if stmt.else_block is not None:
+            code.extend(_compile_stmt(stmt.else_block, alias_map, symtab, type_registry))
+
+        # end label
+        code.append(Label(name=end_label))
         return code
     if isinstance(stmt, ExprStmt):
         return _compile_expr(stmt.expr, alias_map, symtab, type_registry)
