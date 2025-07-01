@@ -34,6 +34,13 @@ Modules are loaded from `demo_program/examples/std` by default. Additional
 directories can be provided via the `MXSCRIPT_PATH` environment variable or the
 `-I/--search-path` command-line flag.
 
+### Standard library
+
+The prototype includes a few builtin modules. `std.time` exposes `now()` to get
+the current time, while `std.random` offers `rand()` for generating
+pseudo-random values. These functions are implemented through small FFI wrappers
+that call the underlying system facilities.
+
 ## Development
 
 Tests can be run with `pytest` and code style is enforced with `ruff`:
