@@ -133,6 +133,23 @@ def test_llvm_destructor_call(capfd):
     assert "Object destroyed!" in captured.out
 
 
+def test_llvm_shadowed_destructors(capfd):
+    src = (
+        'import std.io as io;\n'
+        'struct Loud {\n'
+        '    func ~Loud() { io.println("dtor"); }\n'
+        '}\n'
+        'func main() -> int {\n'
+        '    let obj: Loud = 0;\n'
+        '    { let obj: Loud = 0; }\n'
+        '    return 0;\n'
+        '}'
+    )
+    compile_and_run(src)
+    captured = capfd.readouterr()
+    assert captured.out.count("dtor") == 2
+
+
 def test_llvm_constructor(capfd):
     src = (
         'import std.io as io;\n'

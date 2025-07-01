@@ -35,6 +35,17 @@ def test_destructor_call_injection():
     assert code[-1].name == "f"
 
 
+def test_shadowed_variable_destructors():
+    source = """
+    struct File {
+        func ~File() {}
+    }
+    func main() {
+        let f: File = 0;
+        {
+            let f: File = 0;
+        }
+
 def test_destructor_call_injection_inferred_type():
     source = """
     struct File {
@@ -43,6 +54,7 @@ def test_destructor_call_injection_inferred_type():
     }
     func main() {
         let f = File();
+
     }
     """
     tokens = tokenize(source)
@@ -53,9 +65,16 @@ def test_destructor_call_injection_inferred_type():
     analyzer.analyze(ast)
 
     ir = compile_program(ast, analyzer.type_registry)
+
+    code = ir.functions["main"].code
+    dtor_calls = [i for i in code if isinstance(i, DestructorCall)]
+    assert len(dtor_calls) == 2
+    assert all(call.name == "f" for call in dtor_calls)
+
     assert "File_destructor" in ir.functions
 
     code = ir.functions["main"].code
     assert isinstance(code[-1], DestructorCall)
     assert code[-1].name == "f"
+
 
