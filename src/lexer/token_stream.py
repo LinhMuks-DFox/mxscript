@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
 from .Token import Token
-from ..errors import SyntaxErrorWithPos
+from ..errors import SyntaxError, SourceLocation
 
 
 @dataclass
@@ -43,10 +43,12 @@ class TokenStream:
     def expect(self, tk_type: str, value: Optional[str] = None) -> Token:
         token = self.next()
         if token is None:
-            raise SyntaxErrorWithPos(f"Expected {tk_type}", self.tokens[-1])
+            loc = SourceLocation("<tokens>", self.tokens[-1].line, self.tokens[-1].col, "")
+            raise SyntaxError(f"Expected {tk_type}", loc)
         if token.tk_type != tk_type or (value is not None and token.value != value):
             msg = f"Expected {tk_type} '{value}'" if value else f"Expected {tk_type}"
-            raise SyntaxErrorWithPos(msg, token)
+            loc = SourceLocation("<tokens>", token.line, token.col, "")
+            raise SyntaxError(msg, loc)
         return token
 
     def __iter__(self) -> Iterable[Token]:

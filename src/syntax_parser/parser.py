@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict
 
 from ..lexer import TokenStream
-from ..errors import SyntaxErrorWithPos
+from ..errors import SourceLocation, SyntaxError
 from .ast import (
     BinaryOp,
     ExprStmt,
@@ -45,14 +45,36 @@ BINARY_PRECEDENCE: Dict[str, int] = {
 class Parser:
     """Very small recursive descent parser building an AST."""
 
-    def __init__(self, stream: TokenStream) -> None:
+    def __init__(self, stream: TokenStream, *, source: str = "", filename: str = "<stdin>") -> None:
         self.stream = stream
+        self.filename = filename
+        self.source_lines = source.splitlines()
+
+    # ------------------------------------------------------------------
+    def _get_location(self, token) -> SourceLocation:
+        line = token.line
+        column = token.col
+        source_line = self.source_lines[line - 1] if 0 <= line - 1 < len(self.source_lines) else ""
+        return SourceLocation(self.filename, line, column, source_line)
+
+    def _expect(self, tk_type: str, value: str | None = None):
+        token = self.stream.next()
+        if token is None:
+            token = self.stream.tokens[-1]
+            loc = self._get_location(token)
+            raise SyntaxError(f"Expected {tk_type}", loc)
+        if token.tk_type != tk_type or (value is not None and token.value != value):
+            msg = f"Expected {tk_type} '{value}'" if value else f"Expected {tk_type}"
+            loc = self._get_location(token)
+            raise SyntaxError(msg, loc)
+        return token
 
     def parse(self) -> Program:
         statements = []
         while self.stream.peek() and self.stream.peek().tk_type != 'EOF':
             statements.append(self.parse_statement())
-        return Program(statements)
+        start_token = statements[0].loc if statements else self.stream.tokens[0]
+        return Program(statements, loc=start_token)
 
     def parse_statement(self):
         tok = self.stream.peek()
@@ -62,9 +84,9 @@ class Parser:
             if next_tok.tk_type == 'KEYWORD' and next_tok.value == 'func':
                 return self.parse_func_def(annotation)
             else:
-                raise SyntaxErrorWithPos(
+                raise SyntaxError(
                     'Annotation only supported before functions',
-                    next_tok,
+                    self._get_location(next_tok),
                 )
         if tok.tk_type == 'KEYWORD' and tok.value in ('public', 'private'):
             self.stream.next()
@@ -95,116 +117,116 @@ class Parser:
             return self.parse_block()
         else:
             expr = self.parse_expression()
-            self.stream.expect('OPERATOR', ';')
+            self._expect('OPERATOR', ';')
             return ExprStmt(expr)
 
     def parse_annotation(self):
-        self.stream.expect('ANNOTATION', '@@')
-        name = self.stream.expect('IDENTIFIER').value
+        start_tok = self._expect('ANNOTATION', '@@')
+        name = self._expect('IDENTIFIER').value
         args = {}
         if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '(':
             self.stream.next()
-            key = self.stream.expect('IDENTIFIER').value
-            self.stream.expect('OPERATOR', '=')
-            val_tok = self.stream.expect('STRING')
+            key = self._expect('IDENTIFIER').value
+            self._expect('OPERATOR', '=')
+            val_tok = self._expect('STRING')
             args[key] = val_tok.value
-            self.stream.expect('OPERATOR', ')')
+            self._expect('OPERATOR', ')')
         return {"name": name, **args}
 
     def parse_let(self) -> LetStmt:
-        self.stream.expect('KEYWORD', 'let')
+        start = self._expect('KEYWORD', 'let')
         is_mut = False
         if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'mut':
             self.stream.next()
             is_mut = True
-        name = self.stream.expect('IDENTIFIER').value
+        name = self._expect('IDENTIFIER').value
         type_name = None
         if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
             self.stream.next()
             type_name = self.parse_type_spec()
-        self.stream.expect('OPERATOR', '=')
+        self._expect('OPERATOR', '=')
         value = self.parse_expression()
-        self.stream.expect('OPERATOR', ';')
-        return LetStmt(name, value, type_name, is_mut)
+        self._expect('OPERATOR', ';')
+        return LetStmt(name, value, type_name, is_mut, loc=start)
 
     def parse_binding(self, is_static: bool):
-        self.stream.next()  # consume 'static' or 'dynamic'
-        self.stream.expect('KEYWORD', 'let')
-        name = self.stream.expect('IDENTIFIER').value
-        self.stream.expect('OPERATOR', '=')
+        start = self.stream.next()  # consume 'static' or 'dynamic'
+        self._expect('KEYWORD', 'let')
+        name = self._expect('IDENTIFIER').value
+        self._expect('OPERATOR', '=')
         value = self.parse_expression()
-        self.stream.expect('OPERATOR', ';')
+        self._expect('OPERATOR', ';')
         from .ast import BindingStmt
-        return BindingStmt(name, value, is_static)
+        return BindingStmt(name, value, is_static, loc=start)
 
     def parse_for_in(self):
-        self.stream.expect('KEYWORD', 'for')
+        start = self._expect('KEYWORD', 'for')
         is_mut = False
         if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'mut':
             self.stream.next()
             is_mut = True
-        var = self.stream.expect('IDENTIFIER').value
-        self.stream.expect('KEYWORD', 'in')
+        var = self._expect('IDENTIFIER').value
+        self._expect('KEYWORD', 'in')
         iterable = self.parse_expression()
         body = self.parse_block()
         from .ast import ForInStmt
-        return ForInStmt(var, iterable, body, is_mut)
+        return ForInStmt(var, iterable, body, is_mut, loc=start)
 
     def parse_raise_stmt(self):
-        self.stream.expect('KEYWORD', 'raise')
+        start = self._expect('KEYWORD', 'raise')
         expr = self.parse_expression()
-        self.stream.expect('OPERATOR', ';')
+        self._expect('OPERATOR', ';')
         from .ast import RaiseStmt
-        return RaiseStmt(expr)
+        return RaiseStmt(expr, loc=start)
 
     def parse_return_stmt(self):
-        self.stream.expect('KEYWORD', 'return')
+        start = self._expect('KEYWORD', 'return')
         if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ';'):
             value = self.parse_expression()
         else:
             value = None
-        self.stream.expect('OPERATOR', ';')
+        self._expect('OPERATOR', ';')
         from .ast import ReturnStmt
-        return ReturnStmt(value)
+        return ReturnStmt(value, loc=start)
 
     def parse_match_expr(self):
-        self.stream.expect('KEYWORD', 'match')
-        self.stream.expect('OPERATOR', '(')
+        start_kw = self._expect('KEYWORD', 'match')
+        self._expect('OPERATOR', '(')
         value = self.parse_expression()
-        self.stream.expect('OPERATOR', ')')
-        self.stream.expect('OPERATOR', '{')
+        self._expect('OPERATOR', ')')
+        self._expect('OPERATOR', '{')
         cases = []
         from .ast import MatchExpr, MatchCase
         while self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'case':
-            self.stream.next()
-            name = self.stream.expect('IDENTIFIER').value
-            self.stream.expect('OPERATOR', ':')
+            case_tok = self.stream.next()
+            name = self._expect('IDENTIFIER').value
+            self._expect('OPERATOR', ':')
             type_name = self.parse_type_spec()
-            self.stream.expect('OPERATOR', '=>')
+            self._expect('OPERATOR', '=>')
             if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '{':
                 body = self.parse_block()
             else:
                 body = self.parse_expression()
             if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
                 self.stream.next()
-            cases.append(MatchCase(name, type_name, body))
-        self.stream.expect('OPERATOR', '}')
-        return MatchExpr(value, cases)
+            cases.append(MatchCase(name, type_name, body, loc=case_tok))
+        self._expect('OPERATOR', '}')
+        return MatchExpr(value, cases, loc=start_kw)
 
     def parse_import(self) -> ImportStmt:
         """Parse an import statement."""
-        self.stream.expect('KEYWORD', 'import')
-        parts = [self.stream.expect('IDENTIFIER').value]
+        start = self._expect('KEYWORD', 'import')
+        parts = [self._expect('IDENTIFIER').value]
         while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
             self.stream.next()
-            parts.append(self.stream.expect('IDENTIFIER').value)
+            parts.append(self._expect('IDENTIFIER').value)
         module = '.'.join(parts)
         alias = None
         if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'as':
             self.stream.next()
-            alias = self.stream.expect('IDENTIFIER').value
-        self.stream.expect('OPERATOR', ';')
-        return ImportStmt(module, alias)
+            alias = self._expect('IDENTIFIER').value
+        self._expect('OPERATOR', ';')
+        return ImportStmt(module, alias, loc=start)
 
     def parse_expression(self, precedence: int = 1):
         expr = self.parse_unary()
@@ -236,15 +258,15 @@ class Parser:
         tok = self.stream.peek()
         if tok.tk_type == 'INTEGER':
             self.stream.next()
-            return Integer(int(tok.value))
+            return Integer(int(tok.value), loc=tok)
         if tok.tk_type == 'STRING':
             self.stream.next()
-            return String(tok.value)
+            return String(tok.value, loc=tok)
         if tok.tk_type == 'KEYWORD' and tok.value == 'raise':
             self.stream.next()
             expr = self.parse_expression()
             from .ast import RaiseExpr
-            return RaiseExpr(expr)
+            return RaiseExpr(expr, loc=tok)
         if tok.tk_type == 'KEYWORD' and tok.value == 'match':
             return self.parse_match_expr()
         if tok.tk_type == 'IDENTIFIER':
@@ -252,7 +274,7 @@ class Parser:
             parts = [tok.value]
             while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
                 self.stream.next()
-                parts.append(self.stream.expect('IDENTIFIER').value)
+                parts.append(self._expect('IDENTIFIER').value)
             name = '.'.join(parts)
             if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '(':
                 self.stream.next()
@@ -262,33 +284,33 @@ class Parser:
                     while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
                         self.stream.next()
                         args.append(self.parse_expression())
-                self.stream.expect('OPERATOR', ')')
-                return FunctionCall(name, args)
-            return Identifier(name)
+                self._expect('OPERATOR', ')')
+                return FunctionCall(name, args, loc=tok)
+            return Identifier(name, loc=tok)
         if tok.tk_type == 'OPERATOR' and tok.value == '(':
             self.stream.next()
             expr = self.parse_expression()
-            self.stream.expect('OPERATOR', ')')
+            self._expect('OPERATOR', ')')
             return expr
-        raise SyntaxErrorWithPos(f'Unexpected token {tok.tk_type}', tok)
+        raise SyntaxError(f'Unexpected token {tok.tk_type}', self._get_location(tok))
 
     # ------------------------------------------------------------------
     # New parsing rules for functions and blocks
     def parse_func_def(self, annotation=None):
-        self.stream.expect('KEYWORD', 'func')
-        name = self.stream.expect('IDENTIFIER').value
+        start = self._expect('KEYWORD', 'func')
+        name = self._expect('IDENTIFIER').value
         sig = self.parse_func_sig()
         if annotation and annotation.get('name') == 'foreign':
-            self.stream.expect('OPERATOR', ';')
+            self._expect('OPERATOR', ';')
             c_name = annotation.get('c_name')
-            return ForeignFuncDecl(name, sig, c_name)
+            return ForeignFuncDecl(name, sig, c_name, loc=start)
         body = self.parse_block()
-        return FuncDef(name, sig, body)
+        return FuncDef(name, sig, body, loc=start)
 
     def parse_struct_def(self):
-        self.stream.expect('KEYWORD', 'struct')
-        name = self.stream.expect('IDENTIFIER').value
-        self.stream.expect('OPERATOR', '{')
+        start = self._expect('KEYWORD', 'struct')
+        name = self._expect('IDENTIFIER').value
+        self._expect('OPERATOR', '{')
         statements = []
         while self.stream.peek() and not (
             self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '}'
@@ -306,36 +328,36 @@ class Parser:
                 statements.append(self.parse_destructor_def())
             else:
                 statements.append(self.parse_statement())
-        self.stream.expect('OPERATOR', '}')
-        return StructDef(name, Block(statements))
+        self._expect('OPERATOR', '}')
+        return StructDef(name, Block(statements), loc=start)
 
     def parse_field_decl(self):
-        self.stream.expect('KEYWORD', 'let')
+        start = self._expect('KEYWORD', 'let')
         is_mut = False
         if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'mut':
             self.stream.next()
             is_mut = True
-        name = self.stream.expect('IDENTIFIER').value
+        name = self._expect('IDENTIFIER').value
         type_name = None
         if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
             self.stream.next()
             type_name = self.parse_type_spec()
-        self.stream.expect('OPERATOR', ';')
-        return LetStmt(name, None, type_name, is_mut)
+        self._expect('OPERATOR', ';')
+        return LetStmt(name, None, type_name, is_mut, loc=start)
 
     def parse_destructor_def(self):
-        self.stream.expect('KEYWORD', 'func')
-        self.stream.expect('OPERATOR', '~')
+        start = self._expect('KEYWORD', 'func')
+        self._expect('OPERATOR', '~')
         # struct name after '~' is ignored for now
-        self.stream.expect('IDENTIFIER')
+        self._expect('IDENTIFIER')
         # signature is expected but typically empty
-        self.stream.expect('OPERATOR', '(')
-        self.stream.expect('OPERATOR', ')')
+        self._expect('OPERATOR', '(')
+        self._expect('OPERATOR', ')')
         body = self.parse_block()
-        return DestructorDef(body)
+        return DestructorDef(body, loc=start)
 
     def parse_func_sig(self) -> FuncSig:
-        self.stream.expect('OPERATOR', '(')
+        start = self._expect('OPERATOR', '(')
         params: list[Parameter] = []
         var_arg = False
         if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ')'):
@@ -353,23 +375,23 @@ class Parser:
                         break
                     self.stream.next()
                     params.append(self.parse_param())
-        self.stream.expect('OPERATOR', ')')
+        self._expect('OPERATOR', ')')
         return_type = None
         if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '->':
             self.stream.next()
             return_type = self.parse_type_spec()
-        return FuncSig(params, return_type, var_arg)
+        return FuncSig(params, return_type, var_arg, loc=start)
 
     def parse_param(self) -> Parameter:
-        names = [self.stream.expect('IDENTIFIER').value]
+        names = [self._expect('IDENTIFIER').value]
         while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
             # look ahead to distinguish between identifier list and next param
             if self.stream.peek(1) and self.stream.peek(1).tk_type == 'IDENTIFIER':
                 self.stream.next()
-                names.append(self.stream.expect('IDENTIFIER').value)
+                names.append(self._expect('IDENTIFIER').value)
             else:
                 break
-        self.stream.expect('OPERATOR', ':')
+        self._expect('OPERATOR', ':')
         type_name = self.parse_type_spec()
         return Parameter(names, type_name)
 
@@ -387,10 +409,10 @@ class Parser:
             self.stream.next()
             parts = ['nil']
         else:
-            parts = [self.stream.expect('IDENTIFIER').value]
+            parts = [self._expect('IDENTIFIER').value]
         while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
             self.stream.next()
-            parts.append(self.stream.expect('IDENTIFIER').value)
+            parts.append(self._expect('IDENTIFIER').value)
         typ = '.'.join(parts)
         while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '*':
             self.stream.next()
@@ -398,11 +420,11 @@ class Parser:
         return typ
 
     def parse_block(self) -> Block:
-        self.stream.expect('OPERATOR', '{')
+        start = self._expect('OPERATOR', '{')
         statements = []
         while self.stream.peek() and not (
             self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '}'
         ):
             statements.append(self.parse_statement())
-        self.stream.expect('OPERATOR', '}')
-        return Block(statements)
+        self._expect('OPERATOR', '}')
+        return Block(statements, loc=start)
