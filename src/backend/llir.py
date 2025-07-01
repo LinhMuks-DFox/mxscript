@@ -8,6 +8,8 @@ import ctypes
 
 from llvmlite import binding, ir
 
+from .ffi import FFIManager, resolve_symbol
+
 from ..lexer import TokenStream, tokenize
 from ..syntax_parser import Parser
 
@@ -621,11 +623,11 @@ def _ffi_call(c_name: str, args: List[object]) -> int | None:
 
 def to_llvm_ir(program: ProgramIR) -> str:
     """Convert :class:`ProgramIR` to LLVM IR string using SSA."""
-
     gen = LLVMGenerator()
     gen.declare_functions(program)
     gen.build_start(program.code)
     for func in program.functions.values():
+
         gen.build_function(func)
     return str(gen.module)
 
@@ -647,6 +649,7 @@ def execute_llvm(program: ProgramIR) -> int:
     from ctypes import CDLL, CFUNCTYPE, c_longlong, c_void_p, cast
 
     libc = CDLL(None)
+
     for name, c_name in program.foreign_functions.items():
         target = c_name
         if c_name == "time_now":
