@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 import os
+import ctypes
 
 from llvmlite import binding, ir
 
@@ -32,6 +33,15 @@ from ..syntax_parser.ast import (
 
 STD_LIB_DIR = Path(__file__).resolve().parents[2] / "demo_program" / "examples" / "std"
 ENV_VAR = "MXSCRIPT_PATH"
+
+# Initialize libc handles for common C functions used via FFI
+_libc = ctypes.CDLL(None)
+_libc_time = _libc.time
+_libc_time.argtypes = [ctypes.c_void_p]
+_libc_time.restype = ctypes.c_long
+_libc_rand = _libc.rand
+_libc_rand.argtypes = []
+_libc_rand.restype = ctypes.c_int
 
 
 def build_search_paths(extra_paths: List[str | Path] | None = None) -> List[Path]:
@@ -438,6 +448,10 @@ def _ffi_call(c_name: str, args: List[object]) -> int | None:
     if c_name == "print":
         print(*args)
         return 0
+    if c_name == "time":
+        return int(_libc_time(None))
+    if c_name == "rand":
+        return int(_libc_rand())
     raise RuntimeError(f"Foreign function {c_name} not implemented")
 
 
