@@ -101,6 +101,8 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
             return self.parse_until_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'do':
             return self.parse_do_until_stmt()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'break':
+            return self.parse_break_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'if':
             return self.parse_if_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'raise':
@@ -201,6 +203,12 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
         self._expect('OPERATOR', ';')
         from .ast import DoUntilStmt
         return DoUntilStmt(body, condition, loc=start)
+
+    def parse_break_stmt(self):
+        start = self._expect('KEYWORD', 'break')
+        self._expect('OPERATOR', ';')
+        from .ast import BreakStmt
+        return BreakStmt(loc=start)
 
     def parse_if_stmt(self) -> IfStmt:
         start = self._expect('KEYWORD', 'if')

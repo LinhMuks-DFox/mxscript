@@ -380,3 +380,10 @@ def test_parse_if_elseif_chain():
     assert stmt.else_block.else_block is not None
 
 
+def test_parse_break_stmt():
+    program = parse("break;")
+    stmt = program.statements[0]
+    from src.syntax_parser.ast import BreakStmt
+    assert isinstance(stmt, BreakStmt)
+
+

@@ -179,3 +179,18 @@ def test_constructor_and_destructor_call(capfd):
     assert "ctor" in captured.out
     assert "dtor" in captured.out
 
+
+def test_break_llir_generation():
+    src = "loop { break; }"
+    tokens = tokenize(src)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+    analyzer = SemanticAnalyzer()
+    analyzer.analyze(ast)
+    ir = compile_program(ast, analyzer.type_registry)
+    from src.backend.llir import Br, Label
+    labels = [instr.name for instr in ir.code if isinstance(instr, Label)]
+    assert len(labels) >= 2
+    break_target = labels[-1]
+    assert any(isinstance(instr, Br) and instr.label == break_target for instr in ir.code)
+
