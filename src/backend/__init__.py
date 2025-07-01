@@ -10,6 +10,8 @@ from .llir import (
     ScopeEnter,
     ScopeExit,
     ProgramIR,
+    Instr,
+    ErrorValue,
     Load,
     Pop,
     Store,
@@ -19,6 +21,7 @@ from .llir import (
     to_llvm_ir,
     execute_llvm,
     build_search_paths,
+    load_module_ast,
 )
 from .llvm import compile_to_llvm
 
@@ -37,11 +40,14 @@ __all__ = [
     "ScopeEnter",
     "ScopeExit",
     "ProgramIR",
+    "Instr",
+    "ErrorValue",
     "compile_program",
     "optimize",
     "execute",
     "to_llvm_ir",
     "execute_llvm",
     "build_search_paths",
+    "load_module_ast",
     "compile_to_llvm",
 ]
