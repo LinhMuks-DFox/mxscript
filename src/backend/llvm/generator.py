@@ -271,6 +271,8 @@ class LLVMGenerator:
         ret = self._emit_code(func_ir.code)
         if ret is not None:
             self.ctx.builder.ret(ret)
+        if not self.ctx.builder.block.is_terminated:
+            self.ctx.builder.ret(ir.Constant(self.ctx.int_t, 0))
         self.ctx.pop_scope()
         self.var_info_stack.pop()
 
@@ -284,4 +286,6 @@ class LLVMGenerator:
         ret = self._emit_code(code)
         if ret is not None:
             self.ctx.builder.ret(ret)
+        if not self.ctx.builder.block.is_terminated:
+            self.ctx.builder.ret(ir.Constant(self.ctx.int_t, 0))
         self.var_info_stack.pop()
