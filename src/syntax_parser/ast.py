@@ -128,6 +128,14 @@ class FuncDef(Statement):
 
 
 @dataclass
+class ConstructorDef(Statement):
+    """Constructor inside a struct definition."""
+
+    signature: FuncSig
+    body: Block
+
+
+@dataclass
 class StructDef(Statement):
     """Definition of a user-defined struct."""
 

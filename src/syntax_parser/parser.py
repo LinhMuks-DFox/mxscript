@@ -258,6 +258,8 @@ class Parser:
         tok = self.stream.peek()
         expr = None
 
+        from .ast import Identifier, MemberAccess, FunctionCall
+
         if tok.tk_type == 'INTEGER':
             self.stream.next()
             # 结合: 从 codex 分支获取 loc=tok
@@ -287,7 +289,6 @@ class Parser:
             raise SyntaxError(f'Unexpected token {tok.tk_type}', self._get_location(tok))
 
         # 采纳 master 分支的链式解析循环结构，这是正确的逻辑
-        from .ast import MemberAccess, FunctionCall
 
         while True:
             peek_tok = self.stream.peek()
@@ -310,17 +311,27 @@ class Parser:
                     while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
                         self.stream.next()
                         args.append(self.parse_expression())
-                
+
                 self._expect('OPERATOR', ')')
-                
-                # 优化：创建一个更健壮的 FunctionCall 节点，它接受一个表达式作为 callee
-                # 而不是一个扁平化的字符串。这可能需要你将 FunctionCall 的 AST 定义从
-                # name: str 改为 callee: Expr。
-                expr = FunctionCall(expr, args, loc=paren_tok)
+
+                name = self._flatten_member(expr)
+                expr = FunctionCall(name, args, loc=paren_tok)
                 continue
             
             break
         return expr
+
+    def _flatten_member(self, expr) -> str:
+        from .ast import MemberAccess, Identifier
+
+        if isinstance(expr, Identifier):
+            return expr.name
+        if isinstance(expr, MemberAccess):
+            return f"{self._flatten_member(expr.object)}.{expr.member.name}"
+        raise SyntaxError(
+            "Invalid function call target",
+            self._get_location(self.stream.peek()),
+        )
 
     # ------------------------------------------------------------------
     # New parsing rules for functions and blocks
@@ -354,6 +365,14 @@ class Parser:
                 and self.stream.peek(1).value == '~'
             ):
                 statements.append(self.parse_destructor_def())
+            elif (
+                tok.tk_type == 'KEYWORD'
+                and tok.value == 'func'
+                and self.stream.peek(1)
+                and self.stream.peek(1).tk_type == 'IDENTIFIER'
+                and self.stream.peek(1).value == name
+            ):
+                statements.append(self.parse_constructor_def())
             else:
                 statements.append(self.parse_statement())
         self._expect('OPERATOR', '}')
@@ -383,6 +402,15 @@ class Parser:
         self._expect('OPERATOR', ')')
         body = self.parse_block()
         return DestructorDef(body, loc=start)
+
+    def parse_constructor_def(self):
+        start = self._expect('KEYWORD', 'func')
+        # consume struct name
+        self._expect('IDENTIFIER')
+        sig = self.parse_func_sig()
+        body = self.parse_block()
+        from .ast import ConstructorDef
+        return ConstructorDef(sig, body, loc=start)
 
     def parse_func_sig(self) -> FuncSig:
         start = self._expect('OPERATOR', '(')

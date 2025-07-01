@@ -21,6 +21,7 @@ from src.syntax_parser import (
     RaiseStmt,
     MatchExpr,
     MemberAccess,
+    ConstructorDef,
     Identifier,
     Parser,
 )
@@ -213,4 +214,20 @@ def test_parse_struct_with_members_and_access():
     assert isinstance(access.object, Identifier)
     assert access.object.name == "b"
     assert access.member.name == "value"
+
+
+def test_parse_struct_with_constructor():
+    source = """
+    struct Box {
+        let value: int;
+        func Box(v: int) {}
+    }
+    """
+    tokens = tokenize(source)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+    struct_def = ast.statements[0]
+    assert isinstance(struct_def, StructDef)
+    ctor_found = any(isinstance(s, ConstructorDef) for s in struct_def.body.statements)
+    assert ctor_found
 
