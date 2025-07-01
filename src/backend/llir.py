@@ -30,6 +30,8 @@ from ..syntax_parser.ast import (
     Program,
     UnaryOp,
 )
+from ..semantic_analyzer.types import TypeInfo
+from ..middleend.symbols import ScopedSymbolTable, Symbol
 
 
 STD_LIB_DIR = Path(__file__).resolve().parents[2] / "demo_program" / "examples" / "std"
@@ -111,6 +113,13 @@ class Return(Instr):
 
 
 @dataclass
+class DestructorCall(Instr):
+    """Explicit call to a variable's destructor when it goes out of scope."""
+
+    name: str
+
+
+@dataclass
 class ProgramIR:
     code: List[Instr]
     functions: Dict[str, Function]
@@ -146,6 +155,7 @@ def load_module_ast(module: str, search_paths: List[str | Path] | None = None) -
 
 def compile_program(
     prog: Program,
+    type_registry: Dict[str, TypeInfo] | None = None,
     module_cache: Dict[str, ProgramIR] | None = None,
     search_paths: List[str | Path] | None = None,
 ) -> ProgramIR:
@@ -153,6 +163,7 @@ def compile_program(
     functions: Dict[str, Function] = {}
     foreign_functions: Dict[str, str] = {}
     alias_map: Dict[str, str] = {}
+    symtab = ScopedSymbolTable()
     if module_cache is None:
         module_cache = {}
     if search_paths is None:
@@ -165,7 +176,7 @@ def compile_program(
 
     for stmt in prog.statements:
         if isinstance(stmt, (FuncDef, FunctionDecl)):
-            func_ir = _compile_function(stmt, alias_map)
+            func_ir = _compile_function(stmt, alias_map, type_registry)
             functions[stmt.name] = func_ir
             if stmt.name == "main" and len(func_ir.params) == 0:
                 has_main = True
@@ -214,18 +225,36 @@ def compile_program(
                 foreign_functions[stmt.name] = foreign_functions[target]
                 continue
         else:
-            code.extend(_compile_stmt(stmt, alias_map))
+            code.extend(_compile_stmt(stmt, alias_map, symtab, type_registry))
     if has_main:
         code.append(Call("main", 0))
+    # emit destructor calls for globals
+    for sym in reversed(list(symtab.scopes[-1].values())):
+        if sym.needs_destruction:
+            code.append(DestructorCall(sym.name))
     return ProgramIR(code, functions, foreign_functions)
 
 
-def _compile_stmt(stmt, alias_map: Dict[str, str]) -> List[Instr]:
+def _compile_stmt(
+    stmt,
+    alias_map: Dict[str, str],
+    symtab: ScopedSymbolTable,
+    type_registry: Dict[str, TypeInfo] | None,
+) -> List[Instr]:
     if isinstance(stmt, LetStmt):
-        if stmt.value is None:
-            return []
-        code = _compile_expr(stmt.value, alias_map)
+        code: List[Instr] = []
+        if stmt.value is not None:
+            code.extend(_compile_expr(stmt.value, alias_map, symtab, type_registry))
         code.append(Store(stmt.name, stmt.type_name, stmt.is_mut))
+        needs_destruction = False
+        if (
+            type_registry is not None
+            and stmt.type_name is not None
+            and stmt.type_name in type_registry
+            and type_registry[stmt.type_name].has_destructor
+        ):
+            needs_destruction = True
+        symtab.add_symbol(Symbol(stmt.name, stmt.type_name, needs_destruction))
         return code
     if isinstance(stmt, BindingStmt):
         if stmt.is_static and isinstance(stmt.value, Identifier):
@@ -234,7 +263,7 @@ def _compile_stmt(stmt, alias_map: Dict[str, str]) -> List[Instr]:
                 target = alias_map[target]
             alias_map[stmt.name] = target
             return []
-        code = _compile_expr(stmt.value, alias_map)
+        code = _compile_expr(stmt.value, alias_map, symtab, type_registry)
         code.append(Store(stmt.name, None))
         return code
     if isinstance(stmt, ImportStmt):
@@ -242,19 +271,38 @@ def _compile_stmt(stmt, alias_map: Dict[str, str]) -> List[Instr]:
         return []
     if isinstance(stmt, Block):
         code: List[Instr] = []
+        symtab.enter_scope()
         for s in stmt.statements:
-            code.extend(_compile_stmt(s, alias_map))
+            code.extend(_compile_stmt(s, alias_map, symtab, type_registry))
+        scope = symtab.leave_scope()
+        for sym in reversed(list(scope.values())):
+            if sym.needs_destruction:
+                code.append(DestructorCall(sym.name))
         return code
     if isinstance(stmt, ExprStmt):
-        return _compile_expr(stmt.expr, alias_map)
+        return _compile_expr(stmt.expr, alias_map, symtab, type_registry)
     if isinstance(stmt, ReturnStmt):
-        code = _compile_expr(stmt.value, alias_map) if stmt.value is not None else []
+        code = (
+            _compile_expr(stmt.value, alias_map, symtab, type_registry)
+            if stmt.value is not None
+            else []
+        )
+        # emit destructor calls for all active scopes
+        for scope in reversed(symtab.scopes):
+            for sym in reversed(list(scope.values())):
+                if sym.needs_destruction:
+                    code.append(DestructorCall(sym.name))
         code.append(Return())
         return code
     raise NotImplementedError(f"Unsupported stmt {type(stmt).__name__}")
 
 
-def _compile_expr(expr, alias_map: Dict[str, str]) -> List[Instr]:
+def _compile_expr(
+    expr,
+    alias_map: Dict[str, str],
+    symtab: ScopedSymbolTable,
+    type_registry: Dict[str, TypeInfo] | None,
+) -> List[Instr]:
     if isinstance(expr, Integer):
         return [Const(expr.value)]
     if isinstance(expr, String):
@@ -265,15 +313,15 @@ def _compile_expr(expr, alias_map: Dict[str, str]) -> List[Instr]:
             name = alias_map[name]
         return [Load(name)]
     if isinstance(expr, BinaryOp):
-        return _compile_expr(expr.left, alias_map) + _compile_expr(expr.right, alias_map) + [BinOpInstr(expr.op)]
+        return _compile_expr(expr.left, alias_map, symtab, type_registry) + _compile_expr(expr.right, alias_map, symtab, type_registry) + [BinOpInstr(expr.op)]
     if isinstance(expr, UnaryOp):
         # Only unary '-' supported
         if expr.op == '-':
-            return [Const(0)] + _compile_expr(expr.operand, alias_map) + [BinOpInstr('-')]
+            return [Const(0)] + _compile_expr(expr.operand, alias_map, symtab, type_registry) + [BinOpInstr('-')]
     if isinstance(expr, FunctionCall):
         code: List[Instr] = []
         for arg in expr.args:
-            code.extend(_compile_expr(arg, alias_map))
+            code.extend(_compile_expr(arg, alias_map, symtab, type_registry))
         name = expr.name
         while name in alias_map:
             name = alias_map[name]
@@ -282,7 +330,11 @@ def _compile_expr(expr, alias_map: Dict[str, str]) -> List[Instr]:
     raise NotImplementedError(f"Unsupported expr {type(expr).__name__}")
 
 
-def _compile_function(func: FuncDef | FunctionDecl, alias_map: Dict[str, str]) -> Function:
+def _compile_function(
+    func: FuncDef | FunctionDecl,
+    alias_map: Dict[str, str],
+    type_registry: Dict[str, TypeInfo] | None,
+) -> Function:
     if isinstance(func, FuncDef):
         params = [name for p in func.signature.params for name in p.names]
         body_stmts = func.body.statements
@@ -290,8 +342,12 @@ def _compile_function(func: FuncDef | FunctionDecl, alias_map: Dict[str, str]) -
         params = func.params
         body_stmts = func.body
     body_code: List[Instr] = []
+    symtab = ScopedSymbolTable()
     for stmt in body_stmts:
-        body_code.extend(_compile_stmt(stmt, alias_map))
+        body_code.extend(_compile_stmt(stmt, alias_map, symtab, type_registry))
+    for sym in reversed(list(symtab.scopes[-1].values())):
+        if sym.needs_destruction:
+            body_code.append(DestructorCall(sym.name))
     return Function(func.name, params, body_code)
 
 
@@ -366,6 +422,9 @@ def execute(program: ProgramIR) -> int | None:
                     stack.append(result)
             elif isinstance(instr, Return):
                 return stack.pop() if stack else None
+            elif isinstance(instr, DestructorCall):
+                # Destructor calls are placeholders in the interpreter.
+                pass
             elif isinstance(instr, Pop):
                 if stack:
                     stack.pop()

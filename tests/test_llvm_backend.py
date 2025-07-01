@@ -14,8 +14,9 @@ def compile_and_run(src: str) -> int:
     tokens = tokenize(src)
     stream = TokenStream(tokens)
     ast = Parser(stream).parse()
-    SemanticAnalyzer().analyze(ast)
-    ir_prog = optimize(compile_program(ast))
+    analyzer = SemanticAnalyzer()
+    analyzer.analyze(ast)
+    ir_prog = optimize(compile_program(ast, analyzer.type_registry))
     return execute_llvm(ir_prog)
 
 
@@ -24,8 +25,9 @@ def compile_to_ir(src: str) -> str:
     tokens = tokenize(src)
     stream = TokenStream(tokens)
     ast = Parser(stream).parse()
-    SemanticAnalyzer().analyze(ast)
-    ir_prog = optimize(compile_program(ast))
+    analyzer = SemanticAnalyzer()
+    analyzer.analyze(ast)
+    ir_prog = optimize(compile_program(ast, analyzer.type_registry))
     return to_llvm_ir(ir_prog)
 
 def compile_and_run_file(file_path: Path) -> int:
@@ -34,8 +36,9 @@ def compile_and_run_file(file_path: Path) -> int:
 
     stream = TokenStream(tokens)
     ast = Parser(stream).parse()
-    SemanticAnalyzer().analyze(ast)
-    ir_prog = optimize(compile_program(ast))
+    analyzer = SemanticAnalyzer()
+    analyzer.analyze(ast)
+    ir_prog = optimize(compile_program(ast, analyzer.type_registry))
     return execute_llvm(ir_prog)
 
 
