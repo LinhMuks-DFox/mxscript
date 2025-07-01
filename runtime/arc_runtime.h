@@ -1,15 +1,10 @@
-#include <stdint.h>
+#ifndef ARC_RUNTIME_H
+#define ARC_RUNTIME_H
+
 #include <stdlib.h>
 
-typedef struct {
-    int32_t ref_count;
-    /* Object data follows */
-} ArcObject;
+void* arc_alloc(size_t size);
+void* arc_retain(void* ptr);
+void arc_release(void* ptr);
 
-static inline void arc_retain(ArcObject* obj) {
-    if (obj) {
-        ++obj->ref_count;
-    }
-}
-
-void arc_release(ArcObject* obj);
+#endif /* ARC_RUNTIME_H */

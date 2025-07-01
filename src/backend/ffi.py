@@ -16,6 +16,10 @@ LIBC_FUNCTIONS: Dict[str, dict] = {
     'close': {'ret': int32, 'args': [int32]},
     'malloc': {'ret': char_ptr, 'args': [int64]},
     'free': {'ret': ir.VoidType(), 'args': [char_ptr]},
+    # ARC runtime
+    'arc_alloc': {'ret': char_ptr, 'args': [int64]},
+    'arc_retain': {'ret': char_ptr, 'args': [char_ptr]},
+    'arc_release': {'ret': ir.VoidType(), 'args': [char_ptr]},
     # Aliases used in the current standard library
     # MxScript convenience wrappers
     # time_now() -> time(NULL)
