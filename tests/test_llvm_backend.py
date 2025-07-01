@@ -111,3 +111,23 @@ def test_llvm_file_operations(tmp_path):
     result = compile_and_run(src)
     assert result == 0
     assert path.read_text() == "hello"
+
+
+def test_llvm_destructor_call(capfd):
+    src = (
+        'import std.io as io;\n'
+        'struct Loud {\n'
+        '    func ~Loud() {\n'
+        '        io.println("Object destroyed!");\n'
+        '    }\n'
+        '}\n'
+        'func main() -> int {\n'
+        '    io.println("Creating object...");\n'
+        '    let obj: Loud = 0;\n'
+        '    io.println("Object created. Exiting main...");\n'
+        '    return 0;\n'
+        '}'
+    )
+    compile_and_run(src)
+    captured = capfd.readouterr()
+    assert "Object destroyed!" in captured.out

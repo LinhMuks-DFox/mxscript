@@ -25,6 +25,8 @@ from ..syntax_parser.ast import (
     String,
     LetStmt,
     BindingStmt,
+    StructDef,
+    DestructorDef,
     ReturnStmt,
     ImportStmt,
     Program,
@@ -180,6 +182,13 @@ def compile_program(
             functions[stmt.name] = func_ir
             if stmt.name == "main" and len(func_ir.params) == 0:
                 has_main = True
+        elif isinstance(stmt, StructDef):
+            for member in stmt.body.statements:
+                if isinstance(member, DestructorDef):
+                    dtor_ir = _compile_destructor(
+                        stmt.name, member, alias_map, type_registry
+                    )
+                    functions[dtor_ir.name] = dtor_ir
         elif isinstance(stmt, ForeignFuncDecl):
             foreign_functions[stmt.name] = stmt.c_name
         elif isinstance(stmt, ImportStmt):
@@ -349,6 +358,25 @@ def _compile_function(
         if sym.needs_destruction:
             body_code.append(DestructorCall(sym.name))
     return Function(func.name, params, body_code)
+
+
+def _compile_destructor(
+    struct_name: str,
+    destructor: DestructorDef,
+    alias_map: Dict[str, str],
+    type_registry: Dict[str, TypeInfo] | None,
+) -> Function:
+    params = ["self"]
+    body_code: List[Instr] = []
+    symtab = ScopedSymbolTable()
+    symtab.add_symbol(Symbol("self", struct_name, False))
+    for stmt in destructor.body.statements:
+        body_code.extend(_compile_stmt(stmt, alias_map, symtab, type_registry))
+    for sym in reversed(list(symtab.scopes[-1].values())):
+        if sym.needs_destruction:
+            body_code.append(DestructorCall(sym.name))
+    name = f"{struct_name}_destructor"
+    return Function(name, params, body_code)
 
 
 # ------------ Optimization -----------------------------------------------------
