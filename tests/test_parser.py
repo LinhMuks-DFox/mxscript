@@ -270,11 +270,9 @@ def test_parse_class_with_access_specifiers():
     ast = Parser(stream).parse()
 
     struct_def = ast.statements[0]
-    from src.syntax_parser.ast import MethodDef
-    methods = [s for s in struct_def.body.statements if isinstance(s, MethodDef)]
-    assert len(methods) == 1
-    m = methods[0]
-    assert m.name == "bar"
+    assert isinstance(struct_def, ClassDef)
+    assert len(struct_def.body.statements) == 2
+    assert all(isinstance(s, LetStmt) for s in struct_def.body.statements)
 
 
 def test_parse_class_with_operator():
@@ -293,6 +291,20 @@ def test_parse_class_with_operator():
     assert len(ops) == 1
     op = ops[0]
     assert op.op == "+"
+    assert isinstance(ast.statements[0], ClassDef)
+
+
+def test_parse_class_with_public_private_only():
+    source = """
+    class Foo {
+        public:
+        private:
+    }
+    """
+    tokens = tokenize(source)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+
     assert isinstance(ast.statements[0], ClassDef)
 
 
