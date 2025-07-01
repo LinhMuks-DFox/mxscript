@@ -18,7 +18,7 @@ from .ast import (
     Parameter,
     FuncSig,
     FuncDef,
-    StructDef,
+    ClassDef,
     DestructorDef,
     ForeignFuncDecl,
     UnaryOp,
@@ -113,8 +113,8 @@ class Parser:
             ):
                 return self.parse_destructor_def()
             return self.parse_func_def()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'struct':
-            return self.parse_struct_def()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'class':
+            return self.parse_class_def()
         if tok.tk_type == 'OPERATOR' and tok.value == '{':
             return self.parse_block()
         else:
@@ -360,8 +360,8 @@ class Parser:
         body = self.parse_block()
         return FuncDef(name, sig, body, loc=start)
 
-    def parse_struct_def(self):
-        start = self._expect('KEYWORD', 'struct')
+    def parse_class_def(self):
+        start = self._expect('KEYWORD', 'class')
         name = self._expect('IDENTIFIER').value
         self._expect('OPERATOR', '{')
         statements = []
@@ -390,7 +390,7 @@ class Parser:
             else:
                 statements.append(self.parse_statement())
         self._expect('OPERATOR', '}')
-        return StructDef(name, Block(statements), loc=start)
+        return ClassDef(name, Block(statements), loc=start)
 
     def parse_field_decl(self):
         start = self._expect('KEYWORD', 'let')

@@ -2,6 +2,7 @@
 # Demonstrates basic file operations and standard stream usage in MxScript.
 
 import std.io as io;
+import std.file.File as File;
 
 func main() -> int {
     # Write to stdout
@@ -10,17 +11,10 @@ func main() -> int {
     # Write directly to stderr
     io.write_file(io.stderr, "This goes to stderr\n");
 
-    # Open a file for writing (flags 577 = O_WRONLY|O_CREAT|O_TRUNC,
-    # mode 438 = 0o666)
-    # let fd = io.open_file("demo_output.txt", 577, 438);
-    # io.write_file(fd, "File contents\n");
-    # io.close_file(fd);
-
-    # Reading from stdin requires a byte buffer. The following is a
-    # conceptual example; dynamic arrays are not yet implemented.
-    # let mut buf: [byte; 128];
-    # let read = io.readline(buf, 128);
-    # io.write_file(1, buf, read);  # Echo back to stdout
+    # Use the standard File class for file operations
+    let f = File("demo_output.txt", mode="w");
+    f.write("File contents\n");
+    # Destructor will close the file automatically
 
     return 0;
 }

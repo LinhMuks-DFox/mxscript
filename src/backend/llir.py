@@ -27,7 +27,7 @@ from ..syntax_parser.ast import (
     String,
     LetStmt,
     BindingStmt,
-    StructDef,
+    ClassDef,
     DestructorDef,
     ConstructorDef,
     ReturnStmt,
@@ -205,7 +205,7 @@ def compile_program(
             functions[stmt.name] = func_ir
             if stmt.name == "main" and len(func_ir.params) == 0:
                 has_main = True
-        elif isinstance(stmt, StructDef):
+        elif isinstance(stmt, ClassDef):
             for member in stmt.body.statements:
                 if isinstance(member, DestructorDef):
                     dtor_ir = _compile_destructor(
@@ -480,7 +480,7 @@ def _compile_function(
 
 
 def _compile_constructor(
-    struct_name: str,
+    class_name: str,
     constructor: ConstructorDef,
     alias_map: Dict[str, str],
     type_registry: Dict[str, TypeInfo] | None,
@@ -488,18 +488,18 @@ def _compile_constructor(
     params = ["self"] + [n for p in constructor.signature.params for n in p.names]
     body_code: List[Instr] = []
     symtab = ScopedSymbolTable()
-    symtab.add_symbol(Symbol("self", struct_name, False))
+    symtab.add_symbol(Symbol("self", class_name, False))
     for stmt in constructor.body.statements:
         body_code.extend(_compile_stmt(stmt, alias_map, symtab, type_registry))
     for sym in reversed(list(symtab.scopes[-1].values())):
         if sym.needs_destruction:
             body_code.append(DestructorCall(sym.name))
-    name = f"{struct_name}_constructor"
+    name = f"{class_name}_constructor"
     return Function(name, params, body_code)
 
 
 def _compile_destructor(
-    struct_name: str,
+    class_name: str,
     destructor: DestructorDef,
     alias_map: Dict[str, str],
     type_registry: Dict[str, TypeInfo] | None,
@@ -507,13 +507,13 @@ def _compile_destructor(
     params = ["self"]
     body_code: List[Instr] = []
     symtab = ScopedSymbolTable()
-    symtab.add_symbol(Symbol("self", struct_name, False))
+    symtab.add_symbol(Symbol("self", class_name, False))
     for stmt in destructor.body.statements:
         body_code.extend(_compile_stmt(stmt, alias_map, symtab, type_registry))
     for sym in reversed(list(symtab.scopes[-1].values())):
         if sym.needs_destruction:
             body_code.append(DestructorCall(sym.name))
-    name = f"{struct_name}_destructor"
+    name = f"{class_name}_destructor"
     return Function(name, params, body_code)
 
 

@@ -50,9 +50,9 @@ def test_arc_runtime_calls_emit_correct_ir():
     assert 'call void @"arc_release"' in ir
 
 
-def test_struct_allocation_uses_arc_runtime():
+def test_class_allocation_uses_arc_runtime():
     src = (
-        'struct Point {\n'
+        'class Point {\n'
         '    func Point() {}\n'
         '    func ~Point() {}\n'
         '}\n'
@@ -68,7 +68,7 @@ def test_struct_allocation_uses_arc_runtime():
 
 def test_arc_retain_on_assignment():
     src = (
-        'struct Point {\n'
+        'class Point {\n'
         '    func Point() {}\n'
         '}\n'
         'func main() -> int {\n'
@@ -83,7 +83,7 @@ def test_arc_retain_on_assignment():
 
 def test_arc_release_on_reassignment():
     src = (
-        'struct Data {\n'
+        'class Data {\n'
         '    func Data() {}\n'
         '}\n'
         'func main() {\n'
@@ -97,7 +97,7 @@ def test_arc_release_on_reassignment():
 
 def test_arc_retain_for_function_args():
     src = (
-        'struct Token {\n'
+        'class Token {\n'
         '    func Token() {}\n'
         '}\n'
         'func process_token(t: Token) -> Token {\n'
@@ -115,10 +115,10 @@ def test_arc_retain_for_function_args():
 
 def test_arc_release_on_member_assignment():
     src = (
-        'struct Data {\n'
+        'class Data {\n'
         '    func Data() {}\n'
         '}\n'
-        'struct Container {\n'
+        'class Container {\n'
         '    let mut d: Data;\n'
         '    func Container() {}\n'
         '}\n'

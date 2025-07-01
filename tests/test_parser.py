@@ -13,7 +13,7 @@ from src.syntax_parser import (
     BindingStmt,
     ReturnStmt,
     FuncDef,
-    StructDef,
+    ClassDef,
     DestructorDef,
     Block,
     ImportStmt,
@@ -160,9 +160,9 @@ def test_parse_match_expr():
     assert isinstance(stmt.expr, MatchExpr)
 
 
-def test_parse_struct_with_destructor():
+def test_parse_class_with_destructor():
     source = """
-    struct File {
+    class File {
         let fd: int;
 
         func ~File() {
@@ -174,7 +174,7 @@ def test_parse_struct_with_destructor():
     stream = TokenStream(tokens)
     ast = Parser(stream).parse()
 
-    assert isinstance(ast.statements[0], StructDef)
+    assert isinstance(ast.statements[0], ClassDef)
     struct_def = ast.statements[0]
     assert struct_def.name == "File"
 
@@ -186,9 +186,9 @@ def test_parse_struct_with_destructor():
     assert destructor_found
 
 
-def test_parse_struct_with_members_and_access():
+def test_parse_class_with_members_and_access():
     source = """
-    struct Box {
+    class Box {
         let value: int;
     }
     func main() {
@@ -201,7 +201,7 @@ def test_parse_struct_with_members_and_access():
     ast = Parser(stream).parse()
 
     struct_def = ast.statements[0]
-    assert isinstance(struct_def, StructDef)
+    assert isinstance(struct_def, ClassDef)
     member_decl = struct_def.body.statements[0]
     assert isinstance(member_decl, LetStmt)
     assert member_decl.name == "value"
@@ -218,7 +218,7 @@ def test_parse_struct_with_members_and_access():
 
 def test_parse_member_assignment():
     source = """
-    struct Point { let mut x: int; }
+    class Point { let mut x: int; }
     func main() {
         let p = Point();
         p.x = 100;
@@ -238,9 +238,9 @@ def test_parse_member_assignment():
     assert assign_stmt.expr.member.name == "x"
 
 
-def test_parse_struct_with_constructor():
+def test_parse_class_with_constructor():
     source = """
-    struct Box {
+    class Box {
         let value: int;
         func Box(v: int) {}
     }
@@ -249,7 +249,7 @@ def test_parse_struct_with_constructor():
     stream = TokenStream(tokens)
     ast = Parser(stream).parse()
     struct_def = ast.statements[0]
-    assert isinstance(struct_def, StructDef)
+    assert isinstance(struct_def, ClassDef)
     ctor_found = any(isinstance(s, ConstructorDef) for s in struct_def.body.statements)
     assert ctor_found
 
