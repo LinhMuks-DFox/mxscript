@@ -282,6 +282,16 @@ def _compile_stmt(
         if stmt.value is not None:
             code.extend(_compile_expr(stmt.value, alias_map, symtab, type_registry))
 
+        # If assigning from another ARC-managed variable, retain the value
+        if isinstance(stmt.value, Identifier) and type_registry is not None:
+            sym = symtab.lookup(stmt.value.name)
+            if (
+                sym is not None
+                and sym.type_name is not None
+                and sym.type_name in type_registry
+            ):
+                code.append(Call("arc_retain", 1))
+
         resolved_type = stmt.type_name
         needs_destruction = False
 
