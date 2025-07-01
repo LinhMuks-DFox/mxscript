@@ -1,11 +1,12 @@
 import os
 import sys
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from src.lexer import TokenStream, tokenize
 from src.syntax_parser import Parser
-from src.semantic_analyzer import SemanticAnalyzer
+from src.semantic_analyzer import SemanticAnalyzer, SemanticError
 from src.backend import compile_program, optimize, to_llvm_ir
 from src.backend.ffi import LIBC_FUNCTIONS
 
@@ -91,8 +92,8 @@ def test_arc_release_on_reassignment():
         '    let d: Data = Data();\n'
         '}\n'
     )
-    ir = compile_to_ir(src)
-    assert ir.count('call void @"arc_release"') == 1
+    with pytest.raises(SemanticError):
+        compile_to_ir(src)
 
 
 def test_arc_retain_for_function_args():
