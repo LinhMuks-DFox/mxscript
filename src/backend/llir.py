@@ -134,6 +134,16 @@ class DestructorCall(Instr):
 
 
 @dataclass
+class ScopeEnter(Instr):
+    """Marks entering a new lexical scope."""
+
+
+@dataclass
+class ScopeExit(Instr):
+    """Marks leaving a lexical scope."""
+
+
+@dataclass
 class ProgramIR:
     code: List[Instr]
     functions: Dict[str, Function]
@@ -271,16 +281,28 @@ def _compile_stmt(
         code: List[Instr] = []
         if stmt.value is not None:
             code.extend(_compile_expr(stmt.value, alias_map, symtab, type_registry))
-        code.append(Store(stmt.name, stmt.type_name, stmt.is_mut))
+
+        resolved_type = stmt.type_name
         needs_destruction = False
-        if (
-            type_registry is not None
-            and stmt.type_name is not None
-            and stmt.type_name in type_registry
-            and type_registry[stmt.type_name].has_destructor
-        ):
-            needs_destruction = True
-        symtab.add_symbol(Symbol(stmt.name, stmt.type_name, needs_destruction))
+
+        if type_registry is not None:
+            if (
+                resolved_type is None
+                and isinstance(stmt.value, FunctionCall)
+                and stmt.value.name in type_registry
+                and type_registry[stmt.value.name].has_destructor
+            ):
+                resolved_type = stmt.value.name
+                needs_destruction = True
+            elif (
+                resolved_type is not None
+                and resolved_type in type_registry
+                and type_registry[resolved_type].has_destructor
+            ):
+                needs_destruction = True
+
+        code.append(Store(stmt.name, resolved_type, stmt.is_mut))
+        symtab.add_symbol(Symbol(stmt.name, resolved_type, needs_destruction))
         return code
     if isinstance(stmt, BindingStmt):
         if stmt.is_static and isinstance(stmt.value, (Identifier, MemberAccess)):
@@ -296,7 +318,7 @@ def _compile_stmt(
         # Import statements produce no executable code
         return []
     if isinstance(stmt, Block):
-        code: List[Instr] = []
+        code: List[Instr] = [ScopeEnter()]
         symtab.enter_scope()
         for s in stmt.statements:
             code.extend(_compile_stmt(s, alias_map, symtab, type_registry))
@@ -304,6 +326,7 @@ def _compile_stmt(
         for sym in reversed(list(scope.values())):
             if sym.needs_destruction:
                 code.append(DestructorCall(sym.name))
+        code.append(ScopeExit())
         return code
     if isinstance(stmt, ExprStmt):
         return _compile_expr(stmt.expr, alias_map, symtab, type_registry)
@@ -474,7 +497,11 @@ def _optimize_list(code: List[Instr]) -> List[Instr]:
 # ------------ Execution --------------------------------------------------------
 
 def execute(program: ProgramIR) -> int | None:
-    def run(code: List[Instr], env_stack: List[Dict[str, object]]) -> object | None:
+    def run(
+        code: List[Instr],
+        env_stack: List[Dict[str, object]],
+        var_info_stack: List[Dict[str, Dict[str, object | None]]],
+    ) -> object | None:
         stack: List[object] = []
         for instr in code:
             if isinstance(instr, Const):
@@ -492,7 +519,12 @@ def execute(program: ProgramIR) -> int | None:
                 if stack:
                     stack.append(stack[-1])
             elif isinstance(instr, Store):
-                env_stack[-1][instr.name] = stack.pop()
+                val = stack.pop()
+                env_stack[-1][instr.name] = val
+                var_info_stack[-1][instr.name] = {
+                    "type_name": instr.type_name,
+                    "ptr": val,
+                }
             elif isinstance(instr, BinOpInstr):
                 b = stack.pop()
                 a = stack.pop()
@@ -507,15 +539,52 @@ def execute(program: ProgramIR) -> int | None:
                     raise RuntimeError(f"Undefined function {instr.name}")
                 new_env = dict(zip(func.params, args))
                 env_stack.append(new_env)
-                result = run(func.code, env_stack)
+                var_info_stack.append({})
+                result = run(func.code, env_stack, var_info_stack)
                 env_stack.pop()
+                var_info_stack.pop()
                 if result is not None:
                     stack.append(result)
             elif isinstance(instr, Return):
                 return stack.pop() if stack else None
             elif isinstance(instr, DestructorCall):
+
                 # Destructor calls are placeholders in the interpreter.
                 pass
+            elif isinstance(instr, ScopeEnter):
+                env_stack.append({})
+            elif isinstance(instr, ScopeExit):
+                env_stack.pop()
+
+                info = None
+                for scope in reversed(var_info_stack):
+                    if instr.name in scope:
+                        info = scope[instr.name]
+                        break
+                if info is not None:
+                    type_name = info.get("type_name")
+                    ptr = info.get("ptr")
+                    if type_name:
+                        func_name = f"{type_name}_destructor"
+                        func = program.functions.get(func_name)
+                        if func is None:
+                            raise RuntimeError(
+                                f"Could not find destructor function '{func_name}'"
+                            )
+                        env_stack.append({func.params[0]: ptr})
+                        var_info_stack.append({func.params[0]: {"type_name": None, "ptr": ptr}})
+                        run(func.code, env_stack, var_info_stack)
+                        env_stack.pop()
+                        var_info_stack.pop()
+                    for scope in reversed(var_info_stack):
+                        if instr.name in scope:
+                            del scope[instr.name]
+                            break
+                    for env in reversed(env_stack):
+                        if instr.name in env:
+                            del env[instr.name]
+                            break
+
             elif isinstance(instr, Pop):
                 if stack:
                     stack.pop()
@@ -523,7 +592,7 @@ def execute(program: ProgramIR) -> int | None:
                 raise RuntimeError(f"Unknown instruction {instr}")
         return stack[-1] if stack else None
 
-    return run(program.code, [{}])
+    return run(program.code, [{}], [{}])
 
 
 # ------------ Helpers ----------------------------------------------------------

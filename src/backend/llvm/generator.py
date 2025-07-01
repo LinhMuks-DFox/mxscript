@@ -17,6 +17,8 @@ from ..llir import (
     Pop,
     DestructorCall,
     Function,
+    ScopeEnter,
+    ScopeExit,
 )
 from .context import LLVMContext
 from ..ffi import FFIManager
@@ -208,6 +210,13 @@ class LLVMGenerator:
             elif isinstance(instr, Pop):
                 if stack:
                     stack.pop()
+            elif isinstance(instr, ScopeEnter):
+                self.var_info_stack.append({})
+                self.ctx.push_scope()
+            elif isinstance(instr, ScopeExit):
+                self.ctx.pop_scope()
+                if self.var_info_stack:
+                    self.var_info_stack.pop()
             else:
                 raise RuntimeError(f"Unknown instruction {instr}")
         return stack[-1] if stack else None

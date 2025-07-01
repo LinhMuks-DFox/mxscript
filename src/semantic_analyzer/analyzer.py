@@ -26,6 +26,7 @@ from ..syntax_parser.ast import (
     LetStmt,
     BindingStmt,
     ImportStmt,
+    Block,
     StructDef,
     DestructorDef,
     ConstructorDef,
@@ -107,6 +108,11 @@ class SemanticAnalyzer:
             self._visit_expression(stmt.iterable)
             self.variables_stack.append({stmt.var})
             for s in stmt.body.statements:
+                self._visit_statement(s)
+            self.variables_stack.pop()
+        elif isinstance(stmt, Block):
+            self.variables_stack.append(set())
+            for s in stmt.statements:
                 self._visit_statement(s)
             self.variables_stack.pop()
         elif isinstance(stmt, ImportStmt):
