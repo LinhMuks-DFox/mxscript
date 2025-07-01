@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Set
+from typing import Dict, List, Set
 
 from ..backend.llir import load_module_ast
+from .types import TypeInfo
 
 from ..syntax_parser.ast import (
     BinaryOp,
@@ -23,6 +24,8 @@ from ..syntax_parser.ast import (
     LetStmt,
     BindingStmt,
     ImportStmt,
+    StructDef,
+    DestructorDef,
     Program,
     Statement,
     Expression,
@@ -40,10 +43,12 @@ class SemanticAnalyzer:
 
     variables_stack: List[Set[str]] | None = None
     functions: Set[str] | None = None
+    type_registry: Dict[str, TypeInfo] | None = None
 
     def analyze(self, program: Program) -> None:
         self.functions = set()
         self._collect_functions(program)
+        self.type_registry = {}
         self.variables_stack = [set()]
         self._visit_program(program)
 
@@ -119,8 +124,33 @@ class SemanticAnalyzer:
         elif isinstance(stmt, ForeignFuncDecl):
             # no body to check
             pass
+        elif isinstance(stmt, StructDef):
+            self._visit_struct_def(stmt)
         else:
             raise SemanticError(f"Unsupported statement {type(stmt).__name__}")
+
+    def _visit_struct_def(self, struct: StructDef) -> None:
+        assert self.type_registry is not None
+        if struct.name in self.type_registry:
+            raise SemanticError(f"Type '{struct.name}' is already defined.")
+
+        type_info = TypeInfo(name=struct.name)
+        self.type_registry[struct.name] = type_info
+
+        for member in struct.body.statements:
+            if isinstance(member, DestructorDef):
+                type_info.has_destructor = True
+                # analyze destructor body in its own scope with 'self'
+                self.variables_stack.append({"self"})
+                for stmt in member.body.statements:
+                    self._visit_statement(stmt)
+                self.variables_stack.pop()
+            elif isinstance(member, LetStmt):
+                # store member type information (type name may be None)
+                type_info.members[member.name] = member.type_name
+            else:
+                # For now, simply visit any nested statements
+                self._visit_statement(member)
 
     def _visit_expression(self, expr: Expression) -> None:
         if isinstance(expr, Identifier):
