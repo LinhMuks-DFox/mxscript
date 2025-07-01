@@ -22,6 +22,7 @@ from src.syntax_parser import (
     MatchExpr,
     MemberAccess,
     ConstructorDef,
+    IfStmt,
     Identifier,
     Parser,
 )
@@ -325,5 +326,27 @@ def test_parse_class_with_public_private_only():
     ast = Parser(stream).parse()
 
     assert isinstance(ast.statements[0], ClassDef)
+
+
+def test_parse_if_else_statement():
+    src = "if x { let y = 1; } else { let z = 2; }"
+    program = parse(src)
+    stmt = program.statements[0]
+    assert isinstance(stmt, IfStmt)
+    assert isinstance(stmt.condition, Identifier)
+    assert stmt.condition.name == "x"
+    assert isinstance(stmt.then_block, Block)
+    assert isinstance(stmt.then_block.statements[0], LetStmt)
+    assert isinstance(stmt.else_block, Block)
+    assert isinstance(stmt.else_block.statements[0], LetStmt)
+
+
+def test_parse_if_elseif_chain():
+    src = "if a { } else if b { } else { }"
+    program = parse(src)
+    stmt = program.statements[0]
+    assert isinstance(stmt, IfStmt)
+    assert isinstance(stmt.else_block, IfStmt)
+    assert stmt.else_block.else_block is not None
 
 

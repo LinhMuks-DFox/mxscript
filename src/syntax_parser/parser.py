@@ -24,6 +24,7 @@ from .ast import (
     UnaryOp,
     MemberAccess,
     MemberAssign,
+    IfStmt,
 )
 
 BINARY_PRECEDENCE: Dict[str, int] = {
@@ -107,6 +108,8 @@ class Parser:
             return self.parse_binding(tok.value == 'static')
         if tok.tk_type == 'KEYWORD' and tok.value == 'for':
             return self.parse_for_in()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'if':
+            return self.parse_if_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'raise':
             return self.parse_raise_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'return':
@@ -179,6 +182,19 @@ class Parser:
         body = self.parse_block()
         from .ast import ForInStmt
         return ForInStmt(var, iterable, body, is_mut, loc=start)
+
+    def parse_if_stmt(self) -> IfStmt:
+        start = self._expect('KEYWORD', 'if')
+        condition = self.parse_expression()
+        then_block = self.parse_block()
+        else_block = None
+        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'else':
+            self.stream.next()
+            if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'if':
+                else_block = self.parse_if_stmt()
+            else:
+                else_block = self.parse_block()
+        return IfStmt(condition, then_block, else_block, loc=start)
 
     def parse_raise_stmt(self):
         start = self._expect('KEYWORD', 'raise')
