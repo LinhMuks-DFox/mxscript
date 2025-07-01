@@ -1,17 +1,31 @@
 class Error{}
 
-class int {}
 
-class string {
 
-public:
-    func from_type_int() {
-    }
-}
 
 class bool {}
 
 class float {}
+
+
+@@template(Origin)
+func to_string(obj: Origin) -> string {
+    obj.to_string();
+}
+
+@@template<Origin=int>
+func to_string(obj: Origin) -> string {
+    obj.to_string();
+}
+
+
+@@template<Origin=float>
+func to_string(obj: Origin) -> string {
+    obj.to_string();
+}
+@@template<Origin=bool>
+func to_string(obj: Origin) -> string {
+    obj.to_string();
 
 @@template(Target, Origin)
 func cast(target_type:Target, value: T) -> Target | Error {

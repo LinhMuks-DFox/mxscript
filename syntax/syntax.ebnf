@@ -74,6 +74,8 @@ binding_stmt     = ( "static" | "dynamic" ) , "let" , identifier ,
 control_stmt     = if_stmt
                  | for_in_stmt
                  | loop_stmt
+                 | do_until_stmt   (* <--- Added *)
+                 | until_stmt      (* <--- Added *)
                  | break_stmt
                  | return_stmt
                  | raise_stmt
@@ -85,6 +87,11 @@ if_stmt          = "if" , expression , block ,
 for_in_stmt      = "for" , [ "mut" ] , identifier , "in" , expression , block ;
 
 loop_stmt        = "loop" , block ;
+
+do_until_stmt    = "do" , block , "until" , "(" , expression , ")" , ";" ; (* <--- New Definition *)
+
+until_stmt       = "until" , "(" , expression , ")" , block ; (* <--- New Definition *)
+
 break_stmt       = "break" , ";" ;
 return_stmt      = "return" , [ expression ] , ";" ;
 raise_stmt       = "raise" , expression , ";" ;
@@ -106,11 +113,11 @@ multiplicative_expr = unary_expr , { ( "*" | "/" | "%" ) , unary_expr } ;
 unary_expr       = [ "!" | "+" | "-" ] , postfix_expr ;
 
 postfix_expr     = primary_expr , { postfix_op } ;
-postfix_op       = "." , identifier              (* Member access: a.b *)
-                 | "[" , expression , "]"        (* Index access: a[i] *)
-                 | generic_inst , call_args      (* Generic call: a<T>() *)
-                 | call_args                     (* Regular call: a() *)
-                 | "?"                           (* Error propagation: a? *)
+postfix_op       = "." , identifier            (* Member access: a.b *)
+                 | "[" , expression , "]"      (* Index access: a[i] *)
+                 | generic_inst , call_args    (* Generic call: a<T>() *)
+                 | call_args                   (* Regular call: a() *)
+                 | "?"                         (* Error propagation: a? *)
                  ;
 
 call_args        = "(" , [ arg_list ] , ")" ;
@@ -147,6 +154,6 @@ generic_inst     = "<" , type_spec , { "," , type_spec } , ">" ;
 field_decl       = identifier_list , ":" , type_spec , ";" ;
 
 (* Comments are handled entirely by the lexer. The lexer recognizes two forms: *)
-(*  - '#'        : single line comment terminating at newline               *)
-(*  - '!##!' ... '!##!' : multi-line comment                                *)
+(* - '#'           : single line comment terminating at newline            *)
+(* - '!##!' ... '!##!' : multi-line comment                                *)
 comment          = ? "Lexer-defined single or multi-line comment" ? ;
