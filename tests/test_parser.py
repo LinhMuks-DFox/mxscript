@@ -216,6 +216,28 @@ def test_parse_struct_with_members_and_access():
     assert access.member.name == "value"
 
 
+def test_parse_member_assignment():
+    source = """
+    struct Point { let mut x: int; }
+    func main() {
+        let p = Point();
+        p.x = 100;
+    }
+    """
+    tokens = tokenize(source)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+
+    main_func = ast.statements[1]
+    assign_stmt = main_func.body.statements[1]
+    assert isinstance(assign_stmt, ExprStmt)
+    from src.syntax_parser.ast import MemberAssign
+
+    assert isinstance(assign_stmt.expr, MemberAssign)
+    assert isinstance(assign_stmt.expr.member, Identifier)
+    assert assign_stmt.expr.member.name == "x"
+
+
 def test_parse_struct_with_constructor():
     source = """
     struct Box {

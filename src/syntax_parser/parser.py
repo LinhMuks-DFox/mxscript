@@ -22,6 +22,8 @@ from .ast import (
     DestructorDef,
     ForeignFuncDecl,
     UnaryOp,
+    MemberAccess,
+    MemberAssign,
 )
 
 BINARY_PRECEDENCE: Dict[str, int] = {
@@ -244,6 +246,18 @@ class Parser:
                 expr = BinaryOp(expr, op, right)
             else:
                 break
+
+        if (
+            precedence == 1
+            and self.stream.peek().tk_type == 'OPERATOR'
+            and self.stream.peek().value == '='
+            and isinstance(expr, MemberAccess)
+        ):
+            assign_tok = self.stream.next()
+            value = self.parse_expression()
+            from .ast import MemberAssign
+
+            expr = MemberAssign(expr.object, expr.member, value, loc=assign_tok)
         return expr
 
     def parse_unary(self):

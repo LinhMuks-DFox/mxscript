@@ -77,6 +77,15 @@ class MemberAccess(Expression):
 
 
 @dataclass
+class MemberAssign(Expression):
+    """Assignment to ``object.member`` via the ``=`` operator."""
+
+    object: Expression
+    member: Identifier
+    value: Expression
+
+
+@dataclass
 class Integer(Expression):
     value: int
 

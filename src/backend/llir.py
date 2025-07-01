@@ -23,6 +23,7 @@ from ..syntax_parser.ast import (
     Identifier,
     Integer,
     MemberAccess,
+    MemberAssign,
     String,
     LetStmt,
     BindingStmt,
@@ -384,6 +385,36 @@ def _compile_expr(
         while name in alias_map:
             name = alias_map[name]
         return [Load(name)]
+    if isinstance(expr, MemberAssign):
+        code = _compile_expr(expr.value, alias_map, symtab, type_registry)
+
+        if isinstance(expr.value, Identifier) and type_registry is not None:
+            sym = symtab.lookup(expr.value.name)
+            if (
+                sym is not None
+                and sym.type_name is not None
+                and sym.type_name in type_registry
+            ):
+                code.append(Call("arc_retain", 1))
+
+        name = _flatten_member(MemberAccess(expr.object, expr.member))
+        resolved_type = None
+        if (
+            isinstance(expr.object, Identifier)
+            and type_registry is not None
+        ):
+            obj_sym = symtab.lookup(expr.object.name)
+            if (
+                obj_sym is not None
+                and obj_sym.type_name is not None
+                and obj_sym.type_name in type_registry
+            ):
+                resolved_type = type_registry[obj_sym.type_name].members.get(
+                    expr.member.name
+                )
+
+        code.append(Store(name, resolved_type))
+        return code
     if isinstance(expr, BinaryOp):
         return _compile_expr(expr.left, alias_map, symtab, type_registry) + _compile_expr(expr.right, alias_map, symtab, type_registry) + [BinOpInstr(expr.op)]
     if isinstance(expr, UnaryOp):

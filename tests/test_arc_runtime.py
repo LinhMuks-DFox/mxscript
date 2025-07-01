@@ -112,3 +112,22 @@ def test_arc_retain_for_function_args():
     ir = compile_to_ir(src)
     assert ir.count('call i8* @"arc_retain"') == 1
 
+
+def test_arc_release_on_member_assignment():
+    src = (
+        'struct Data {\n'
+        '    func Data() {}\n'
+        '}\n'
+        'struct Container {\n'
+        '    let mut d: Data;\n'
+        '    func Container() {}\n'
+        '}\n'
+        'func main() {\n'
+        '    let c: Container = Container();\n'
+        '    c.d = Data();\n'
+        '    c.d = Data();\n'
+        '}\n'
+    )
+    ir = compile_to_ir(src)
+    assert ir.count('call void @"arc_release"') == 1
+
