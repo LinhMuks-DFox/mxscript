@@ -28,6 +28,10 @@ from ..syntax_parser.ast import (
     ConstructorDef,
     ReturnStmt,
     ImportStmt,
+    ForInStmt,
+    LoopStmt,
+    UntilStmt,
+    DoUntilStmt,
     IfStmt,
     Program,
     UnaryOp,
@@ -319,6 +323,80 @@ def _compile_stmt(
         return code
     if isinstance(stmt, ExprStmt):
         return _compile_expr(stmt.expr, alias_map, symtab, type_registry)
+    if isinstance(stmt, LoopStmt):
+        from .llir import Label, Br
+        code: List[Instr] = []
+        body_label = _new_label("loop_body")
+        end_label = _new_label("loop_end")
+        code.append(Label(name=body_label))
+        code.extend(_compile_stmt(stmt.body, alias_map, symtab, type_registry))
+        code.append(Br(label=body_label))
+        code.append(Label(name=end_label))
+        return code
+    if isinstance(stmt, UntilStmt):
+        from .llir import Label, Br, CondBr
+        code: List[Instr] = []
+        cond_label = _new_label("until_cond")
+        body_label = _new_label("until_body")
+        end_label = _new_label("until_end")
+        code.append(Br(label=cond_label))
+        code.append(Label(name=cond_label))
+        code.extend(_compile_expr(stmt.condition, alias_map, symtab, type_registry))
+        cond_var = _new_temp()
+        code.append(Store(cond_var))
+        code.append(CondBr(cond=cond_var, then_label=end_label, else_label=body_label))
+        code.append(Label(name=body_label))
+        code.extend(_compile_stmt(stmt.body, alias_map, symtab, type_registry))
+        code.append(Br(label=cond_label))
+        code.append(Label(name=end_label))
+        return code
+    if isinstance(stmt, DoUntilStmt):
+        from .llir import Label, CondBr
+        code: List[Instr] = []
+        body_label = _new_label("do_body")
+        end_label = _new_label("do_end")
+        code.append(Label(name=body_label))
+        code.extend(_compile_stmt(stmt.body, alias_map, symtab, type_registry))
+        code.extend(_compile_expr(stmt.condition, alias_map, symtab, type_registry))
+        cond_var = _new_temp()
+        code.append(Store(cond_var))
+        code.append(CondBr(cond=cond_var, then_label=end_label, else_label=body_label))
+        code.append(Label(name=end_label))
+        return code
+    if isinstance(stmt, ForInStmt):
+        from .llir import Label, Br, CondBr
+        code: List[Instr] = []
+        cond_label = _new_label("for_cond")
+        body_label = _new_label("for_body")
+        end_label = _new_label("for_end")
+        code.extend(_compile_expr(stmt.iterable, alias_map, symtab, type_registry))
+        code.append(Call("iter_start", 1))
+        iter_reg = _new_temp()
+        code.append(Store(iter_reg))
+        code.append(Br(label=cond_label))
+        code.append(Label(name=cond_label))
+        code.append(Load(iter_reg))
+        code.append(Call("iter_has_next", 1))
+        has_next = _new_temp()
+        code.append(Store(has_next))
+        code.append(CondBr(cond=has_next, then_label=body_label, else_label=end_label))
+        code.append(Label(name=body_label))
+        code.append(ScopeEnter())
+        symtab.enter_scope()
+        code.append(Load(iter_reg))
+        code.append(Call("iter_next", 1))
+        code.append(Store(stmt.var, None, stmt.is_mut))
+        symtab.add_symbol(Symbol(stmt.var, None, False))
+        for s in stmt.body.statements:
+            code.extend(_compile_stmt(s, alias_map, symtab, type_registry))
+        scope = symtab.leave_scope()
+        for sym in reversed(list(scope.values())):
+            if sym.needs_destruction:
+                code.append(DestructorCall(sym.name))
+        code.append(ScopeExit())
+        code.append(Br(label=cond_label))
+        code.append(Label(name=end_label))
+        return code
     if isinstance(stmt, RaiseStmt):
         code = _compile_expr(stmt.expr, alias_map, symtab, type_registry)
         for scope in reversed(symtab.scopes):

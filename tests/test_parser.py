@@ -142,6 +142,27 @@ def test_parse_for_loop():
     assert stmt.var == "i"
 
 
+def test_parse_loop_stmt():
+    program = parse("loop { let x = 1; }")
+    stmt = program.statements[0]
+    from src.syntax_parser.ast import LoopStmt
+    assert isinstance(stmt, LoopStmt)
+
+
+def test_parse_until_stmt():
+    program = parse("until (x) { let y = 1; }")
+    stmt = program.statements[0]
+    from src.syntax_parser.ast import UntilStmt
+    assert isinstance(stmt, UntilStmt)
+
+
+def test_parse_do_until_stmt():
+    program = parse("do { let x = 1; } until (x);")
+    stmt = program.statements[0]
+    from src.syntax_parser.ast import DoUntilStmt
+    assert isinstance(stmt, DoUntilStmt)
+
+
 def test_parse_raise_stmt():
     program = parse("raise 1;")
     stmt = program.statements[0]

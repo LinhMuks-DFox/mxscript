@@ -27,6 +27,8 @@ KEYWORDS = {
     "for",
     "in",
     "loop",
+    "do",
+    "until",
     "break",
     "return",
     "raise",

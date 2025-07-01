@@ -95,6 +95,12 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
             return self.parse_binding(tok.value == 'static')
         if tok.tk_type == 'KEYWORD' and tok.value == 'for':
             return self.parse_for_in()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'loop':
+            return self.parse_loop_stmt()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'until':
+            return self.parse_until_stmt()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'do':
+            return self.parse_do_until_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'if':
             return self.parse_if_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'raise':
@@ -169,6 +175,32 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
         body = self.parse_block()
         from .ast import ForInStmt
         return ForInStmt(var, iterable, body, is_mut, loc=start)
+
+    def parse_loop_stmt(self):
+        start = self._expect('KEYWORD', 'loop')
+        body = self.parse_block()
+        from .ast import LoopStmt
+        return LoopStmt(body, loc=start)
+
+    def parse_until_stmt(self):
+        start = self._expect('KEYWORD', 'until')
+        self._expect('OPERATOR', '(')
+        condition = self.parse_expression()
+        self._expect('OPERATOR', ')')
+        body = self.parse_block()
+        from .ast import UntilStmt
+        return UntilStmt(condition, body, loc=start)
+
+    def parse_do_until_stmt(self):
+        start = self._expect('KEYWORD', 'do')
+        body = self.parse_block()
+        self._expect('KEYWORD', 'until')
+        self._expect('OPERATOR', '(')
+        condition = self.parse_expression()
+        self._expect('OPERATOR', ')')
+        self._expect('OPERATOR', ';')
+        from .ast import DoUntilStmt
+        return DoUntilStmt(body, condition, loc=start)
 
     def parse_if_stmt(self) -> IfStmt:
         start = self._expect('KEYWORD', 'if')
