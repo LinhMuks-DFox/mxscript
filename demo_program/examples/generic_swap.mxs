@@ -4,7 +4,7 @@
 import std.io as io;
 static let println = io.println;
 
-@@template(type T)
+@@template(T)
 func swap(a: T, b: T) -> (T, T) {
     return (b, a);
 }
