@@ -30,17 +30,17 @@ public:
     let field: int;
     let hidden: int;
 
-    func init(self, start: int) {
+    func init(start: int) {
         self.field = start;
         self.hidden = 0;
     }
 
-    func increment(self) -> nil{
+    func increment() -> nil{
         self.field = self.field + 1;
     }
 
 private:
-    func del(self) {
+    func del() {
         write(1, "Counter destroyed\n", 18);
     }
 }
@@ -89,7 +89,7 @@ public:
     x: int;
     y: int;
 
-    func init(self, x: int, y: int) {
+    func init(x: int, y: int) {
         self.x = x;
         self.y = y;
     }
