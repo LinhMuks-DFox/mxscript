@@ -90,9 +90,6 @@ class Parser:
                     'Annotation only supported before functions',
                     self._get_location(next_tok),
                 )
-        if tok.tk_type == 'KEYWORD' and tok.value in ('public', 'private'):
-            self.stream.next()
-            tok = self.stream.peek()
         if tok.tk_type == 'KEYWORD' and tok.value == 'import':
             return self.parse_import()
         if tok.tk_type == 'KEYWORD' and tok.value == 'let':
@@ -369,6 +366,15 @@ class Parser:
             self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '}'
         ):
             tok = self.stream.peek()
+            if tok.tk_type == 'KEYWORD' and tok.value in ('public', 'private'):
+                # consume access modifier and optional colon
+                self.stream.next()
+                if (
+                    self.stream.peek().tk_type == 'OPERATOR'
+                    and self.stream.peek().value == ':'
+                ):
+                    self.stream.next()
+                continue
             if tok.tk_type == 'KEYWORD' and tok.value == 'let':
                 statements.append(self.parse_field_decl())
             elif (

@@ -254,10 +254,15 @@ def test_parse_class_with_constructor():
     assert ctor_found
 
 
-def test_parse_class_with_method():
+
+def test_parse_class_with_access_specifiers():
     source = """
     class Foo {
-        func bar(x: int) -> int { return x; }
+        public:
+        let x: int;
+        private:
+        let y: int;
+
     }
     """
     tokens = tokenize(source)
@@ -288,4 +293,6 @@ def test_parse_class_with_operator():
     assert len(ops) == 1
     op = ops[0]
     assert op.op == "+"
+    assert isinstance(ast.statements[0], ClassDef)
+
 
