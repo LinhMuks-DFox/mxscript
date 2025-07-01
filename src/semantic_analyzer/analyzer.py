@@ -28,6 +28,7 @@ from ..syntax_parser.ast import (
     ImportStmt,
     StructDef,
     DestructorDef,
+    ConstructorDef,
     Program,
     Statement,
     Expression,
@@ -162,6 +163,12 @@ class SemanticAnalyzer:
                 for stmt in member.body.statements:
                     self._visit_statement(stmt)
                 self.variables_stack.pop()
+            elif isinstance(member, ConstructorDef):
+                type_info.constructor = member.signature
+                self.variables_stack.append({"self"})
+                for stmt in member.body.statements:
+                    self._visit_statement(stmt)
+                self.variables_stack.pop()
             elif isinstance(member, LetStmt):
                 # store member type information (type name may be None)
                 type_info.members[member.name] = member.type_name
@@ -201,14 +208,28 @@ class SemanticAnalyzer:
                         self._visit_statement(s)
                 self.variables_stack.pop()
         elif isinstance(expr, FunctionCall):
-            # Check that the function exists
-            if '.' not in expr.name and self.functions is not None and expr.name not in self.functions:
-                raise NameError(
-                    f"Undefined function '{expr.name}'",
-                    self._get_location(expr.loc),
-                )
-            for arg in expr.args:
-                self._visit_expression(arg)
+            if (
+                self.type_registry is not None
+                and expr.name in self.type_registry
+            ):
+                ctor_sig = self.type_registry[expr.name].constructor
+                if ctor_sig is not None:
+                    expected = [n for p in ctor_sig.params for n in p.names]
+                    if len(expected) != len(expr.args):
+                        raise SemanticError(
+                            f"Constructor for {expr.name} takes {len(expected)} arguments",
+                            self._get_location(expr.loc),
+                        )
+                for arg in expr.args:
+                    self._visit_expression(arg)
+            else:
+                if '.' not in expr.name and self.functions is not None and expr.name not in self.functions:
+                    raise NameError(
+                        f"Undefined function '{expr.name}'",
+                        self._get_location(expr.loc),
+                    )
+                for arg in expr.args:
+                    self._visit_expression(arg)
         else:
             raise SemanticError(
                 f"Unsupported expression {type(expr).__name__}",

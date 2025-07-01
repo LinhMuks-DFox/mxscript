@@ -89,3 +89,20 @@ def test_static_alias_println(capfd):
     assert captured.out == "hi\n"
     assert result == 0
 
+
+def test_constructor_call(capfd):
+    src = (
+        'import std.io as io;\n'
+        'struct Box {\n'
+        '    func Box() { io.println("ctor"); }\n'
+        '    func ~Box() { io.println("dtor"); }\n'
+        '}\n'
+        'func main() -> int {\n'
+        '    let b: Box = Box();\n'
+        '    return 0;\n'
+        '}'
+    )
+    compile_and_run(src)
+    captured = capfd.readouterr()
+    assert "ctor" in captured.out
+

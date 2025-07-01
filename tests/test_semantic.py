@@ -102,3 +102,12 @@ def test_analyzer_registers_struct_and_destructor():
     info = analyzer.type_registry["File"]
     assert info.has_destructor is True
 
+
+def test_analyzer_registers_constructor():
+    source = "struct Box { func Box(v: int) {} }"
+    ast = Parser(TokenStream(tokenize(source))).parse()
+    analyzer = SemanticAnalyzer()
+    analyzer.analyze(ast)
+    info = analyzer.type_registry["Box"]
+    assert info.constructor is not None
+

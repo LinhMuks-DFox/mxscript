@@ -28,6 +28,7 @@ from ..syntax_parser.ast import (
     BindingStmt,
     StructDef,
     DestructorDef,
+    ConstructorDef,
     ReturnStmt,
     ImportStmt,
     Program,
@@ -72,6 +73,16 @@ class Instr:
 @dataclass
 class Const(Instr):
     value: int | str
+
+
+@dataclass
+class Alloc(Instr):
+    size: int
+
+
+@dataclass
+class Dup(Instr):
+    pass
 
 
 @dataclass
@@ -190,6 +201,11 @@ def compile_program(
                         stmt.name, member, alias_map, type_registry
                     )
                     functions[dtor_ir.name] = dtor_ir
+                elif isinstance(member, ConstructorDef):
+                    ctor_ir = _compile_constructor(
+                        stmt.name, member, alias_map, type_registry
+                    )
+                    functions[ctor_ir.name] = ctor_ir
         elif isinstance(stmt, ForeignFuncDecl):
             foreign_functions[stmt.name] = stmt.c_name
         elif isinstance(stmt, ImportStmt):
@@ -343,6 +359,15 @@ def _compile_expr(
             return [Const(0)] + _compile_expr(expr.operand, alias_map, symtab, type_registry) + [BinOpInstr('-')]
     if isinstance(expr, FunctionCall):
         code: List[Instr] = []
+        if type_registry is not None and expr.name in type_registry:
+            # struct instantiation
+            code.append(Alloc(0))
+            code.append(Dup())
+            for arg in expr.args:
+                code.extend(_compile_expr(arg, alias_map, symtab, type_registry))
+            code.append(Call(f"{expr.name}_constructor", len(expr.args) + 1))
+            code.append(Pop())
+            return code
         for arg in expr.args:
             code.extend(_compile_expr(arg, alias_map, symtab, type_registry))
         name = expr.name
@@ -372,6 +397,25 @@ def _compile_function(
         if sym.needs_destruction:
             body_code.append(DestructorCall(sym.name))
     return Function(func.name, params, body_code)
+
+
+def _compile_constructor(
+    struct_name: str,
+    constructor: ConstructorDef,
+    alias_map: Dict[str, str],
+    type_registry: Dict[str, TypeInfo] | None,
+) -> Function:
+    params = ["self"] + [n for p in constructor.signature.params for n in p.names]
+    body_code: List[Instr] = []
+    symtab = ScopedSymbolTable()
+    symtab.add_symbol(Symbol("self", struct_name, False))
+    for stmt in constructor.body.statements:
+        body_code.extend(_compile_stmt(stmt, alias_map, symtab, type_registry))
+    for sym in reversed(list(symtab.scopes[-1].values())):
+        if sym.needs_destruction:
+            body_code.append(DestructorCall(sym.name))
+    name = f"{struct_name}_constructor"
+    return Function(name, params, body_code)
 
 
 def _compile_destructor(
@@ -442,6 +486,11 @@ def execute(program: ProgramIR) -> int | None:
                         break
                 else:
                     stack.append(0)
+            elif isinstance(instr, Alloc):
+                stack.append(0)
+            elif isinstance(instr, Dup):
+                if stack:
+                    stack.append(stack[-1])
             elif isinstance(instr, Store):
                 env_stack[-1][instr.name] = stack.pop()
             elif isinstance(instr, BinOpInstr):

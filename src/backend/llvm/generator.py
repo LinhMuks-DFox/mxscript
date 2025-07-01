@@ -10,6 +10,8 @@ from ..llir import (
     Load,
     Store,
     BinOpInstr,
+    Alloc,
+    Dup,
     Call,
     Return,
     Pop,
@@ -36,6 +38,8 @@ class LLVMGenerator:
             arg_types = [self.ctx.int_t] * len(func.params)
             if func.name.endswith("_destructor"):
                 arg_types = [self.ctx.int_t.as_pointer()]
+            elif func.name.endswith("_constructor"):
+                arg_types = [self.ctx.int_t.as_pointer()] + [self.ctx.int_t] * (len(func.params) - 1)
             ty = ir.FunctionType(self.ctx.int_t, arg_types)
             self.functions[func.name] = ir.Function(self.ctx.module, ty, name=func.name)
         for alias, c_name in program.foreign_functions.items():
@@ -113,6 +117,13 @@ class LLVMGenerator:
                     stack.append(self.ctx.builder.load(val))
                 else:
                     stack.append(val)
+            elif isinstance(instr, Alloc):
+                assert self.ctx.entry_builder is not None
+                ptr = self.ctx.entry_builder.alloca(self.ctx.int_t)
+                stack.append(self.ctx.builder.ptrtoint(ptr, self.ctx.int_t))
+            elif isinstance(instr, Dup):
+                if stack:
+                    stack.append(stack[-1])
             elif isinstance(instr, Store):
                 val = stack.pop()
                 if instr.is_mut or instr.type_name is not None:

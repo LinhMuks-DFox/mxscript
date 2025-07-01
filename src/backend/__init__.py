@@ -1,5 +1,7 @@
 from .llir import (
     BinOpInstr,
+    Alloc,
+    Dup,
     Call,
     Const,
     Function,
@@ -23,6 +25,8 @@ __all__ = [
     "Load",
     "Store",
     "BinOpInstr",
+    "Alloc",
+    "Dup",
     "Pop",
     "Call",
     "Function",

@@ -131,3 +131,21 @@ def test_llvm_destructor_call(capfd):
     compile_and_run(src)
     captured = capfd.readouterr()
     assert "Object destroyed!" in captured.out
+
+
+def test_llvm_constructor(capfd):
+    src = (
+        'import std.io as io;\n'
+        'struct Box {\n'
+        '    func Box() { io.println("ctor"); }\n'
+        '    func ~Box() { io.println("dtor"); }\n'
+        '}\n'
+        'func main() -> int {\n'
+        '    let b: Box = Box();\n'
+        '    return 0;\n'
+        '}'
+    )
+    compile_and_run(src)
+    captured = capfd.readouterr()
+    assert "ctor" in captured.out
+    assert "dtor" in captured.out
