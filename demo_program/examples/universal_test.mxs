@@ -27,15 +27,15 @@ func fib(n: int) -> int {
 # Class with constructor, destructor, method and member variables
 class Counter {
 public:
-    field: int;
-    hidden: int;
+    let field: int;
+    let hidden: int;
 
     func init(self, start: int) {
         self.field = start;
         self.hidden = 0;
     }
 
-    func increment(self) {
+    func increment(self) -> nil{
         self.field = self.field + 1;
     }
 
