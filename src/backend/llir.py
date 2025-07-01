@@ -24,6 +24,8 @@ from ..syntax_parser.ast import (
     Integer,
     MemberAccess,
     MemberAssign,
+    RaiseStmt,
+    RaiseExpr,
     String,
     LetStmt,
     BindingStmt,
@@ -149,6 +151,14 @@ class ProgramIR:
     code: List[Instr]
     functions: Dict[str, Function]
     foreign_functions: Dict[str, str]
+
+
+@dataclass
+class ErrorValue:
+    """Runtime representation of an Error object."""
+
+    msg: str = ""
+    panic: bool = False
 
 
 
@@ -341,6 +351,14 @@ def _compile_stmt(
         return code
     if isinstance(stmt, ExprStmt):
         return _compile_expr(stmt.expr, alias_map, symtab, type_registry)
+    if isinstance(stmt, RaiseStmt):
+        code = _compile_expr(stmt.expr, alias_map, symtab, type_registry)
+        for scope in reversed(symtab.scopes):
+            for sym in reversed(list(scope.values())):
+                if sym.needs_destruction:
+                    code.append(DestructorCall(sym.name))
+        code.append(Return())
+        return code
     if isinstance(stmt, ReturnStmt):
         code = (
             _compile_expr(stmt.value, alias_map, symtab, type_registry)
@@ -385,6 +403,8 @@ def _compile_expr(
         while name in alias_map:
             name = alias_map[name]
         return [Load(name)]
+    if isinstance(expr, RaiseExpr):
+        return _compile_expr(expr.expr, alias_map, symtab, type_registry)
     if isinstance(expr, MemberAssign):
         code = _compile_expr(expr.value, alias_map, symtab, type_registry)
 
@@ -600,6 +620,8 @@ def execute(program: ProgramIR) -> int | None:
                 result = run(func.code, env_stack, var_info_stack)
                 env_stack.pop()
                 var_info_stack.pop()
+                if isinstance(result, ErrorValue) and result.panic:
+                    return result
                 if result is not None:
                     stack.append(result)
             elif isinstance(instr, Return):
@@ -645,7 +667,10 @@ def execute(program: ProgramIR) -> int | None:
                 raise RuntimeError(f"Unknown instruction {instr}")
         return stack[-1] if stack else None
 
-    return run(program.code, [{}], [{}])
+    result = run(program.code, [{}], [{}])
+    if isinstance(result, ErrorValue) and result.panic:
+        raise RuntimeError(f"Panic: {result.msg}")
+    return result
 
 
 # ------------ Helpers ----------------------------------------------------------
@@ -724,6 +749,10 @@ def _ffi_call(c_name: str, args: List[object]) -> int | None:
         import random
 
         return int(random.randint(0, 2**31 - 1))
+    if c_name == "make_error":
+        msg = str(args[0]) if args else ""
+        panic = bool(args[1]) if len(args) > 1 else False
+        return ErrorValue(msg=msg, panic=panic)
     if c_name == "print":
         print(*args)
         return 0

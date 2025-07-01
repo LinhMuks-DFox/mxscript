@@ -80,6 +80,9 @@ class Parser:
 
     def parse_statement(self):
         tok = self.stream.peek()
+        if tok.tk_type == 'KEYWORD' and tok.value in ('public', 'private'):
+            self.stream.next()
+            return self.parse_statement()
         if tok.tk_type == 'ANNOTATION':
             annotation = self.parse_annotation()
             next_tok = self.stream.peek()
