@@ -200,6 +200,15 @@ class ForInStmt(Statement):
 
 
 @dataclass
+class IfStmt(Statement):
+    """Classic if-else statement."""
+
+    condition: Expression
+    then_block: Block
+    else_block: Optional[Block | "IfStmt"] = None
+
+
+@dataclass
 class ReturnStmt(Statement):
     """Return statement inside a function."""
 
