@@ -12,3 +12,4 @@ ENV/
 *.swp
 .DS_Store
 
+runtime/arc_runtime.so
