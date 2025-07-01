@@ -87,6 +87,7 @@ class Parser:
                 and self.stream.peek().value == ':'
             ):
                 self.stream.next()
+
             return self.parse_statement()
         if tok.tk_type == 'ANNOTATION':
             annotation = self.parse_annotation()
