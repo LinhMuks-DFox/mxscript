@@ -174,7 +174,10 @@ class LLVMGenerator:
                 args = [stack.pop() for _ in range(instr.argc)][::-1]
                 callee = self.functions.get(instr.name)
                 if callee is None:
-                    callee = self.ctx.module.get_global(instr.name)
+                    try:
+                        callee = self.ctx.module.get_global(instr.name)
+                    except KeyError:
+                        callee = self.ffi.get_or_declare_function(instr.name)
                 func_ty = callee.function_type
                 cast_args: List[ir.Value] = []
                 for i, arg in enumerate(args):
