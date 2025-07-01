@@ -106,3 +106,42 @@ def test_constructor_call(capfd):
     captured = capfd.readouterr()
     assert "ctor" in captured.out
 
+
+
+def test_destructors_scopes(capfd):
+    src = (
+        'import std.io as io;\n'
+        'struct G { func ~G() { io.println("dg"); } }\n'
+        'struct Outer { func ~Outer() { io.println("do"); } }\n'
+        'struct Inner { func ~Inner() { io.println("di"); } }\n'
+        'let g: G = 0;\n'
+        'func main() -> int {\n'
+        '    let x: Outer = 0;\n'
+        '    {\n'
+        '        let x: Inner = 0;\n'
+        '        io.println("inner");\n'
+        '    }\n'
+        '    io.println("outer");\n'
+        '    return 0;\n'
+        '}\n'
+    )
+    compile_and_run(src)
+    captured = capfd.readouterr()
+    assert captured.out.splitlines() == ["inner", "di", "outer", "do", "dg"]
+
+
+def test_destructor_inferred_type(capfd):
+    src = (
+        'import std.io as io;\n'
+        'struct Box {\n'
+        '    func Box() {}\n'
+        '    func ~Box() { io.println("drop"); }\n'
+        '}\n'
+        'func main() -> int {\n'
+        '    let b = Box();\n'
+        '    return 0;\n'
+        '}\n'
+    )
+    compile_and_run(src)
+    captured = capfd.readouterr()
+    assert "drop" in captured.out
