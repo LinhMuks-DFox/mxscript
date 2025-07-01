@@ -22,6 +22,7 @@ from ..syntax_parser.ast import (
     ForeignFuncDecl,
     Identifier,
     Integer,
+    MemberAccess,
     String,
     LetStmt,
     BindingStmt,
@@ -173,8 +174,8 @@ def compile_program(
     has_main = False
     # First gather static aliases
     for stmt in prog.statements:
-        if isinstance(stmt, BindingStmt) and stmt.is_static and isinstance(stmt.value, Identifier):
-            alias_map[stmt.name] = stmt.value.name
+        if isinstance(stmt, BindingStmt) and stmt.is_static and isinstance(stmt.value, (Identifier, MemberAccess)):
+            alias_map[stmt.name] = _flatten_member(stmt.value)
 
     for stmt in prog.statements:
         if isinstance(stmt, (FuncDef, FunctionDecl)):
@@ -224,8 +225,8 @@ def compile_program(
                 else:
                     code.append(instr)
             continue
-        elif isinstance(stmt, BindingStmt) and stmt.is_static and isinstance(stmt.value, Identifier):
-            target = stmt.value.name
+        elif isinstance(stmt, BindingStmt) and stmt.is_static and isinstance(stmt.value, (Identifier, MemberAccess)):
+            target = _flatten_member(stmt.value)
             if target in functions:
                 target_func = functions[target]
                 functions[stmt.name] = Function(stmt.name, target_func.params, target_func.code)
@@ -266,8 +267,8 @@ def _compile_stmt(
         symtab.add_symbol(Symbol(stmt.name, stmt.type_name, needs_destruction))
         return code
     if isinstance(stmt, BindingStmt):
-        if stmt.is_static and isinstance(stmt.value, Identifier):
-            target = stmt.value.name
+        if stmt.is_static and isinstance(stmt.value, (Identifier, MemberAccess)):
+            target = _flatten_member(stmt.value)
             while target in alias_map:
                 target = alias_map[target]
             alias_map[stmt.name] = target
@@ -306,6 +307,14 @@ def _compile_stmt(
     raise NotImplementedError(f"Unsupported stmt {type(stmt).__name__}")
 
 
+def _flatten_member(expr) -> str:
+    if isinstance(expr, Identifier):
+        return expr.name
+    if isinstance(expr, MemberAccess):
+        return f"{_flatten_member(expr.object)}.{expr.member.name}"
+    raise NotImplementedError("Unsupported member expression")
+
+
 def _compile_expr(
     expr,
     alias_map: Dict[str, str],
@@ -318,6 +327,11 @@ def _compile_expr(
         return [Const(expr.value)]
     if isinstance(expr, Identifier):
         name = expr.name
+        while name in alias_map:
+            name = alias_map[name]
+        return [Load(name)]
+    if isinstance(expr, MemberAccess):
+        name = _flatten_member(expr)
         while name in alias_map:
             name = alias_map[name]
         return [Load(name)]

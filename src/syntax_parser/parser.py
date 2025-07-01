@@ -236,25 +236,40 @@ class Parser:
         tok = self.stream.peek()
         if tok.tk_type == 'INTEGER':
             self.stream.next()
-            return Integer(int(tok.value))
-        if tok.tk_type == 'STRING':
+            expr: Expression = Integer(int(tok.value))
+        elif tok.tk_type == 'STRING':
             self.stream.next()
-            return String(tok.value)
-        if tok.tk_type == 'KEYWORD' and tok.value == 'raise':
+            expr = String(tok.value)
+        elif tok.tk_type == 'KEYWORD' and tok.value == 'raise':
+            self.stream.next()
+            from .ast import RaiseExpr
+            expr = RaiseExpr(self.parse_expression())
+        elif tok.tk_type == 'KEYWORD' and tok.value == 'match':
+            return self.parse_match_expr()
+        elif tok.tk_type == 'IDENTIFIER':
+            self.stream.next()
+            expr = Identifier(tok.value)
+        elif tok.tk_type == 'OPERATOR' and tok.value == '(':
             self.stream.next()
             expr = self.parse_expression()
-            from .ast import RaiseExpr
-            return RaiseExpr(expr)
-        if tok.tk_type == 'KEYWORD' and tok.value == 'match':
-            return self.parse_match_expr()
-        if tok.tk_type == 'IDENTIFIER':
-            self.stream.next()
-            parts = [tok.value]
-            while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
+            self.stream.expect('OPERATOR', ')')
+        else:
+            raise SyntaxErrorWithPos(f'Unexpected token {tok.tk_type}', tok)
+
+        from .ast import MemberAccess
+
+        while True:
+            tok = self.stream.peek()
+            if tok.tk_type == 'OPERATOR' and tok.value == '.':
                 self.stream.next()
-                parts.append(self.stream.expect('IDENTIFIER').value)
-            name = '.'.join(parts)
-            if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '(':
+                member_name = self.stream.expect('IDENTIFIER').value
+                expr = MemberAccess(expr, Identifier(member_name))
+                continue
+            if (
+                tok.tk_type == 'OPERATOR'
+                and tok.value == '('
+                and isinstance(expr, (Identifier, MemberAccess))
+            ):
                 self.stream.next()
                 args = []
                 if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ')'):
@@ -263,14 +278,20 @@ class Parser:
                         self.stream.next()
                         args.append(self.parse_expression())
                 self.stream.expect('OPERATOR', ')')
-                return FunctionCall(name, args)
-            return Identifier(name)
-        if tok.tk_type == 'OPERATOR' and tok.value == '(':
-            self.stream.next()
-            expr = self.parse_expression()
-            self.stream.expect('OPERATOR', ')')
-            return expr
-        raise SyntaxErrorWithPos(f'Unexpected token {tok.tk_type}', tok)
+                name = self._flatten_member(expr)
+                expr = FunctionCall(name, args)
+                continue
+            break
+        return expr
+
+    def _flatten_member(self, expr: Expression) -> str:
+        from .ast import MemberAccess, Identifier
+
+        if isinstance(expr, Identifier):
+            return expr.name
+        if isinstance(expr, MemberAccess):
+            return f"{self._flatten_member(expr.object)}.{expr.member.name}"
+        raise SyntaxErrorWithPos("Invalid member expression", self.stream.peek())
 
     # ------------------------------------------------------------------
     # New parsing rules for functions and blocks
