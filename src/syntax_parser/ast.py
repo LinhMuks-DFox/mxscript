@@ -200,6 +200,29 @@ class ForInStmt(Statement):
 
 
 @dataclass
+class LoopStmt(Statement):
+    """An infinite loop that repeatedly executes ``body``."""
+
+    body: Block
+
+
+@dataclass
+class UntilStmt(Statement):
+    """Pre-test loop that executes ``body`` until ``condition`` is true."""
+
+    condition: Expression
+    body: Block
+
+
+@dataclass
+class DoUntilStmt(Statement):
+    """Post-test loop that executes ``body`` at least once."""
+
+    body: Block
+    condition: Expression
+
+
+@dataclass
 class IfStmt(Statement):
     """Classic if-else statement."""
 

@@ -17,6 +17,9 @@ from ..syntax_parser.ast import (
     ForeignFuncDecl,
     ExprStmt,
     ForInStmt,
+    LoopStmt,
+    UntilStmt,
+    DoUntilStmt,
     IfStmt,
     ReturnStmt,
     RaiseStmt,
@@ -118,6 +121,23 @@ class SemanticAnalyzer:
             for s in stmt.body.statements:
                 self._visit_statement(s)
             self.variables_stack.pop()
+        elif isinstance(stmt, LoopStmt):
+            self.variables_stack.append(set())
+            for s in stmt.body.statements:
+                self._visit_statement(s)
+            self.variables_stack.pop()
+        elif isinstance(stmt, UntilStmt):
+            self._visit_expression(stmt.condition)
+            self.variables_stack.append(set())
+            for s in stmt.body.statements:
+                self._visit_statement(s)
+            self.variables_stack.pop()
+        elif isinstance(stmt, DoUntilStmt):
+            self.variables_stack.append(set())
+            for s in stmt.body.statements:
+                self._visit_statement(s)
+            self.variables_stack.pop()
+            self._visit_expression(stmt.condition)
         elif isinstance(stmt, IfStmt):
             self._visit_if_stmt(stmt)
         elif isinstance(stmt, Block):
