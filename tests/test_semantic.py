@@ -89,3 +89,16 @@ def test_import_statement_semantic_ok():
 
 def test_import_alias_reference():
     analyze("import foo.bar as bar; bar;")
+
+
+def test_analyzer_registers_struct_and_destructor():
+    source = "struct File { func ~File() {} }"
+    ast = Parser(TokenStream(tokenize(source))).parse()
+
+    analyzer = SemanticAnalyzer()
+    analyzer.analyze(ast)
+
+    assert "File" in analyzer.type_registry
+    info = analyzer.type_registry["File"]
+    assert info.has_destructor is True
+
