@@ -15,8 +15,9 @@ def compile_and_run(src: str):
     tokens = tokenize(src)
     stream = TokenStream(tokens)
     ast = Parser(stream).parse()
-    SemanticAnalyzer().analyze(ast)
-    program_ir = compile_program(ast)
+    analyzer = SemanticAnalyzer()
+    analyzer.analyze(ast)
+    program_ir = compile_program(ast, analyzer.type_registry)
     program_ir = optimize(program_ir)
     return execute(program_ir)
 
@@ -26,8 +27,9 @@ def compile_and_run_file(file_path: Path) -> ProgramIR:
     tokens = tokenize(source)
     stream = TokenStream(tokens)
     ast = Parser(stream).parse()
-    SemanticAnalyzer().analyze(ast)
-    program_ir = optimize(compile_program(ast))
+    analyzer = SemanticAnalyzer()
+    analyzer.analyze(ast)
+    program_ir = optimize(compile_program(ast, analyzer.type_registry))
     return program_ir
 
 
