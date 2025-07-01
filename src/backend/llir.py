@@ -567,15 +567,13 @@ def execute_llvm(program: ProgramIR) -> int:
     target_machine = target.create_target_machine()
     engine = binding.create_mcjit_compiler(mod, target_machine)
 
-    from ctypes import CFUNCTYPE, c_longlong, c_void_p, cast
+    from ctypes import CDLL, CFUNCTYPE, c_longlong, c_void_p, cast
 
-    def _stub(*args):
-        return 0
-
-    STUB = CFUNCTYPE(c_longlong, c_longlong, c_longlong, c_longlong)(_stub)
-    addr = cast(STUB, c_void_p).value
-    for name in ["__internal_write", "__internal_read", "__internal_open", "__internal_close"]:
-        binding.add_symbol(name, addr)
+    libc = CDLL(None)
+    for cname in ["write", "read", "open", "close", "time", "rand"]:
+        func = getattr(libc, cname)
+        addr = cast(func, c_void_p).value
+        binding.add_symbol(f"__internal_{cname}", addr)
 
     engine.finalize_object()
     func_ptr = engine.get_function_address("__start")
