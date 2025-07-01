@@ -38,7 +38,7 @@ from ..semantic_analyzer.types import TypeInfo
 from ..middleend.symbols import ScopedSymbolTable, Symbol
 
 
-STD_LIB_DIR = Path(__file__).resolve().parents[2] / "demo_program" / "examples" / "std"
+STD_LIB_DIR = Path(__file__).resolve().parents[2] / "stdlib"
 ENV_VAR = "MXSCRIPT_PATH"
 
 # Initialize libc handles for common C functions used via FFI
@@ -53,7 +53,7 @@ _libc_rand.restype = ctypes.c_int
 
 def build_search_paths(extra_paths: List[str | Path] | None = None) -> List[Path]:
     """Return module search paths including stdlib and user overrides."""
-    paths: List[Path] = [STD_LIB_DIR.parent]
+    paths: List[Path] = [STD_LIB_DIR]
     env = os.environ.get(ENV_VAR)
     if env:
         for p in env.split(os.pathsep):
@@ -548,14 +548,6 @@ def execute(program: ProgramIR) -> int | None:
             elif isinstance(instr, Return):
                 return stack.pop() if stack else None
             elif isinstance(instr, DestructorCall):
-
-                # Destructor calls are placeholders in the interpreter.
-                pass
-            elif isinstance(instr, ScopeEnter):
-                env_stack.append({})
-            elif isinstance(instr, ScopeExit):
-                env_stack.pop()
-
                 info = None
                 for scope in reversed(var_info_stack):
                     if instr.name in scope:
@@ -576,14 +568,18 @@ def execute(program: ProgramIR) -> int | None:
                         run(func.code, env_stack, var_info_stack)
                         env_stack.pop()
                         var_info_stack.pop()
-                    for scope in reversed(var_info_stack):
-                        if instr.name in scope:
-                            del scope[instr.name]
-                            break
-                    for env in reversed(env_stack):
-                        if instr.name in env:
-                            del env[instr.name]
-                            break
+                for scope in reversed(var_info_stack):
+                    if instr.name in scope:
+                        del scope[instr.name]
+                        break
+                for env in reversed(env_stack):
+                    if instr.name in env:
+                        del env[instr.name]
+                        break
+            elif isinstance(instr, ScopeEnter):
+                env_stack.append({})
+            elif isinstance(instr, ScopeExit):
+                env_stack.pop()
 
             elif isinstance(instr, Pop):
                 if stack:

@@ -30,7 +30,7 @@ To execute using the LLVM backend, pass `--compile-mode llvm`.
 
 ### Module search path
 
-Modules are loaded from `demo_program/examples/std` by default. Additional
+Modules are loaded from the top-level `stdlib` directory by default. Additional
 directories can be provided via the `MXSCRIPT_PATH` environment variable or the
 `-I/--search-path` command-line flag.
 
