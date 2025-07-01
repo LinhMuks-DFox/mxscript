@@ -122,3 +122,14 @@ def test_assignment_to_mutable_ok():
     src = "let mut x = 3; x = 5;"
     analyze(src)
 
+
+def test_duplicate_let_error():
+    src = "let x = 5; let x = 3;"
+    with pytest.raises(SemanticError):
+        analyze(src)
+
+
+def test_shadowing_ok():
+    src = "let x = 1; { let x = 2; }"
+    analyze(src)
+

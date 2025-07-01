@@ -118,10 +118,17 @@ class SemanticAnalyzer:
 
     def _visit_statement(self, stmt: Statement) -> None:
         if isinstance(stmt, (LetStmt, BindingStmt)):
+            if stmt.name in self._current_scope():
+                raise NameError(
+                    f"Variable '{stmt.name}' is already defined.",
+                    self._get_location(stmt.loc),
+                )
             if stmt.value is not None:
                 self._visit_expression(stmt.value)
             is_mut = stmt.is_mut if isinstance(stmt, LetStmt) else False
-            self._current_scope()[stmt.name] = VarInfo(stmt.name, getattr(stmt, 'type_name', None), is_mut)
+            self._current_scope()[stmt.name] = VarInfo(
+                stmt.name, getattr(stmt, "type_name", None), is_mut
+            )
         elif isinstance(stmt, ExprStmt):
             self._visit_expression(stmt.expr)
         elif isinstance(stmt, RaiseStmt):

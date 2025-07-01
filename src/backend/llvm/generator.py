@@ -126,7 +126,7 @@ class LLVMGenerator:
         stack: List[ir.Value] = []
         terminated = False
         for instr in code:
-            if terminated and not isinstance(instr, Label):
+            if terminated and not isinstance(instr, Label) and not isinstance(instr, ScopeExit):
                 continue
             if isinstance(instr, Const):
                 if isinstance(instr.value, str):
