@@ -107,7 +107,10 @@ class LLVMGenerator:
     def _emit_code(self, code: List[Instr]) -> ir.Value | None:
         assert self.ctx.builder is not None
         stack: List[ir.Value] = []
+        terminated = False
         for instr in code:
+            if terminated and not isinstance(instr, Label):
+                continue
             if isinstance(instr, Const):
                 if isinstance(instr.value, str):
                     arr_ty = ir.ArrayType(ir.IntType(8), len(instr.value.encode()) + 1)
@@ -236,7 +239,9 @@ class LLVMGenerator:
             elif isinstance(instr, Return):
                 ret_val = stack.pop() if stack else ir.Constant(self.ctx.int_t, 0)
                 self.ctx.builder.ret(ret_val)
-                return None
+                terminated = True
+                stack = []
+                continue
             elif isinstance(instr, Pop):
                 if stack:
                     stack.pop()
@@ -251,16 +256,25 @@ class LLVMGenerator:
                 block = self.blocks.get(instr.name)
                 if block is None:
                     raise RuntimeError(f"Unknown label {instr.name}")
+                if not terminated and not self.ctx.builder.block.is_terminated:
+                    self.ctx.builder.branch(block)
+                    terminated = True
                 self.ctx.builder.position_at_end(block)
+                terminated = False
             elif isinstance(instr, Br):
                 target = self.blocks.get(instr.label)
                 if target is None:
                     raise RuntimeError(f"Unknown label {instr.label}")
                 self.ctx.builder.branch(target)
+                terminated = True
             elif isinstance(instr, CondBr):
                 cond_val = self.ctx.get_var(instr.cond)
                 if isinstance(cond_val.type, ir.PointerType):
                     cond_val = self.ctx.builder.load(cond_val)
+                # Ensure condition is i1 for LLVM branching
+                if cond_val.type != ir.IntType(1):
+                    zero = ir.Constant(cond_val.type, 0)
+                    cond_val = self.ctx.builder.icmp_signed('!=', cond_val, zero)
                 then_block = self.blocks.get(instr.then_label)
                 else_block = self.blocks.get(instr.else_label)
                 if then_block is None or else_block is None:
@@ -268,6 +282,7 @@ class LLVMGenerator:
                         f"Unknown labels {instr.then_label} or {instr.else_label}"
                     )
                 self.ctx.builder.cbranch(cond_val, then_block, else_block)
+                terminated = True
             else:
                 raise RuntimeError(f"Unknown instruction {instr}")
         return stack[-1] if stack else None
@@ -303,8 +318,15 @@ class LLVMGenerator:
     def build_start(self, code: List[Instr]) -> None:
         start_ty = ir.FunctionType(self.ctx.int_t, [])
         fn = ir.Function(self.ctx.module, start_ty, name="__start")
-        block = fn.append_basic_block("entry")
-        self.ctx.builder = ir.IRBuilder(block)
+        entry = fn.append_basic_block("entry")
+
+        # reset blocks mapping and pre-create blocks for labels
+        self.blocks = {}
+        for instr in code:
+            if isinstance(instr, Label):
+                self.blocks[instr.name] = fn.append_basic_block(instr.name)
+
+        self.ctx.builder = ir.IRBuilder(entry)
         self.ctx.entry_builder = self.ctx.builder
         self.var_info_stack.append({})
         ret = self._emit_code(code)
@@ -313,3 +335,5 @@ class LLVMGenerator:
         if not self.ctx.builder.block.is_terminated:
             self.ctx.builder.ret(ir.Constant(self.ctx.int_t, 0))
         self.var_info_stack.pop()
+        # clear label map
+        self.blocks = {}

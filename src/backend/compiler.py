@@ -283,23 +283,36 @@ def _compile_stmt(
 
         code: List[Instr] = []
         then_label = _new_label("if_then")
-        else_label = _new_label("if_else")
         end_label = _new_label("if_end")
+        else_label = _new_label("if_else") if stmt.else_block is not None else None
 
         code.extend(_compile_expr(stmt.condition, alias_map, symtab, type_registry))
         cond_var = _new_temp()
         code.append(Store(cond_var))
-        code.append(CondBr(cond=cond_var, then_label=then_label, else_label=else_label))
+
+        if stmt.else_block is not None:
+            code.append(
+                CondBr(cond=cond_var, then_label=then_label, else_label=else_label)
+            )
+        else:
+            code.append(
+                CondBr(cond=cond_var, then_label=then_label, else_label=end_label)
+            )
 
         # then block
         code.append(Label(name=then_label))
-        code.extend(_compile_stmt(stmt.then_block, alias_map, symtab, type_registry))
-        code.append(Br(label=end_label))
+        code.extend(
+            _compile_stmt(stmt.then_block, alias_map, symtab, type_registry)
+        )
+        if stmt.else_block is not None:
+            code.append(Br(label=end_label))
 
         # else block
-        code.append(Label(name=else_label))
         if stmt.else_block is not None:
-            code.extend(_compile_stmt(stmt.else_block, alias_map, symtab, type_registry))
+            code.append(Label(name=else_label))
+            code.extend(
+                _compile_stmt(stmt.else_block, alias_map, symtab, type_registry)
+            )
 
         # end label
         code.append(Label(name=end_label))
