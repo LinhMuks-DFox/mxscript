@@ -398,11 +398,27 @@ def _compile_expr(
             code.append(Dup())
             for arg in expr.args:
                 code.extend(_compile_expr(arg, alias_map, symtab, type_registry))
+                if isinstance(arg, Identifier) and type_registry is not None:
+                    sym = symtab.lookup(arg.name)
+                    if (
+                        sym is not None
+                        and sym.type_name is not None
+                        and sym.type_name in type_registry
+                    ):
+                        code.append(Call("arc_retain", 1))
             code.append(Call(f"{expr.name}_constructor", len(expr.args) + 1))
             code.append(Pop())
             return code
         for arg in expr.args:
             code.extend(_compile_expr(arg, alias_map, symtab, type_registry))
+            if isinstance(arg, Identifier) and type_registry is not None:
+                sym = symtab.lookup(arg.name)
+                if (
+                    sym is not None
+                    and sym.type_name is not None
+                    and sym.type_name in type_registry
+                ):
+                    code.append(Call("arc_retain", 1))
         name = expr.name
         while name in alias_map:
             name = alias_map[name]

@@ -94,3 +94,21 @@ def test_arc_release_on_reassignment():
     ir = compile_to_ir(src)
     assert ir.count('call void @"arc_release"') == 1
 
+
+def test_arc_retain_for_function_args():
+    src = (
+        'struct Token {\n'
+        '    func Token() {}\n'
+        '}\n'
+        'func process_token(t: Token) -> Token {\n'
+        '    return t;\n'
+        '}\n'
+        'func main() -> int {\n'
+        '    let tok1: Token = Token();\n'
+        '    let tok2: Token = process_token(tok1);\n'
+        '    return 0;\n'
+        '}\n'
+    )
+    ir = compile_to_ir(src)
+    assert ir.count('call i8* @"arc_retain"') == 1
+
