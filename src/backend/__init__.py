@@ -15,6 +15,7 @@ from .llir import (
     execute_llvm,
     build_search_paths,
 )
+from .llvm import compile_to_llvm
 
 __all__ = [
     "Const",
@@ -32,4 +33,5 @@ __all__ = [
     "to_llvm_ir",
     "execute_llvm",
     "build_search_paths",
+    "compile_to_llvm",
 ]

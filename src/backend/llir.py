@@ -6,9 +6,8 @@ from typing import Dict, List
 import os
 import ctypes
 
-from llvmlite import binding, ir
+from llvmlite import binding
 
-from .ffi import FFIManager, resolve_symbol
 
 from ..lexer import TokenStream, tokenize
 from ..syntax_parser import Parser
@@ -118,164 +117,6 @@ class ProgramIR:
     foreign_functions: Dict[str, str]
 
 
-class LLVMGenerator:
-    """Stateful generator producing SSA-based LLVM IR."""
-
-    def __init__(self) -> None:
-        self.module = ir.Module(name="mxscript")
-        self.int_t = ir.IntType(64)
-        self.obj_ptr_t = ir.IntType(8).as_pointer()
-        self.string_idx = 0
-        self.arc_retain = ir.Function(
-            self.module,
-            ir.FunctionType(ir.VoidType(), [self.obj_ptr_t]),
-            name="arc_retain",
-        )
-        self.arc_release = ir.Function(
-            self.module,
-            ir.FunctionType(ir.VoidType(), [self.obj_ptr_t]),
-            name="arc_release",
-        )
-        self.functions: Dict[str, ir.Function] = {}
-        # First scope holds globals shared by all functions
-        self.scopes: List[Dict[str, ir.Value]] = [{}]
-        self.entry_builder: ir.IRBuilder | None = None
-        self.builder: ir.IRBuilder | None = None
-
-    # Symbol table helpers -------------------------------------------------
-    def push_scope(self) -> None:
-        self.scopes.append({})
-
-    def pop_scope(self) -> None:
-        self.scopes.pop()
-
-    def set_var(self, name: str, value: ir.Value) -> None:
-        self.scopes[-1][name] = value
-
-    def get_var(self, name: str) -> ir.Value:
-        for scope in reversed(self.scopes):
-            if name in scope:
-                return scope[name]
-        raise KeyError(name)
-
-    # IR building ----------------------------------------------------------
-    def declare_functions(self, program: ProgramIR) -> None:
-        for func in program.functions.values():
-            ty = ir.FunctionType(self.int_t, [self.int_t] * len(func.params))
-            self.functions[func.name] = ir.Function(self.module, ty, name=func.name)
-        for name in program.foreign_functions:
-            ir.Function(self.module, ir.FunctionType(self.int_t, [], var_arg=True), name=name)
-
-    def _get_or_alloc_mut(self, name: str) -> ir.AllocaInstr:
-        try:
-            ptr = self.get_var(name)
-            if isinstance(ptr.type, ir.PointerType):
-                return ptr  # already pointer
-        except KeyError:
-            pass
-        assert self.entry_builder is not None
-        ptr = self.entry_builder.alloca(self.int_t, name=name)
-        self.set_var(name, ptr)
-        return ptr
-
-    def emit_code(self, code: List[Instr]) -> ir.Value | None:
-        assert self.builder is not None
-        stack: List[ir.Value] = []
-        for instr in code:
-            if isinstance(instr, Const):
-                if isinstance(instr.value, str):
-                    arr_ty = ir.ArrayType(ir.IntType(8), len(instr.value.encode()) + 1)
-                    const_val = ir.Constant(arr_ty, bytearray(instr.value.encode() + b"\x00"))
-                    global_name = f".str{self.string_idx}"
-                    gvar = ir.GlobalVariable(self.module, arr_ty, name=global_name)
-                    gvar.linkage = "internal"
-                    gvar.global_constant = True
-                    gvar.initializer = const_val
-                    ptr = self.builder.gep(gvar, [ir.Constant(self.int_t, 0), ir.Constant(self.int_t, 0)])
-                    stack.append(self.builder.ptrtoint(ptr, self.int_t))
-                    self.string_idx += 1
-                else:
-                    stack.append(ir.Constant(self.int_t, instr.value))
-            elif isinstance(instr, Load):
-                val = self.get_var(instr.name)
-                if isinstance(val.type, ir.PointerType):
-                    stack.append(self.builder.load(val))
-                else:
-                    stack.append(val)
-            elif isinstance(instr, Store):
-                val = stack.pop()
-                if instr.is_mut:
-                    ptr = self._get_or_alloc_mut(instr.name)
-                    self.builder.store(val, ptr)
-                else:
-                    self.set_var(instr.name, val)
-            elif isinstance(instr, BinOpInstr):
-                b = stack.pop()
-                a = stack.pop()
-                op = instr.op
-                if op == '+':
-                    stack.append(self.builder.add(a, b))
-                elif op == '-':
-                    stack.append(self.builder.sub(a, b))
-                elif op == '*':
-                    stack.append(self.builder.mul(a, b))
-                elif op == '/':
-                    stack.append(self.builder.sdiv(a, b))
-                elif op == '%':
-                    stack.append(self.builder.srem(a, b))
-                elif op == '==':
-                    stack.append(self.builder.icmp_signed('==', a, b))
-                elif op == '!=':
-                    stack.append(self.builder.icmp_signed('!=', a, b))
-                elif op == '>':
-                    stack.append(self.builder.icmp_signed('>', a, b))
-                elif op == '<':
-                    stack.append(self.builder.icmp_signed('<', a, b))
-                elif op == '>=':
-                    stack.append(self.builder.icmp_signed('>=', a, b))
-                elif op == '<=':
-                    stack.append(self.builder.icmp_signed('<=', a, b))
-                else:
-                    raise RuntimeError(f"Unsupported op {op}")
-            elif isinstance(instr, Call):
-                args = [stack.pop() for _ in range(instr.argc)][::-1]
-                callee = self.functions.get(instr.name)
-                if callee is None:
-                    callee = self.module.get_global(instr.name)
-                stack.append(self.builder.call(callee, args))
-            elif isinstance(instr, Return):
-                ret_val = stack.pop() if stack else ir.Constant(self.int_t, 0)
-                self.builder.ret(ret_val)
-                return None
-            elif isinstance(instr, Pop):
-                if stack:
-                    stack.pop()
-            else:
-                raise RuntimeError(f"Unknown instruction {instr}")
-        return stack[-1] if stack else None
-
-    def build_function(self, func_ir: Function) -> None:
-        func = self.functions[func_ir.name]
-        entry = func.append_basic_block("entry")
-        self.builder = ir.IRBuilder(entry)
-        self.entry_builder = self.builder
-        self.push_scope()
-        for arg, name in zip(func.args, func_ir.params):
-            self.set_var(name, arg)
-        ret = self.emit_code(func_ir.code)
-        if ret is not None:
-            self.builder.ret(ret)
-        self.pop_scope()
-
-    def build_start(self, code: List[Instr]) -> None:
-        start_ty = ir.FunctionType(self.int_t, [])
-        fn = ir.Function(self.module, start_ty, name="__start")
-        block = fn.append_basic_block("entry")
-        self.builder = ir.IRBuilder(block)
-        self.entry_builder = self.builder
-        ret = self.emit_code(code)
-        if ret is not None:
-            self.builder.ret(ret)
 
 
 
@@ -622,14 +463,9 @@ def _ffi_call(c_name: str, args: List[object]) -> int | None:
 # ------------ LLVM IR Generation ---------------------------------------------
 
 def to_llvm_ir(program: ProgramIR) -> str:
-    """Convert :class:`ProgramIR` to LLVM IR string using SSA."""
-    gen = LLVMGenerator()
-    gen.declare_functions(program)
-    gen.build_start(program.code)
-    for func in program.functions.values():
-
-        gen.build_function(func)
-    return str(gen.module)
+    """Convert :class:`ProgramIR` to LLVM IR string using the new LLVM backend."""
+    from .llvm import compile_to_llvm
+    return compile_to_llvm(program)
 
 
 def execute_llvm(program: ProgramIR) -> int:
