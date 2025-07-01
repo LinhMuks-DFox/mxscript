@@ -34,3 +34,28 @@ def test_destructor_call_injection():
     assert isinstance(code[-1], DestructorCall)
     assert code[-1].name == "f"
 
+
+def test_destructor_call_injection_inferred_type():
+    source = """
+    struct File {
+        func File() {}
+        func ~File() {}
+    }
+    func main() {
+        let f = File();
+    }
+    """
+    tokens = tokenize(source)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+
+    analyzer = SemanticAnalyzer()
+    analyzer.analyze(ast)
+
+    ir = compile_program(ast, analyzer.type_registry)
+    assert "File_destructor" in ir.functions
+
+    code = ir.functions["main"].code
+    assert isinstance(code[-1], DestructorCall)
+    assert code[-1].name == "f"
+
