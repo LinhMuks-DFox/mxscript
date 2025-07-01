@@ -82,6 +82,12 @@ class Parser:
         tok = self.stream.peek()
         if tok.tk_type == 'KEYWORD' and tok.value in ('public', 'private'):
             self.stream.next()
+            if (
+                self.stream.peek().tk_type == 'OPERATOR'
+                and self.stream.peek().value == ':'
+            ):
+                self.stream.next()
+
             return self.parse_statement()
         if tok.tk_type == 'ANNOTATION':
             annotation = self.parse_annotation()

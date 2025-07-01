@@ -254,15 +254,10 @@ def test_parse_class_with_constructor():
     assert ctor_found
 
 
-
-def test_parse_class_with_access_specifiers():
+def test_parse_class_with_method():
     source = """
     class Foo {
-        public:
-        let x: int;
-        private:
-        let y: int;
-
+        func bar() { let x = 1; }
     }
     """
     tokens = tokenize(source)
@@ -275,6 +270,28 @@ def test_parse_class_with_access_specifiers():
     assert len(methods) == 1
     m = methods[0]
     assert m.name == "bar"
+
+
+
+def test_parse_class_with_access_specifiers():
+    source = """
+    class Foo {
+        public:
+        func bar() {}
+        let x: int;
+        private:
+        let y: int;
+
+    }
+    """
+    tokens = tokenize(source)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+
+    struct_def = ast.statements[0]
+    assert isinstance(struct_def, ClassDef)
+    assert len(struct_def.body.statements) == 2
+    assert all(isinstance(s, LetStmt) for s in struct_def.body.statements)
 
 
 def test_parse_class_with_operator():
@@ -293,6 +310,20 @@ def test_parse_class_with_operator():
     assert len(ops) == 1
     op = ops[0]
     assert op.op == "+"
+    assert isinstance(ast.statements[0], ClassDef)
+
+
+def test_parse_class_with_public_private_only():
+    source = """
+    class Foo {
+        public:
+        private:
+    }
+    """
+    tokens = tokenize(source)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+
     assert isinstance(ast.statements[0], ClassDef)
 
 
