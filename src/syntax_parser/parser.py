@@ -18,6 +18,8 @@ from .ast import (
     Parameter,
     FuncSig,
     FuncDef,
+    StructDef,
+    DestructorDef,
     ForeignFuncDecl,
     UnaryOp,
 )
@@ -80,7 +82,15 @@ class Parser:
         if tok.tk_type == 'KEYWORD' and tok.value == 'return':
             return self.parse_return_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'func':
+            if (
+                self.stream.peek(1)
+                and self.stream.peek(1).tk_type == 'OPERATOR'
+                and self.stream.peek(1).value == '~'
+            ):
+                return self.parse_destructor_def()
             return self.parse_func_def()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'struct':
+            return self.parse_struct_def()
         if tok.tk_type == 'OPERATOR' and tok.value == '{':
             return self.parse_block()
         else:
@@ -274,6 +284,55 @@ class Parser:
             return ForeignFuncDecl(name, sig, c_name)
         body = self.parse_block()
         return FuncDef(name, sig, body)
+
+    def parse_struct_def(self):
+        self.stream.expect('KEYWORD', 'struct')
+        name = self.stream.expect('IDENTIFIER').value
+        self.stream.expect('OPERATOR', '{')
+        statements = []
+        while self.stream.peek() and not (
+            self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '}'
+        ):
+            tok = self.stream.peek()
+            if tok.tk_type == 'KEYWORD' and tok.value == 'let':
+                statements.append(self.parse_field_decl())
+            elif (
+                tok.tk_type == 'KEYWORD'
+                and tok.value == 'func'
+                and self.stream.peek(1)
+                and self.stream.peek(1).tk_type == 'OPERATOR'
+                and self.stream.peek(1).value == '~'
+            ):
+                statements.append(self.parse_destructor_def())
+            else:
+                statements.append(self.parse_statement())
+        self.stream.expect('OPERATOR', '}')
+        return StructDef(name, Block(statements))
+
+    def parse_field_decl(self):
+        self.stream.expect('KEYWORD', 'let')
+        is_mut = False
+        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'mut':
+            self.stream.next()
+            is_mut = True
+        name = self.stream.expect('IDENTIFIER').value
+        type_name = None
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
+            self.stream.next()
+            type_name = self.parse_type_spec()
+        self.stream.expect('OPERATOR', ';')
+        return LetStmt(name, None, type_name, is_mut)
+
+    def parse_destructor_def(self):
+        self.stream.expect('KEYWORD', 'func')
+        self.stream.expect('OPERATOR', '~')
+        # struct name after '~' is ignored for now
+        self.stream.expect('IDENTIFIER')
+        # signature is expected but typically empty
+        self.stream.expect('OPERATOR', '(')
+        self.stream.expect('OPERATOR', ')')
+        body = self.parse_block()
+        return DestructorDef(body)
 
     def parse_func_sig(self) -> FuncSig:
         self.stream.expect('OPERATOR', '(')

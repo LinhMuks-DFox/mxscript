@@ -20,7 +20,7 @@ class Statement(Node):
 @dataclass
 class LetStmt(Statement):
     name: str
-    value: "Expression"
+    value: "Expression" | None = None
     type_name: str | None = None
     is_mut: bool = False
 
@@ -111,6 +111,21 @@ class FuncSig(Node):
 class FuncDef(Statement):
     name: str
     signature: FuncSig
+    body: Block
+
+
+@dataclass
+class StructDef(Statement):
+    """Definition of a user-defined struct."""
+
+    name: str
+    body: Block
+
+
+@dataclass
+class DestructorDef(Statement):
+    """Destructor within a struct definition."""
+
     body: Block
 
 

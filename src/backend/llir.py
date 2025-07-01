@@ -222,6 +222,8 @@ def compile_program(
 
 def _compile_stmt(stmt, alias_map: Dict[str, str]) -> List[Instr]:
     if isinstance(stmt, LetStmt):
+        if stmt.value is None:
+            return []
         code = _compile_expr(stmt.value, alias_map)
         code.append(Store(stmt.name, stmt.type_name, stmt.is_mut))
         return code

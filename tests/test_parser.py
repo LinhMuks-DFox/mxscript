@@ -13,6 +13,8 @@ from src.syntax_parser import (
     BindingStmt,
     ReturnStmt,
     FuncDef,
+    StructDef,
+    DestructorDef,
     Block,
     ImportStmt,
     ForInStmt,
@@ -153,4 +155,30 @@ def test_parse_match_expr():
     stmt = program.statements[0]
     assert isinstance(stmt, ExprStmt)
     assert isinstance(stmt.expr, MatchExpr)
+
+
+def test_parse_struct_with_destructor():
+    source = """
+    struct File {
+        let fd: int;
+
+        func ~File() {
+            io.close_file(self.fd);
+        }
+    }
+    """
+    tokens = tokenize(source)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+
+    assert isinstance(ast.statements[0], StructDef)
+    struct_def = ast.statements[0]
+    assert struct_def.name == "File"
+
+    destructor_found = False
+    for stmt in struct_def.body.statements:
+        if isinstance(stmt, DestructorDef):
+            destructor_found = True
+            break
+    assert destructor_found
 
