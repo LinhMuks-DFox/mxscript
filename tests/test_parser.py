@@ -291,7 +291,7 @@ def test_parse_class_with_access_specifiers():
 
     struct_def = ast.statements[0]
     assert isinstance(struct_def, ClassDef)
-    assert len(struct_def.body.statements) == 2
+    assert len(struct_def.body.statements) == 3
     assert all(isinstance(s, LetStmt) for s in struct_def.body.statements)
 
 
