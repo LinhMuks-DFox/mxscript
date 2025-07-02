@@ -48,7 +48,7 @@ from ..syntax_parser.ast import (
     Expression,
     UnaryOp,
 )
-from ..lexer.Token import Token
+from ..frontend.tokens import Token
 
 
 @dataclass

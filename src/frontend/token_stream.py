@@ -1,11 +1,11 @@
-"""Utility container for navigating a list of tokens."""
+"""Utility container for navigating a list of tokens for the frontend tokenizer."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
-from .Token import Token
+from .tokens import Token, TokenType
 from ..errors import SyntaxError, SourceLocation
 
 
@@ -18,7 +18,7 @@ class TokenStream:
 
     def _skip_comments_from(self, index: int) -> int:
         """Return the next index at or after *index* that is not a comment."""
-        while index < len(self.tokens) and self.tokens[index].tk_type == "COMMENT":
+        while index < len(self.tokens) and self.tokens[index].type == TokenType.COMMENT:
             index += 1
         return index
 
@@ -40,18 +40,20 @@ class TokenStream:
             self.position = self._skip_comments_from(self.position)
         return tok
 
-    def expect(self, tk_type: str, value: Optional[str] = None) -> Token:
+    def expect(self, tk_type: TokenType | str, value: Optional[str] = None) -> Token:
         token = self.next()
         if token is None:
-            loc = SourceLocation("<tokens>", self.tokens[-1].line, self.tokens[-1].col, "")
-            raise SyntaxError(f"Expected {tk_type}", loc)
-        if token.tk_type != tk_type or (value is not None and token.value != value):
-            msg = f"Expected {tk_type} '{value}'" if value else f"Expected {tk_type}"
-            loc = SourceLocation("<tokens>", token.line, token.col, "")
+            loc = SourceLocation("<tokens>", self.tokens[-1].line, self.tokens[-1].column, "")
+            name = tk_type.name if isinstance(tk_type, TokenType) else tk_type
+            raise SyntaxError(f"Expected {name}", loc)
+        expected_match = token.type == tk_type if isinstance(tk_type, TokenType) else token.type.name == tk_type
+        if not expected_match or (value is not None and token.value != value):
+            name = tk_type.name if isinstance(tk_type, TokenType) else tk_type
+            msg = f"Expected {name} '{value}'" if value else f"Expected {name}"
+            loc = SourceLocation("<tokens>", token.line, token.column, "")
             raise SyntaxError(msg, loc)
         return token
 
     def __iter__(self) -> Iterable[Token]:
         while self.position < len(self.tokens):
             yield self.next()
-

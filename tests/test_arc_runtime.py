@@ -4,7 +4,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.lexer import TokenStream, tokenize
+from src.frontend import TokenStream, tokenize
 from src.syntax_parser import Parser
 from src.semantic_analyzer import SemanticAnalyzer, SemanticError
 from src.backend import compile_program, to_llvm_ir

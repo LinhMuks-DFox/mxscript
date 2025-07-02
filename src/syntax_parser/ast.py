@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-from ..lexer.Token import Token
+from ..frontend.tokens import Token
 
 
 @dataclass(kw_only=True)

@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from src.lexer import TokenStream, tokenize
+from src.frontend import TokenStream, tokenize
 from src.syntax_parser import Parser, dump_ast
 from src.semantic_analyzer import SemanticAnalyzer
 from src.errors import CompilerError, SourceLocation

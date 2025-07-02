@@ -3,7 +3,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from src.lexer import TokenStream, tokenize
+from src.frontend import TokenStream, tokenize
 from src.syntax_parser import Parser
 from src.semantic_analyzer import SemanticAnalyzer
 from pathlib import Path

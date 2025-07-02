@@ -5,7 +5,8 @@ from typing import Dict
 from .expression_parser import ExpressionParserMixin, BINARY_PRECEDENCE
 from .definition_parser import DefinitionParserMixin
 
-from ..lexer import TokenStream
+from ..frontend import TokenStream
+from ..frontend.tokens import TokenType
 from ..errors import SourceLocation, SyntaxError
 from .ast import (
     BinaryOp,
@@ -47,246 +48,248 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
         source_line = self.source_lines[line - 1] if 0 <= line - 1 < len(self.source_lines) else ""
         return SourceLocation(self.filename, line, column, source_line)
 
-    def _expect(self, tk_type: str, value: str | None = None):
+    def _expect(self, tk_type: TokenType | str, value: str | None = None):
         token = self.stream.next()
         if token is None:
             token = self.stream.tokens[-1]
             loc = self._get_location(token)
-            raise SyntaxError(f"Expected {tk_type}", loc)
-        if token.tk_type != tk_type or (value is not None and token.value != value):
-            msg = f"Expected {tk_type} '{value}'" if value else f"Expected {tk_type}"
+            name = tk_type.name if isinstance(tk_type, TokenType) else tk_type
+            raise SyntaxError(f"Expected {name}", loc)
+        expected_match = token.type == tk_type if isinstance(tk_type, TokenType) else token.type.name == tk_type
+        if not expected_match or (value is not None and token.value != value):
+            name = tk_type.name if isinstance(tk_type, TokenType) else tk_type
+            msg = f"Expected {name} '{value}'" if value else f"Expected {name}"
             loc = self._get_location(token)
             raise SyntaxError(msg, loc)
         return token
 
     def parse(self) -> Program:
         statements = []
-        while self.stream.peek() and self.stream.peek().tk_type != 'EOF':
+        while self.stream.peek() and self.stream.peek().type != TokenType.EOF:
             statements.append(self.parse_statement())
         start_token = statements[0].loc if statements else self.stream.tokens[0]
         return Program(statements, loc=start_token)
 
     def parse_statement(self):
         tok = self.stream.peek()
-        if tok.tk_type == 'KEYWORD' and tok.value in ('public', 'private'):
+        if tok.type in (TokenType.PUBLIC, TokenType.PRIVATE):
             self.stream.next()
             if (
-                self.stream.peek().tk_type == 'OPERATOR'
-                and self.stream.peek().value == ':'
+                self.stream.peek().type == TokenType.COLON
             ):
                 self.stream.next()
 
             return self.parse_statement()
-        if tok.tk_type == 'ANNOTATION':
+        if tok.type == TokenType.ANNOTATION:
             annotation = self.parse_annotation()
             next_tok = self.stream.peek()
-            if next_tok.tk_type == 'KEYWORD' and next_tok.value == 'func':
+            if next_tok.type == TokenType.FUNC:
                 return self.parse_func_def(annotation)
             else:
                 raise SyntaxError(
                     'Annotation only supported before functions',
                     self._get_location(next_tok),
                 )
-        if tok.tk_type == 'KEYWORD' and tok.value == 'import':
+        if tok.type == TokenType.IMPORT:
             return self.parse_import()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'let':
+        if tok.type == TokenType.LET:
             return self.parse_let()
-        if tok.tk_type == 'KEYWORD' and tok.value in ('static', 'dynamic'):
-            return self.parse_binding(tok.value == 'static')
-        if tok.tk_type == 'KEYWORD' and tok.value == 'for':
+        if tok.type in (TokenType.STATIC, TokenType.DYNAMIC):
+            return self.parse_binding(tok.type == TokenType.STATIC)
+        if tok.type == TokenType.FOR:
             return self.parse_for_in_stmt()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'loop':
+        if tok.type == TokenType.LOOP:
             return self.parse_loop_stmt()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'until':
+        if tok.type == TokenType.UNTIL:
             return self.parse_until_stmt()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'do':
+        if tok.type == TokenType.DO:
             return self.parse_do_until_stmt()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'break':
+        if tok.type == TokenType.BREAK:
             return self.parse_break_stmt()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'continue':
+        if tok.type == TokenType.CONTINUE:
             return self.parse_continue_stmt()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'if':
+        if tok.type == TokenType.IF:
             return self.parse_if_stmt()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'raise':
+        if tok.type == TokenType.RAISE:
             return self.parse_raise_stmt()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'return':
+        if tok.type == TokenType.RETURN:
             return self.parse_return_stmt()
-        if tok.tk_type == 'OPERATOR' and tok.value == '~':
+        if tok.type == TokenType.TILDE:
             return self.parse_destructor_def()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'func':
+        if tok.type == TokenType.FUNC:
             return self.parse_func_def()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'class':
+        if tok.type == TokenType.CLASS:
             return self.parse_class_def()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'interface':
+        if tok.type == TokenType.INTERFACE:
             return self.parse_interface_def()
-        if tok.tk_type == 'OPERATOR' and tok.value == '{':
+        if tok.type == TokenType.LBRACE:
             return self.parse_block()
         else:
             expr = self.parse_expression()
-            self._expect('OPERATOR', ';')
+            self._expect(TokenType.SEMICOLON)
             return ExprStmt(expr)
 
     def parse_annotation(self):
-        start_tok = self._expect('ANNOTATION', '@@')
-        name = self._expect('IDENTIFIER').value
+        start_tok = self._expect(TokenType.ANNOTATION, '@@')
+        name = self._expect(TokenType.IDENTIFIER).value
         args = {}
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '(':
+        if self.stream.peek().type == TokenType.LPAREN:
             self.stream.next()
-            key = self._expect('IDENTIFIER').value
-            self._expect('OPERATOR', '=')
-            val_tok = self._expect('STRING')
+            key = self._expect(TokenType.IDENTIFIER).value
+            self._expect(TokenType.ASSIGN)
+            val_tok = self._expect(TokenType.STRING)
             args[key] = val_tok.value
-            self._expect('OPERATOR', ')')
+            self._expect(TokenType.RPAREN)
         return {"name": name, **args}
 
     def parse_let(self) -> LetStmt:
-        start = self._expect('KEYWORD', 'let')
+        start = self._expect(TokenType.LET)
         is_mut = False
-        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'mut':
+        if self.stream.peek().type == TokenType.MUT:
             self.stream.next()
             is_mut = True
-        names = [self._expect('IDENTIFIER').value]
-        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+        names = [self._expect(TokenType.IDENTIFIER).value]
+        while self.stream.peek().type == TokenType.COMMA:
             self.stream.next()
-            names.append(self._expect('IDENTIFIER').value)
+            names.append(self._expect(TokenType.IDENTIFIER).value)
         type_name = None
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
+        if self.stream.peek().type == TokenType.COLON:
             self.stream.next()
             type_name = self.parse_type_spec()
         value = None
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '=':
+        if self.stream.peek().type == TokenType.ASSIGN:
             self.stream.next()
             value = self.parse_expression()
-        self._expect('OPERATOR', ';')
+        self._expect(TokenType.SEMICOLON)
         return LetStmt(names, value, type_name, is_mut, loc=start)
 
     def parse_binding(self, is_static: bool):
         start = self.stream.next()  # consume 'static' or 'dynamic'
-        self._expect('KEYWORD', 'let')
-        name = self._expect('IDENTIFIER').value
-        self._expect('OPERATOR', '=')
+        self._expect(TokenType.LET)
+        name = self._expect(TokenType.IDENTIFIER).value
+        self._expect(TokenType.ASSIGN)
         value = self.parse_expression()
-        self._expect('OPERATOR', ';')
+        self._expect(TokenType.SEMICOLON)
         from .ast import BindingStmt
         return BindingStmt(name, value, is_static, loc=start)
 
     def parse_for_in_stmt(self):
-        start = self._expect('KEYWORD', 'for')
+        start = self._expect(TokenType.FOR)
         is_mut = False
-        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'mut':
+        if self.stream.peek().type == TokenType.MUT:
             self.stream.next()
             is_mut = True
-        var = self._expect('IDENTIFIER').value
-        self._expect('KEYWORD', 'in')
+        var = self._expect(TokenType.IDENTIFIER).value
+        self._expect(TokenType.IN)
         iterable = self.parse_expression()
         body = self.parse_block()
         from .ast import ForInStmt
         return ForInStmt(var, iterable, body, is_mut, loc=start)
 
     def parse_loop_stmt(self):
-        start = self._expect('KEYWORD', 'loop')
+        start = self._expect(TokenType.LOOP)
         body = self.parse_block()
         from .ast import LoopStmt
         return LoopStmt(body, loc=start)
 
     def parse_until_stmt(self):
-        start = self._expect('KEYWORD', 'until')
-        self._expect('OPERATOR', '(')
+        start = self._expect(TokenType.UNTIL)
+        self._expect(TokenType.LPAREN)
         condition = self.parse_expression()
-        self._expect('OPERATOR', ')')
+        self._expect(TokenType.RPAREN)
         body = self.parse_block()
         from .ast import UntilStmt
         return UntilStmt(condition, body, loc=start)
 
     def parse_do_until_stmt(self):
-        start = self._expect('KEYWORD', 'do')
+        start = self._expect(TokenType.DO)
         body = self.parse_block()
-        self._expect('KEYWORD', 'until')
-        self._expect('OPERATOR', '(')
+        self._expect(TokenType.UNTIL)
+        self._expect(TokenType.LPAREN)
         condition = self.parse_expression()
-        self._expect('OPERATOR', ')')
-        self._expect('OPERATOR', ';')
+        self._expect(TokenType.RPAREN)
+        self._expect(TokenType.SEMICOLON)
         from .ast import DoUntilStmt
         return DoUntilStmt(body, condition, loc=start)
 
     def parse_break_stmt(self):
-        start = self._expect('KEYWORD', 'break')
-        self._expect('OPERATOR', ';')
+        start = self._expect(TokenType.BREAK)
+        self._expect(TokenType.SEMICOLON)
         from .ast import BreakStmt
         return BreakStmt(loc=start)
 
     def parse_continue_stmt(self):
-        start = self._expect('KEYWORD', 'continue')
-        self._expect('OPERATOR', ';')
+        start = self._expect(TokenType.CONTINUE)
+        self._expect(TokenType.SEMICOLON)
         from .ast import ContinueStmt
         return ContinueStmt(loc=start)
 
     def parse_if_stmt(self) -> IfStmt:
-        start = self._expect('KEYWORD', 'if')
+        start = self._expect(TokenType.IF)
         condition = self.parse_expression()
         then_block = self.parse_block()
         else_block = None
-        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'else':
+        if self.stream.peek().type == TokenType.ELSE:
             self.stream.next()
-            if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'if':
+            if self.stream.peek().type == TokenType.IF:
                 else_block = self.parse_if_stmt()
             else:
                 else_block = self.parse_block()
         return IfStmt(condition, then_block, else_block, loc=start)
 
     def parse_raise_stmt(self):
-        start = self._expect('KEYWORD', 'raise')
+        start = self._expect(TokenType.RAISE)
         expr = self.parse_expression()
-        self._expect('OPERATOR', ';')
+        self._expect(TokenType.SEMICOLON)
         from .ast import RaiseStmt
         return RaiseStmt(expr, loc=start)
 
     def parse_return_stmt(self):
-        start = self._expect('KEYWORD', 'return')
-        if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ';'):
+        start = self._expect(TokenType.RETURN)
+        if not (self.stream.peek().type == TokenType.SEMICOLON):
             value = self.parse_expression()
         else:
             value = None
-        self._expect('OPERATOR', ';')
+        self._expect(TokenType.SEMICOLON)
         from .ast import ReturnStmt
         return ReturnStmt(value, loc=start)
 
     def parse_match_expr(self):
-        start_kw = self._expect('KEYWORD', 'match')
-        self._expect('OPERATOR', '(')
+        start_kw = self._expect(TokenType.MATCH)
+        self._expect(TokenType.LPAREN)
         value = self.parse_expression()
-        self._expect('OPERATOR', ')')
-        self._expect('OPERATOR', '{')
+        self._expect(TokenType.RPAREN)
+        self._expect(TokenType.LBRACE)
         cases = []
         from .ast import MatchExpr, MatchCase
-        while self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'case':
+        while self.stream.peek().type == TokenType.CASE:
             case_tok = self.stream.next()
-            name = self._expect('IDENTIFIER').value
-            self._expect('OPERATOR', ':')
+            name = self._expect(TokenType.IDENTIFIER).value
+            self._expect(TokenType.COLON)
             type_name = self.parse_type_spec()
-            self._expect('OPERATOR', '=>')
-            if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '{':
+            self._expect(TokenType.FAT_ARROW)
+            if self.stream.peek().type == TokenType.LBRACE:
                 body = self.parse_block()
             else:
                 body = self.parse_expression()
-            if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+            if self.stream.peek().type == TokenType.COMMA:
                 self.stream.next()
             cases.append(MatchCase(name, type_name, body, loc=case_tok))
-        self._expect('OPERATOR', '}')
+        self._expect(TokenType.RBRACE)
         return MatchExpr(value, cases, loc=start_kw)
 
     def parse_import(self) -> ImportStmt:
         """Parse an import statement."""
-        start = self._expect('KEYWORD', 'import')
-        parts = [self._expect('IDENTIFIER').value]
-        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
+        start = self._expect(TokenType.IMPORT)
+        parts = [self._expect(TokenType.IDENTIFIER).value]
+        while self.stream.peek().type == TokenType.DOT:
             self.stream.next()
-            parts.append(self._expect('IDENTIFIER').value)
+            parts.append(self._expect(TokenType.IDENTIFIER).value)
         module = '.'.join(parts)
         alias = None
-        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'as':
+        if self.stream.peek().type == TokenType.AS:
             self.stream.next()
-            alias = self._expect('IDENTIFIER').value
-        self._expect('OPERATOR', ';')
+            alias = self._expect(TokenType.IDENTIFIER).value
+        self._expect(TokenType.SEMICOLON)
         return ImportStmt(module, alias, loc=start)
 
