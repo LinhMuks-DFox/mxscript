@@ -2,6 +2,7 @@
 #ifndef MXSCRIPT_NULL_HPP
 #define MXSCRIPT_NULL_HPP
 #include "_typedef.hpp"
+#include "macro.hpp"
 #include "object.hpp"
 namespace mxs_runtime {
     class MXNil : MXObject {
@@ -17,9 +18,10 @@ namespace mxs_runtime {
         inner_boolean equals(const MXNil &other);
         inner_boolean equals(const MXNil *other);
     };
-}
 
-static mxs_runtime::MXNil MXNIL;
+    extern MXS_API const MXNil &MXNIL;
+
+}
 
 
 // C API:

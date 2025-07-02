@@ -1,7 +1,8 @@
 #pragma once
-#include "_typedef.hpp"
 #ifndef MXSCRIPT_BOOLEAN_H
 #define MXSCRIPT_BOOLEAN_H
+#include "_typedef.hpp"
+#include "macro.hpp"
 #include "object.hpp"
 // cpp implementation
 namespace mxs_runtime {
@@ -18,10 +19,9 @@ namespace mxs_runtime {
         inner_boolean equals(const MXBoolean &other);
         inner_boolean equals(const MXBoolean *other);
     };
+    extern MXS_API const MXBoolean &MX_TRUE;
+    extern MXS_API const MXBoolean &MX_FALSE;
 }
-
-static mxs_runtime::MXBoolean MX_TRUE{ true };
-static mxs_runtime::MXBoolean MX_FALSE{ false };
 
 
 // C API:
