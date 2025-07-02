@@ -22,7 +22,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # --- 查找所有源文件 ---
 # 递归查找impl目录下的所有.cpp文件
 file(GLOB_RECURSE IMPL_SOURCES "impl/*.cpp")
-file(GLOB_RECURSE SRC_SOURCES "src/*.cpp")
 list(APPEND IMPL_SOURCES "impl/object.cpp")
 list(APPEND IMPL_SOURCES ${SRC_SOURCES})
 
