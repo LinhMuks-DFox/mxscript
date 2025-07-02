@@ -69,6 +69,8 @@ class TokenType(Enum):
     MATCH = auto()
     CASE = auto()
     NIL = auto()
+    TRUE = auto()
+    FALSE = auto()
 
     # Operators and punctuation
     PLUS = auto()
@@ -157,6 +159,8 @@ KEYWORDS = {
     "match": TokenType.MATCH,
     "case": TokenType.CASE,
     "nil": TokenType.NIL,
+    "true": TokenType.TRUE,
+    "false": TokenType.FALSE,
 }
 
 

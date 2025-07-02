@@ -32,6 +32,9 @@ from ..syntax_parser.ast import (
     AssignExpr,
     Identifier,
     Integer,
+    Float,
+    Boolean,
+    NilLiteral,
     String,
     LetStmt,
     BindingStmt,
@@ -305,6 +308,12 @@ class SemanticAnalyzer:
                     self._get_location(expr.loc),
                 )
         elif isinstance(expr, Integer):
+            pass
+        elif isinstance(expr, Float):
+            pass
+        elif isinstance(expr, Boolean):
+            pass
+        elif isinstance(expr, NilLiteral):
             pass
         elif isinstance(expr, String):
             pass

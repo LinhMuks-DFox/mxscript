@@ -20,6 +20,11 @@ LIBC_FUNCTIONS: Dict[str, dict] = {
     'new_mx_object': {'ret': char_ptr, 'args': []},
     'increase_ref': {'ret': int64, 'args': [char_ptr]},
     'decrease_ref': {'ret': int64, 'args': [char_ptr]},
+    'MXCreateInteger': {'ret': char_ptr, 'args': [int64]},
+    'MXCreateFloat': {'ret': char_ptr, 'args': [ir.DoubleType()]},
+    'mxs_get_true': {'ret': char_ptr, 'args': []},
+    'mxs_get_false': {'ret': char_ptr, 'args': []},
+    'mxs_get_nil': {'ret': char_ptr, 'args': []},
     # Aliases used in the current standard library
     # MxScript convenience wrappers
     # time_now() -> time(NULL)

@@ -3,6 +3,9 @@ from __future__ import annotations
 from .ast import (
     BinaryOp,
     Integer,
+    Float,
+    Boolean,
+    NilLiteral,
     String,
     UnaryOp,
     MemberAccess,
@@ -79,6 +82,18 @@ class ExpressionParserMixin:
         if tok.type == TokenType.INTEGER:
             self.stream.next()
             expr = Integer(int(tok.value), loc=tok)
+        elif tok.type == TokenType.FLOAT:
+            self.stream.next()
+            expr = Float(float(tok.value), loc=tok)
+        elif tok.type == TokenType.TRUE:
+            self.stream.next()
+            expr = Boolean(True, loc=tok)
+        elif tok.type == TokenType.FALSE:
+            self.stream.next()
+            expr = Boolean(False, loc=tok)
+        elif tok.type == TokenType.NIL:
+            self.stream.next()
+            expr = NilLiteral(loc=tok)
         elif tok.type == TokenType.STRING:
             self.stream.next()
             expr = String(tok.value, loc=tok)
