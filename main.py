@@ -11,7 +11,6 @@ from src.errors import CompilerError, SourceLocation
 from src.backend import (
     compile_program,
     execute_llvm,
-    optimize,
     to_llvm_ir,
     build_search_paths,
 )
@@ -32,9 +31,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("source", help="MxScript source file")
     parser.add_argument("--dump-llir", action="store_true", help="print LLVM IR")
     parser.add_argument("-o", "--output", help="write LLVM IR to file")
-    parser.add_argument(
-        "-O", "--optimization", type=int, default=0, help="optimization level"
-    )
     parser.add_argument("--dump-ast", action="store_true", help="print parsed AST")
     parser.add_argument(
         "-I",
@@ -63,8 +59,6 @@ def main(argv: list[str] | None = None) -> int:
 
         search_paths = build_search_paths(args.search_paths)
         ir_prog = compile_program(ast, search_paths=search_paths)
-        if args.optimization > 0:
-            ir_prog = optimize(ir_prog)
 
         if args.dump_llir or args.output:
             llvm_ir = to_llvm_ir(ir_prog)

@@ -59,7 +59,6 @@ from .ir import (
     ScopeEnter,
     ScopeExit,
 )
-from .runtime import _apply_op
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - only for type hints
@@ -679,35 +678,3 @@ def _compile_destructor(
     return Function(name, params, body_code)
 
 
-# ------------ Optimization ----------------------------------------------------
-
-def optimize(program: ProgramIR) -> ProgramIR:
-    return ProgramIR(
-        _optimize_list(program.code),
-        {
-            name: Function(f.name, f.params, _optimize_list(f.code))
-            for name, f in program.functions.items()
-        },
-        program.foreign_functions,
-    )
-
-
-def _optimize_list(code: List[Instr]) -> List[Instr]:
-    optimized: List[Instr] = []
-    i = 0
-    while i < len(code):
-        if (
-            i + 2 < len(code)
-            and isinstance(code[i], Const)
-            and isinstance(code[i + 1], Const)
-            and isinstance(code[i + 2], BinOpInstr)
-        ):
-            a = code[i].value
-            b = code[i + 1].value
-            op = code[i + 2].op
-            optimized.append(Const(_apply_op(op, a, b)))
-            i += 3
-        else:
-            optimized.append(code[i])
-            i += 1
-    return optimized
