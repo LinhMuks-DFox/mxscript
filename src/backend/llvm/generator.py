@@ -112,7 +112,7 @@ class LLVMGenerator:
             except KeyError:
                 raise RuntimeError(f"Could not find destructor function '{func_name}'")
         self.ctx.builder.call(callee, [ptr])
-        arc_release = self.ffi.get_or_declare_function("arc_release")
+        arc_release = self.ffi.get_or_declare_function("decrease_ref")
         loaded = self.ctx.builder.load(ptr)
         obj_ptr = self.ctx.builder.inttoptr(loaded, self.ctx.obj_ptr_t)
         self.ctx.builder.call(arc_release, [obj_ptr])
@@ -142,9 +142,8 @@ class LLVMGenerator:
                 else:
                     stack.append(val)
             elif isinstance(instr, Alloc):
-                arc_alloc = self.ffi.get_or_declare_function("arc_alloc")
-                size_val = ir.Constant(self.ctx.int_t, instr.size)
-                ptr = self.ctx.builder.call(arc_alloc, [size_val])
+                new_obj_fn = self.ffi.get_or_declare_function("new_mx_object")
+                ptr = self.ctx.builder.call(new_obj_fn, [])
                 stack.append(self.ctx.builder.ptrtoint(ptr, self.ctx.int_t))
             elif isinstance(instr, Dup):
                 if stack:
@@ -164,7 +163,7 @@ class LLVMGenerator:
                         and info.get("type_name") is not None
                         and info.get("ptr") is not None
                     ):
-                        arc_release = self.ffi.get_or_declare_function("arc_release")
+                        arc_release = self.ffi.get_or_declare_function("decrease_ref")
                         loaded_old = self.ctx.builder.load(info["ptr"])
                         obj_ptr = self.ctx.builder.inttoptr(loaded_old, self.ctx.obj_ptr_t)
                         self.ctx.builder.call(arc_release, [obj_ptr])

@@ -240,7 +240,9 @@ def _compile_stmt(
                 and sym.type_name is not None
                 and sym.type_name in type_registry
             ):
-                code.append(Call("arc_retain", 1))
+                code.append(Dup())
+                code.append(Call("increase_ref", 1))
+                code.append(Pop())
 
         resolved_type = stmt.type_name
         needs_destruction = False
@@ -518,7 +520,9 @@ def _compile_expr(
                 and sym.type_name is not None
                 and sym.type_name in type_registry
             ):
-                code.append(Call("arc_retain", 1))
+                code.append(Dup())
+                code.append(Call("increase_ref", 1))
+                code.append(Pop())
 
         name = _flatten_member(MemberAccess(expr.object, expr.member))
         resolved_type = None
@@ -548,7 +552,9 @@ def _compile_expr(
                 and sym.type_name is not None
                 and sym.type_name in type_registry
             ):
-                code.append(Call("arc_retain", 1))
+                code.append(Dup())
+                code.append(Call("increase_ref", 1))
+                code.append(Pop())
 
         if not isinstance(expr.target, Identifier):
             raise NotImplementedError("Invalid assignment target")
@@ -579,7 +585,9 @@ def _compile_expr(
                         and sym.type_name is not None
                         and sym.type_name in type_registry
                     ):
-                        code.append(Call("arc_retain", 1))
+                        code.append(Dup())
+                        code.append(Call("increase_ref", 1))
+                        code.append(Pop())
             code.append(Call(f"{expr.name}_constructor", len(expr.args) + 1))
             code.append(Pop())
             return code
@@ -592,7 +600,9 @@ def _compile_expr(
                     and sym.type_name is not None
                     and sym.type_name in type_registry
                 ):
-                    code.append(Call("arc_retain", 1))
+                    code.append(Dup())
+                    code.append(Call("increase_ref", 1))
+                    code.append(Pop())
         name = expr.name
         while name in alias_map:
             name = alias_map[name]
