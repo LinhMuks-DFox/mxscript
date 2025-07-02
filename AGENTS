@@ -17,7 +17,7 @@ Your main responsibility is to **write and modify the Python source code** for t
 
 #### Review the Language Specification
 
-* **Action**: Read the `document/*.md` files and example codes placed in `examples/`.
+* **Action**: Read the `document/*.md` files, example codes placed in `examples/` and the syntax definition file `syntax/syntax.ebnf`.
 * **Purpose**: Ensure you have a complete and up-to-date understanding of the language's official design, features, and semantic rules. This document is the single source of truth for what we are building.
 
 #### Review Existing Implementations & Examples
