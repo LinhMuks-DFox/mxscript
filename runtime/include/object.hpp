@@ -4,6 +4,7 @@
 #define MXSCRIPT_OBJECT_H
 
 #include "_typedef.hpp"
+#include "macro.hpp"
 #include <cstddef>
 #include <string>
 namespace mxs_runtime {
