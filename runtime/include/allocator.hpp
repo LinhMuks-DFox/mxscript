@@ -16,9 +16,14 @@ namespace mxs_runtime {
     public:
         void registerObject(MXObject* obj);
         void unregisterObject(MXObject* obj);
+        void dump_stats();
     };
 
     MXS_API extern Allocator& MX_ALLOCATOR;
+}
+
+extern "C" {
+MXS_API void mxs_allocator_dump_stats();
 }
 
 #endif // MXSCRIPT_ALLOCATOR_HPP
