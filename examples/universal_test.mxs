@@ -15,6 +15,13 @@ import std.io as io;
 # Global binding
 static let println = io.println;
 
+# Function 
+
+func my_func(a: int, b, c: float) -> float {
+    return c (a + b);
+}
+
+
 # Recursion example
 func fib(n: int) -> int {
     if n <= 1 {
@@ -40,7 +47,7 @@ public:
     }
 
 private:
-    func del() {
+    func ~Counter() {
         write(1, "Counter destroyed\n", 18);
     }
 }
@@ -65,14 +72,39 @@ func demo_for() {
     }
 }
 
+func demo_loop() {
+    let mut x = 0;
+    loop {
+        x++;
+        if x == 10: break;
+    }
+}
+
+func demo_until() {
+    let mut x = 0;
+    let y = 10;
+    until(x == y) {
+        x++;
+    }
+    x = 0;
+    do {
+        x++;
+    }until(x == y);
+}
+
 # Generics and generic call
 @@template(T)
 func identity(x: T) -> T {
     return x;
 }
 
+@@template<T=int>
+func identity(x: T) -> T {
+    return x;
+}
+
 func use_generics() {
-    let five = identity<int>(5);
+    let five = identity<float>(5);
     println(five);
 }
 
@@ -83,18 +115,23 @@ func use_tuple() {
     println(b);
 }
 
+@@template(TypeA, TypeB)
+func use_tuple_as_return(a: TypeA, b: TypeB) -> (TypeB, TypeA) {
+    return (b, a);
+}
+
 # Operator overloading
 class Vector {
 public:
     x: int;
     y: int;
 
-    func init(x: int, y: int) {
+    func Vector(x: int, y: int) {
         self.x = x;
         self.y = y;
     }
 
-    func operator+(other: Vector) -> Vector {
+    operator+(other: Vector) -> Vector {
         let v = new Vector(self.x + other.x, self.y + other.y);
         return v;
     }
@@ -120,6 +157,19 @@ func match_demo() {
     };
     println(result);
 }
+
+
+func use_error(a: string, length:int) -> bool | Error {
+    if a.length == length {
+        return true;
+    }
+
+    else 
+        raise std.Error("SegmentFaultError", "Length of a not equals to length passed in", alternative=False);
+        # raise std.Error("SegmentFaultError", "Length of a not equals to length passed in", panic=true); # quit  
+
+}
+
 
 # Entry point
 func main() -> int {
