@@ -92,6 +92,16 @@ class Token:
     line: int
     column: int
 
+    @property
+    def tk_type(self) -> str:
+        """Compatibility alias matching the old lexer attribute."""
+        return self.type.name
+
+    @property
+    def col(self) -> int:
+        """Compatibility alias for ``column``."""
+        return self.column
+
 
 KEYWORDS = {
     "import": TokenType.IMPORT,

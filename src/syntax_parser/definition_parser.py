@@ -16,81 +16,82 @@ from .ast import (
     MethodDef,
     OperatorDef,
 )
+from ..frontend.tokens import TokenType
 
 
 class DefinitionParserMixin:
     def parse_func_def(self, annotation=None):
-        start = self._expect('KEYWORD', 'func')
-        name = self._expect('IDENTIFIER').value
+        start = self._expect(TokenType.FUNC)
+        name = self._expect(TokenType.IDENTIFIER).value
         sig = self.parse_func_sig()
         if annotation and annotation.get('name') == 'foreign':
-            self._expect('OPERATOR', ';')
+            self._expect(TokenType.SEMICOLON)
             c_name = annotation.get('c_name')
             return ForeignFuncDecl(name, sig, c_name, loc=start)
         body = self.parse_block()
         return FuncDef(name, sig, body, loc=start)
 
     def parse_class_def(self):
-        start = self._expect('KEYWORD', 'class')
-        name = self._expect('IDENTIFIER').value
+        start = self._expect(TokenType.CLASS)
+        name = self._expect(TokenType.IDENTIFIER).value
         generic_params = None
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '<':
+        if self.stream.peek().type == TokenType.LESS:
             generic_params = self.parse_generic_params()
         super_class = None
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
+        if self.stream.peek().type == TokenType.COLON:
             self.stream.next()
             super_class = self.parse_type_spec()
-        self._expect('OPERATOR', '{')
+        self._expect(TokenType.LBRACE)
         members = []
         while self.stream.peek() and not (
-            self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '}'
+            self.stream.peek().type == TokenType.RBRACE
         ):
             members.append(self.parse_class_member(name))
-        self._expect('OPERATOR', '}')
+        self._expect(TokenType.RBRACE)
         return ClassDef(name, Block(members), generic_params, super_class, loc=start)
 
     def parse_interface_def(self):
         start = self._expect('KEYWORD', 'interface')
         name = self._expect('IDENTIFIER').value
         generic_params = None
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '<':
+        if self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == '<':
             generic_params = self.parse_generic_params()
         super_iface = None
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
+        if self.stream.peek().type == TokenType.COLON:
             self.stream.next()
             super_iface = self.parse_type_spec()
-        self._expect('OPERATOR', '{')
+        self._expect(TokenType.LBRACE)
         members = []
         while self.stream.peek() and not (
-            self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '}'
+            self.stream.peek().type == TokenType.RBRACE
         ):
             members.append(self.parse_interface_member())
-        self._expect('OPERATOR', '}')
+        self._expect(TokenType.RBRACE)
         return InterfaceDef(name, Block(members), generic_params, [super_iface] if super_iface else None, loc=start)
 
     def parse_class_member(self, class_name: str):
         tok = self.stream.peek()
-        if tok.tk_type == 'KEYWORD' and tok.value in ('public', 'private'):
+        if tok.type in (TokenType.PUBLIC, TokenType.PRIVATE):
             level = tok.value
             self.stream.next()
-            self._expect('OPERATOR', ':')
+            self._expect(TokenType.COLON)
             return AccessSpec(level, loc=tok)
-        if tok.tk_type == 'KEYWORD' and tok.value == 'static':
+        if tok.type == TokenType.STATIC:
             self.stream.next()
             next_tok = self.stream.peek()
-            if next_tok.tk_type == 'KEYWORD' and next_tok.value == 'let':
+            if next_tok.type == TokenType.LET:
                 return self.parse_field_def(is_static=True)
             else:
                 return self.parse_class_member(class_name)
-        if tok.tk_type == 'OPERATOR' and tok.value == '~':
+        if tok.type == TokenType.TILDE:
             return self.parse_destructor_def()
-        if tok.tk_type == 'IDENTIFIER' and tok.value == class_name:
+        if tok.type == TokenType.IDENTIFIER and tok.value == class_name:
             return self.parse_constructor_def()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'operator':
+        if tok.type == TokenType.OPERATOR_KW:
             return self.parse_operator_def()
-        if tok.tk_type == 'KEYWORD' and tok.value in ('override', 'func'):
+        if tok.type in (TokenType.OVERRIDE, TokenType.FUNC):
             return self.parse_method_def()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'let':
+        if tok.type == TokenType.LET:
             return self.parse_field_def(is_static=False)
         return self.parse_statement()
 
@@ -105,7 +106,7 @@ class DefinitionParserMixin:
         self._expect('OPERATOR', '(')
         self._expect('OPERATOR', ')')
         super_call = None
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
+        if self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == ':':
             self.stream.next()
             self._expect('OPERATOR', '~')
             super_call = self._expect('IDENTIFIER').value
@@ -116,7 +117,7 @@ class DefinitionParserMixin:
         start_ident = self._expect('IDENTIFIER')
         sig = self.parse_func_sig()
         super_call = None
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
+        if self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == ':':
             self.stream.next()
             super_name = self._expect('IDENTIFIER').value
             args = self.parse_call_args()
@@ -126,12 +127,12 @@ class DefinitionParserMixin:
 
     def parse_method_def(self):
         override = False
-        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'override':
+        if self.stream.peek().type == 'KEYWORD' and self.stream.peek().value == 'override':
             self.stream.next()
             override = True
         start = self._expect('KEYWORD', 'func')
         name = self._expect('IDENTIFIER').value
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '<':
+        if self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == '<':
             self.parse_generic_params()  # ignore for now
         sig = self.parse_func_sig()
         body = self.parse_block()
@@ -139,7 +140,7 @@ class DefinitionParserMixin:
 
     def parse_operator_def(self):
         override = False
-        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'override':
+        if self.stream.peek().type == 'KEYWORD' and self.stream.peek().value == 'override':
             self.stream.next()
             override = True
         start = self._expect('KEYWORD', 'operator')
@@ -151,11 +152,11 @@ class DefinitionParserMixin:
     def parse_interface_member(self):
         start = self._expect('KEYWORD', 'func')
         name = self._expect('IDENTIFIER').value
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '<':
+        if self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == '<':
             self.parse_generic_params()
         sig = self.parse_func_sig()
         body = None
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '{':
+        if self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == '{':
             body = self.parse_block()
         self._expect('OPERATOR', ';')
         if body is None:
@@ -166,7 +167,7 @@ class DefinitionParserMixin:
         params = []
         self._expect('OPERATOR', '<')
         params.append(self._expect('IDENTIFIER').value)
-        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+        while self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == ',':
             self.stream.next()
             params.append(self._expect('IDENTIFIER').value)
         self._expect('OPERATOR', '>')
@@ -175,9 +176,9 @@ class DefinitionParserMixin:
     def parse_call_args(self) -> list:
         self._expect('OPERATOR', '(')
         args = []
-        if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ')'):
+        if not (self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == ')'):
             args.append(self.parse_expression())
-            while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+            while self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == ',':
                 self.stream.next()
                 args.append(self.parse_expression())
         self._expect('OPERATOR', ')')
@@ -188,14 +189,14 @@ class DefinitionParserMixin:
         start = self._expect('OPERATOR', '(')
         params: list[Parameter] = []
         var_arg = False
-        if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ')'):
-            if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '...':
+        if not (self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == ')'):
+            if self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == '...':
                 self.stream.next()
                 var_arg = True
             else:
                 params.append(self.parse_param())
-                while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
-                    if self.stream.peek(1) and self.stream.peek(1).tk_type == 'OPERATOR' and self.stream.peek(1).value == '...':
+                while self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == ',':
+                    if self.stream.peek(1) and self.stream.peek(1).type == 'OPERATOR' and self.stream.peek(1).value == '...':
                         self.stream.next()
                         self.stream.next()
                         var_arg = True
@@ -204,15 +205,15 @@ class DefinitionParserMixin:
                     params.append(self.parse_param())
         self._expect('OPERATOR', ')')
         return_type = None
-        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '->':
+        if self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == '->':
             self.stream.next()
             return_type = self.parse_type_spec()
         return FuncSig(params, return_type, var_arg, loc=start)
 
     def parse_param(self) -> Parameter:
         names = [self._expect('IDENTIFIER').value]
-        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
-            if self.stream.peek(1) and self.stream.peek(1).tk_type == 'IDENTIFIER':
+        while self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == ',':
+            if self.stream.peek(1) and self.stream.peek(1).type == 'IDENTIFIER':
                 self.stream.next()
                 names.append(self._expect('IDENTIFIER').value)
             else:
@@ -223,23 +224,23 @@ class DefinitionParserMixin:
 
     def parse_type_spec(self) -> str:
         parts = [self._parse_single_type_spec()]
-        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '|':
+        while self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == '|':
             self.stream.next()
             parts.append(self._parse_single_type_spec())
         return ' | '.join(parts)
 
     def _parse_single_type_spec(self) -> str:
         tok = self.stream.peek()
-        if tok.tk_type == 'KEYWORD' and tok.value == 'nil':
+        if tok.type == 'KEYWORD' and tok.value == 'nil':
             self.stream.next()
             parts = ['nil']
         else:
             parts = [self._expect('IDENTIFIER').value]
-        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '.':
+        while self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == '.':
             self.stream.next()
             parts.append(self._expect('IDENTIFIER').value)
         typ = '.'.join(parts)
-        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '*':
+        while self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == '*':
             self.stream.next()
             typ += '*'
         return typ
@@ -248,7 +249,7 @@ class DefinitionParserMixin:
         start = self._expect('OPERATOR', '{')
         statements = []
         while self.stream.peek() and not (
-            self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '}'
+            self.stream.peek().type == 'OPERATOR' and self.stream.peek().value == '}'
         ):
             statements.append(self.parse_statement())
         self._expect('OPERATOR', '}')

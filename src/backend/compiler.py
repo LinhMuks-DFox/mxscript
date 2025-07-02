@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, List
 import os
 
-from ..lexer import TokenStream, tokenize
+from ..frontend import TokenStream, tokenize
 from ..syntax_parser import Parser
 from ..syntax_parser.ast import (
     BinaryOp,
