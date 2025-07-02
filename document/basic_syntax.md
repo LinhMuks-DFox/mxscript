@@ -169,5 +169,198 @@ for i in 1..100 {
 }
 ```
 
+#### 4.6 `match`
+
+```mxscript
+
+
+func foo_or_bar(s: string) -> int | string {
+    return match (x) {
+        case "foo" => {
+            "bar";
+        }
+        case "bar" => {
+            "foo"
+        }
+    }
+}
+
+
+let x: string = "s"; 
+
+
+```
+
 ### 5. Class, interface, builtin classes, and type system
 See ![](./type_system.md)
+
+### 6. Error Handling
+
+MxScript adopts a unified, value-based approach to error handling that is designed to be both safe and expressive. The system distinguishes between two fundamental categories of errors but handles them through a single, consistent mechanism: the `Error` object.
+
+1.  **Recoverable Errors**: These are expected and handleable situations that occur during the normal flow of a program, such as invalid user input or a file not being found.
+2.  **Unrecoverable Errors (Panics)**: These are critical, unexpected programming errors that indicate a bug, such as division by zero or an array index out of bounds. The only sensible action is to terminate the program.
+
+#### 6.1. The Generic `Error` Object
+
+All errors are represented as instances of the `std.Error` class. To ensure type safety, `std.Error` is a generic class.
+
+* **Definition**: `@@template(T) class std.Error`
+* **Generic Parameter `T`**: The type `T` corresponds to the type of the `alternative` value, providing a type-safe fallback mechanism.
+* **Constructor**: `std.Error<T>(type: String, message: String, panic: bool = false, alternative: T = nil)`
+    * `type`: A string identifying the class of error (e.g., `"ValueError"`, `"IOError"`).
+    * `message`: A human-readable description of what went wrong.
+    * `panic`: A boolean flag. If `true`, creating this `Error` object will immediately halt the program and print a stack trace to `stderr`. If `false` (the default), the `Error` object is treated as a normal value.
+    * `alternative`: A type-safe fallback value of type `T` that can be used by the calling code for recovery.
+
+#### 6.2. Signaling Errors with `raise`
+
+The `raise` keyword is the primary mechanism for signaling an error. It is syntactic sugar for `return std.Error<T>(...)`.
+
+**Compiler Rule**: The `raise` keyword can **only** be used inside a function whose return type is explicitly declared as a union type that includes an `Error` specialization (e.g., `-> int | Error<int>`). This rule ensures that all potential errors are visible in the function's signature.
+
+```mxscript
+// This function explicitly states it can return an int or an Error with an int alternative.
+func process_data(data: string) -> int | Error<int> {
+    if data.is_empty() {
+        // Signal a recoverable error with a type-safe fallback value.
+        raise std.Error<int>("ValueError", "Input data cannot be empty.", alternative=0);
+    }
+    // ...
+}
+
+// The signature MUST include Error because of the 'raise' statement.
+func divide(a: int, b: int) -> int | Error<int> {
+    if b == 0 {
+        // Signal a fatal, unrecoverable error.
+        raise std.Error<int>("ZeroDivisionError", "Divisor cannot be zero.", panic=true);
+    }
+    return a / b;
+}
+```
+
+#### 6.3. Extending `Error` for Custom Types
+
+You can create a more specific and structured error hierarchy by extending the `std.Error` class.
+
+```mxscript
+// Define a custom error type for network-related failures.
+class NetworkError : std.Error<nil> {
+    let host: string;
+    let port: int;
+
+    // Custom constructor
+    NetworkError(host: string, port: int, msg: string) {
+        super("NetworkError", msg); // Call the base class constructor
+        self.host = host;
+        self.port = port;
+    }
+}
+
+func connect(host: string, port: int) -> Connection | NetworkError {
+    if !is_reachable(host, port) {
+        raise NetworkError(host, port, "Host is not reachable.");
+    }
+    // ...
+}
+```
+
+#### 6.4. Handling Errors with `match`
+
+Because functions that can fail return a union type, the `match` statement is the primary tool for safely handling the result. It forces the developer to explicitly consider both the success and error cases.
+
+```mxscript
+func main() -> int {
+    let result = process_data("");
+
+    let value = match (result) {
+        // Case 1: Handle a specific, custom error type.
+        case e: NetworkError => {
+            println("Connection failed to host:", e.host);
+            -1; // Return a default value
+        }
+        // Case 2: Handle any other generic Error. The compiler knows e.alternative is an int.
+        case e: Error<int> => {
+            println("A generic error occurred:", e.message);
+            e.alternative; // Use the type-safe alternative value to recover.
+        }
+        // Case 3: The function returned an int.
+        case i: int => {
+            println("Success! The value is:", i);
+            i;
+        }
+    };
+
+    println("The final value is:", value); // Prints "The final value is: 0"
+    return 0;
+}
+
+
+MxScript adopts a unified, value-based approach to error handling that is designed to be both safe and expressive. The system distinguishes between two fundamental categories of errors but handles them through a single, consistent mechanism: the `Error` object.
+
+1.  **Recoverable Errors**: These are expected and handleable situations that occur during the normal flow of a program, such as invalid user input or a file not being found.
+2.  **Unrecoverable Errors (Panics)**: These are critical, unexpected programming errors that indicate a bug, such as division by zero or an array index out of bounds. The only sensible action is to terminate the program.
+
+#### 6.1. The `Error` Object
+
+All errors are represented as instances of the `std.Error` class. This object encapsulates all information about an error event.
+
+* **Constructor**: `std.Error(type: String, message: String, panic: bool = false, alternative: Any = nil)`
+    * `type`: A string identifying the class of error (e.g., `"ValueError"`, `"IOError"`). This is useful for programmatic handling.
+    * `message`: A human-readable description of what went wrong.
+    * `panic`: A boolean flag. If `true`, creating this `Error` object will immediately halt the program and print a stack trace to `stderr`. If `false` (the default), the `Error` object is treated as a normal value.
+    * `alternative`: A fallback value that can be used by the calling code as a default or recovery value if an error occurs.
+
+#### 6.2. Signaling Errors with `raise`
+
+The `raise` keyword is the primary mechanism for signaling an error. It is syntactic sugar for `return std.Error(...)`. This means that any function that can fail must explicitly declare `Error` as part of its return type using a union type.
+
+```mxscript
+// This function explicitly states it can return an int or an Error.
+func process_data(data: string) -> int | Error {
+    if data.is_empty() {
+        // Signal a recoverable error with a fallback value.
+        raise std.Error("ValueError", "Input data cannot be empty.", alternative=0);
+    }
+    // ...
+}
+
+func divide(a: int, b: int) -> int {
+    if b == 0 {
+        // Signal a fatal, unrecoverable error.
+        raise std.Error("ZeroDivisionError", "Divisor cannot be zero.", panic=true);
+    }
+    return a / b;
+}
+```
+
+#### 6.3. Handling Errors with `match`
+
+Because functions that can fail return a union type (e.g., `int | Error`), the `match` statement is the primary tool for safely handling the result. It forces the developer to explicitly consider both the success case and the error case, preventing unhandled errors.
+
+```mxscript
+func main() -> int {
+    let result = process_data("");
+
+    let value = match (result) {
+        // Case 1: The function returned an Error object.
+        case e: Error => {
+            println("An error occurred:", e.message);
+            // Use the provided alternative value to recover.
+            e.alternative;
+        }
+        // Case 2: The function returned an int.
+        case i: int => {
+            println("Success! The value is:", i);
+            i;
+        }
+    };
+
+    println("The final value is:", value); // Prints "The final value is: 0"
+
+    // This call will terminate the program if the condition is met.
+    let calculation = divide(10, 0);
+
+    return 0;
+}
+```
