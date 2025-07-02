@@ -32,3 +32,39 @@ def test_until_loop_scope():
     result = compile_and_run(src)
     assert result == 5
 
+
+def test_do_until_loop():
+    src = (
+        'func main() -> int {\n'
+        '    let mut x = 0;\n'
+        '    do {\n'
+        '        x = x + 1;\n'
+        '    } until (x == 3);\n'
+        '    return x;\n'
+        '}'
+    )
+    result = compile_and_run(src)
+    assert result == 3
+
+
+def test_loop_break_continue():
+    src = (
+        'func main() -> int {\n'
+        '    let mut i = 0;\n'
+        '    let mut sum = 0;\n'
+        '    loop {\n'
+        '        i = i + 1;\n'
+        '        if i > 5 {\n'
+        '            break;\n'
+        '        }\n'
+        '        if i % 2 == 0 {\n'
+        '            continue;\n'
+        '        }\n'
+        '        sum = sum + i;\n'
+        '    }\n'
+        '    return sum;\n'
+        '}'
+    )
+    result = compile_and_run(src)
+    assert result == 9
+
