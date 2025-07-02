@@ -23,11 +23,11 @@ def compile_and_run(source: str) -> int:
 def test_complex_member_lifecycle():
     src = (
         'class Inner {\n'
-        '    func Inner() {}\n'
+        '    Inner() {}\n'
         '}\n'
         'class Outer {\n'
         '    let mut member: Inner;\n'
-        '    func Outer() {}\n'
+        '    Outer() {}\n'
         '}\n'
         'func main() -> int {\n'
         '    let o: Outer = Outer();\n'
@@ -42,11 +42,11 @@ def test_complex_member_lifecycle():
 def test_member_reassignment():
     src = (
         'class Inner {\n'
-        '    func Inner() {}\n'
+        '    Inner() {}\n'
         '}\n'
         'class Outer {\n'
         '    let mut member: Inner;\n'
-        '    func Outer() {}\n'
+        '    Outer() {}\n'
         '}\n'
         'func main() -> int {\n'
         '    let o: Outer = Outer();\n'
@@ -62,7 +62,7 @@ def test_member_reassignment():
 def test_function_call_chain():
     src = (
         'class Data {\n'
-        '    func Data() {}\n'
+        '    Data() {}\n'
         '}\n'
         'func make_data() -> Data {\n'
         '    return Data();\n'

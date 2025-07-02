@@ -261,8 +261,9 @@ def _compile_stmt(
             ):
                 needs_destruction = True
 
-        code.append(Store(stmt.name, resolved_type, stmt.is_mut))
-        symtab.add_symbol(Symbol(stmt.name, resolved_type, needs_destruction))
+        for name in stmt.names:
+            code.append(Store(name, resolved_type, stmt.is_mut))
+            symtab.add_symbol(Symbol(name, resolved_type, needs_destruction))
         return code
     if isinstance(stmt, BindingStmt):
         if stmt.is_static and isinstance(stmt.value, (Identifier, MemberAccess)):

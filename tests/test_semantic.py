@@ -48,7 +48,7 @@ def test_function_scope_success():
                 "foo",
                 ["a", "b"],
                 [
-                    LetStmt("c", Identifier("a")),
+                    LetStmt(["c"], Identifier("a")),
                     ExprStmt(BinaryOp(Identifier("c"), "+", Identifier("b"))),
                 ],
             ),
@@ -75,7 +75,7 @@ def test_function_scope_undefined():
 def test_local_variable_not_global():
     prog = Program(
         [
-            FunctionDecl("foo", [], [LetStmt("x", Integer(1))]),
+            FunctionDecl("foo", [], [LetStmt(["x"], Integer(1))]),
             ExprStmt(Identifier("x")),
         ]
     )
@@ -92,7 +92,7 @@ def test_import_alias_reference():
 
 
 def test_analyzer_registers_class_and_destructor():
-    source = "class File { func ~File() {} }"
+    source = "class File { ~File() {} }"
     ast = Parser(TokenStream(tokenize(source))).parse()
 
     analyzer = SemanticAnalyzer()
@@ -104,7 +104,7 @@ def test_analyzer_registers_class_and_destructor():
 
 
 def test_analyzer_registers_constructor():
-    source = "class Box { func Box(v: int) {} }"
+    source = "class Box { Box(v: int) {} }"
     ast = Parser(TokenStream(tokenize(source))).parse()
     analyzer = SemanticAnalyzer()
     analyzer.analyze(ast)

@@ -111,16 +111,14 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
             return self.parse_raise_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'return':
             return self.parse_return_stmt()
+        if tok.tk_type == 'OPERATOR' and tok.value == '~':
+            return self.parse_destructor_def()
         if tok.tk_type == 'KEYWORD' and tok.value == 'func':
-            if (
-                self.stream.peek(1)
-                and self.stream.peek(1).tk_type == 'OPERATOR'
-                and self.stream.peek(1).value == '~'
-            ):
-                return self.parse_destructor_def()
             return self.parse_func_def()
         if tok.tk_type == 'KEYWORD' and tok.value == 'class':
             return self.parse_class_def()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'interface':
+            return self.parse_interface_def()
         if tok.tk_type == 'OPERATOR' and tok.value == '{':
             return self.parse_block()
         else:
@@ -147,15 +145,20 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
         if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'mut':
             self.stream.next()
             is_mut = True
-        name = self._expect('IDENTIFIER').value
+        names = [self._expect('IDENTIFIER').value]
+        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+            self.stream.next()
+            names.append(self._expect('IDENTIFIER').value)
         type_name = None
         if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
             self.stream.next()
             type_name = self.parse_type_spec()
-        self._expect('OPERATOR', '=')
-        value = self.parse_expression()
+        value = None
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '=':
+            self.stream.next()
+            value = self.parse_expression()
         self._expect('OPERATOR', ';')
-        return LetStmt(name, value, type_name, is_mut, loc=start)
+        return LetStmt(names, value, type_name, is_mut, loc=start)
 
     def parse_binding(self, is_static: bool):
         start = self.stream.next()  # consume 'static' or 'dynamic'

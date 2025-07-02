@@ -24,7 +24,7 @@ class Statement(Node):
 
 @dataclass
 class LetStmt(Statement):
-    name: str
+    names: List[str]
     value: "Expression" | None = None
     type_name: str | None = None
     is_mut: bool = False
@@ -151,6 +151,7 @@ class MethodDef(Statement):
     name: str
     signature: FuncSig
     body: Block
+    is_override: bool = False
 
 
 @dataclass
@@ -160,6 +161,7 @@ class OperatorDef(Statement):
     op: str
     signature: FuncSig
     body: Block
+    is_override: bool = False
 
 
 @dataclass
@@ -168,6 +170,7 @@ class ConstructorDef(Statement):
 
     signature: FuncSig
     body: Block
+    super_call: tuple[str, List[Expression]] | None = None
 
 
 @dataclass
@@ -176,6 +179,8 @@ class ClassDef(Statement):
 
     name: str
     body: Block
+    generic_params: List[str] | None = None
+    super_class: str | None = None
 
 
 @dataclass
@@ -183,6 +188,23 @@ class DestructorDef(Statement):
     """Destructor within a class definition."""
 
     body: Block
+    super_call: str | None = None
+
+
+@dataclass
+class FieldDef(Statement):
+    """Field definition inside a class."""
+
+    is_static: bool
+    is_mutable: bool
+    name: str
+    type_spec: str | None = None
+    initializer: Expression | None = None
+
+
+@dataclass
+class AccessSpec(Statement):
+    level: str
 
 
 @dataclass
@@ -190,6 +212,14 @@ class ForeignFuncDecl(Statement):
     name: str
     signature: FuncSig
     c_name: str
+
+
+@dataclass
+class InterfaceDef(Statement):
+    name: str
+    body: Block
+    generic_params: List[str] | None = None
+    super_interfaces: List[str] | None = None
 
 @dataclass
 class FunctionCall(Expression):

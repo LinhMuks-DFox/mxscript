@@ -62,3 +62,13 @@ def test_control_flow_keywords_tokenization():
         "break",
         "continue",
     ]
+
+
+def test_type_keywords_tokenization():
+    src = "class interface override static";
+    tokens = tokenize(src)
+    words = [t.value for t in tokens if t.tk_type == "KEYWORD"]
+    assert "class" in words
+    assert "interface" in words
+    assert "override" in words
+    assert "static" in words

@@ -54,8 +54,8 @@ def test_arc_runtime_calls_emit_correct_ir():
 def test_class_allocation_uses_arc_runtime():
     src = (
         'class Point {\n'
-        '    func Point() {}\n'
-        '    func ~Point() {}\n'
+        '    Point() {}\n'
+        '    ~Point() {}\n'
         '}\n'
         'func main() -> int {\n'
         '    let p: Point = Point();\n'
@@ -70,7 +70,7 @@ def test_class_allocation_uses_arc_runtime():
 def test_arc_retain_on_assignment():
     src = (
         'class Point {\n'
-        '    func Point() {}\n'
+        '    Point() {}\n'
         '}\n'
         'func main() -> int {\n'
         '    let p1: Point = Point();\n'
@@ -85,7 +85,7 @@ def test_arc_retain_on_assignment():
 def test_arc_release_on_reassignment():
     src = (
         'class Data {\n'
-        '    func Data() {}\n'
+        '    Data() {}\n'
         '}\n'
         'func main() {\n'
         '    let d: Data = Data();\n'
@@ -99,7 +99,7 @@ def test_arc_release_on_reassignment():
 def test_arc_retain_for_function_args():
     src = (
         'class Token {\n'
-        '    func Token() {}\n'
+        '    Token() {}\n'
         '}\n'
         'func process_token(t: Token) -> Token {\n'
         '    return t;\n'
@@ -117,11 +117,11 @@ def test_arc_retain_for_function_args():
 def test_arc_release_on_member_assignment():
     src = (
         'class Data {\n'
-        '    func Data() {}\n'
+        '    Data() {}\n'
         '}\n'
         'class Container {\n'
         '    let mut d: Data;\n'
-        '    func Container() {}\n'
+        '    Container() {}\n'
         '}\n'
         'func main() {\n'
         '    let c: Container = Container();\n'
