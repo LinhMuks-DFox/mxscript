@@ -13,6 +13,7 @@ from ..syntax_parser.ast import (
     FunctionCall,
     FunctionDecl,
     FuncDef,
+    AssignExpr,
     ForeignFuncDecl,
     Identifier,
     Integer,
