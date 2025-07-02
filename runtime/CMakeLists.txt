@@ -22,7 +22,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # --- 查找所有源文件 ---
 # 递归查找impl目录下的所有.cpp文件
 file(GLOB_RECURSE IMPL_SOURCES "impl/*.cpp")
+file(GLOB_RECURSE SRC_SOURCES "src/*.cpp")
 list(APPEND IMPL_SOURCES "impl/object.cpp")
+list(APPEND IMPL_SOURCES ${SRC_SOURCES})
 
 # --- 定义要构建的目标 ---
 # 将所有源文件编译成一个名为 "runtime" 的共享库 (最终生成 <project_root>/bin/libruntime.so)
