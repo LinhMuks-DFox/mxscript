@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from .tokens import TokenType, Token, KEYWORDS, OPERATORS
+from .tokens import TokenType, Token, KEYWORDS, OPERATORS, _TokenCategory
 
 
 class Tokenizer:
@@ -49,7 +49,7 @@ class Tokenizer:
                 self._advance()
                 while self.index < self.length and self._peek() != "\n":
                     self._advance()
-                tokens.append(Token(TokenType.COMMENT, "", start_line, start_col))
+                tokens.append(Token(_TokenCategory(TokenType.COMMENT), "", start_line, start_col))
                 continue
 
             # Multi-line comments !##! ... !##! or !# ... #!
@@ -62,7 +62,7 @@ class Tokenizer:
                 if self.source.startswith("!##!", self.index):
                     self.index += 4
                     self.col += 4
-                tokens.append(Token(TokenType.COMMENT, "", start_line, start_col))
+                tokens.append(Token(_TokenCategory(TokenType.COMMENT), "", start_line, start_col))
                 continue
             if self.source.startswith("!#", self.index):
                 start_line, start_col = self.line, self.col
@@ -73,12 +73,12 @@ class Tokenizer:
                 if self.source.startswith("#!", self.index):
                     self.index += 2
                     self.col += 2
-                tokens.append(Token(TokenType.COMMENT, "", start_line, start_col))
+                tokens.append(Token(_TokenCategory(TokenType.COMMENT), "", start_line, start_col))
                 continue
 
             # Annotation token @@
             if ch == "@" and self.index + 1 < self.length and self.source[self.index + 1] == "@":
-                tokens.append(Token(TokenType.ANNOTATION, "@@", self.line, self.col))
+                tokens.append(Token(_TokenCategory(TokenType.ANNOTATION), "@@", self.line, self.col))
                 self.index += 2
                 self.col += 2
                 continue
@@ -105,16 +105,16 @@ class Tokenizer:
                     matched = op
                     break
             if matched is not None:
-                tokens.append(Token(OPERATORS[matched], matched, self.line, self.col))
+                tokens.append(Token(_TokenCategory(OPERATORS[matched], "OPERATOR"), matched, self.line, self.col))
                 self.index += len(matched)
                 self.col += len(matched)
                 continue
 
             # Unknown characters
-            tokens.append(Token(TokenType.UNKNOWN, ch, self.line, self.col))
+            tokens.append(Token(_TokenCategory(TokenType.UNKNOWN), ch, self.line, self.col))
             self._advance()
 
-        tokens.append(Token(TokenType.EOF, "", self.line, self.col))
+        tokens.append(Token(_TokenCategory(TokenType.EOF), "", self.line, self.col))
         return tokens
 
     # ------------------------------------------------------------------
@@ -140,7 +140,7 @@ class Tokenizer:
             literal += self._advance()
         if self._peek() == '"':
             self._advance()
-        return Token(TokenType.STRING, literal, start_line, start_col)
+        return Token(_TokenCategory(TokenType.STRING), literal, start_line, start_col)
 
     def _parse_number(self) -> Token:
         start_line, start_col = self.line, self.col
@@ -156,8 +156,8 @@ class Tokenizer:
             num += self._advance()  # consume '.'
             while self.index < self.length and self._peek().isdigit():
                 num += self._advance()
-            return Token(TokenType.FLOAT, num, start_line, start_col)
-        return Token(TokenType.INTEGER, num, start_line, start_col)
+            return Token(_TokenCategory(TokenType.FLOAT), num, start_line, start_col)
+        return Token(_TokenCategory(TokenType.INTEGER), num, start_line, start_col)
 
     def _parse_identifier(self) -> Token:
         start_line, start_col = self.line, self.col
@@ -165,7 +165,8 @@ class Tokenizer:
         while self.index < self.length and (self._peek().isalnum() or self._peek() == "_"):
             ident += self._advance()
         tk_type = KEYWORDS.get(ident, TokenType.IDENTIFIER)
-        return Token(tk_type, ident, start_line, start_col)
+        category = "KEYWORD" if ident in KEYWORDS else "IDENTIFIER"
+        return Token(_TokenCategory(tk_type, category), ident, start_line, start_col)
 
 
 def tokenize(source: str) -> List[Token]:
