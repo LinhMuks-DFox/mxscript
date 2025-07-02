@@ -28,8 +28,9 @@ def print_error(err: CompilerError) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="MxScript driver")
-    parser.add_argument("source", help="MxScript source file")
-    parser.add_argument("--dump-llir", action="store_true", help="print LLVM IR")
+    parser.add_argument("source", nargs="?", help="MxScript source file")
+    parser.add_argument("--dump-llvm", action="store_true", help="print LLVM IR")
+    parser.add_argument("--dump-tokens", action="store_true", help="print token list")
     parser.add_argument("-o", "--output", help="write LLVM IR to file")
     parser.add_argument("--dump-ast", action="store_true", help="print parsed AST")
     parser.add_argument(
@@ -42,17 +43,26 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
+    if args.source is None:
+        from src.cui.shell import run_shell
+        return run_shell()
+
     path = Path(args.source)
     source = path.read_text()
 
     try:
         tokens = tokenize(source)
+        if args.dump_tokens:
+            print(tokens)
+            return 0
+
         stream = TokenStream(tokens)
         parser_obj = Parser(stream, source=source, filename=str(path))
         ast = parser_obj.parse()
 
         if args.dump_ast:
             print(dump_ast(ast))
+            return 0
 
         sema = SemanticAnalyzer()
         sema.analyze(ast, source=source, filename=str(path))
@@ -60,12 +70,16 @@ def main(argv: list[str] | None = None) -> int:
         search_paths = build_search_paths(args.search_paths)
         ir_prog = compile_program(ast, search_paths=search_paths)
 
-        if args.dump_llir or args.output:
+        if args.dump_llvm or args.output:
             llvm_ir = to_llvm_ir(ir_prog)
-            if args.dump_llir:
+            if args.dump_llvm:
                 print(llvm_ir)
+                if not args.output:
+                    return 0
             if args.output:
                 Path(args.output).write_text(llvm_ir)
+                if not args.dump_llvm:
+                    return 0
 
         result = execute_llvm(ir_prog)
     except CompilerError as e:

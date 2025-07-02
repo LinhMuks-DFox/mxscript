@@ -1,5 +1,6 @@
 #include "allocator.hpp"
 #include "object.hpp"
+#include <cstdio>
 
 namespace mxs_runtime {
 
@@ -18,4 +19,17 @@ void Allocator::unregisterObject(MXObject* obj) {
     objects.erase(obj);
 }
 
+void Allocator::dump_stats() {
+    std::lock_guard<std::mutex> lock(mtx);
+    printf("Live objects: %zu\n", objects.size());
+    for (MXObject* obj : objects) {
+        const char* type = obj ? obj->get_type_name().c_str() : "<null>";
+        printf("  %p (%s)\n", (void*)obj, type);
+    }
+}
+
 } // namespace mxs_runtime
+
+extern "C" MXS_API void mxs_allocator_dump_stats() {
+    mxs_runtime::MX_ALLOCATOR.dump_stats();
+}
