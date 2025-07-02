@@ -3,11 +3,15 @@
 
 namespace mxs_runtime {
 
-MXInteger::MXInteger(inner_integer v) : MXObject(), value(v) {
+MXNumeric::MXNumeric(bool is_static) : MXObject(is_static) {
+    this->set_type_name("numeric");
+}
+
+MXInteger::MXInteger(inner_integer v) : MXNumeric(false), value(v) {
     this->set_type_name("integer");
 }
 
-MXFloat::MXFloat(inner_float v) : MXObject(), value(v) {
+MXFloat::MXFloat(inner_float v) : MXNumeric(false), value(v) {
     this->set_type_name("float");
 }
 } // namespace mxs_runtime
