@@ -94,7 +94,7 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
         if tok.tk_type == 'KEYWORD' and tok.value in ('static', 'dynamic'):
             return self.parse_binding(tok.value == 'static')
         if tok.tk_type == 'KEYWORD' and tok.value == 'for':
-            return self.parse_for_in()
+            return self.parse_for_in_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'loop':
             return self.parse_loop_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'until':
@@ -103,6 +103,8 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
             return self.parse_do_until_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'break':
             return self.parse_break_stmt()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'continue':
+            return self.parse_continue_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'if':
             return self.parse_if_stmt()
         if tok.tk_type == 'KEYWORD' and tok.value == 'raise':
@@ -165,7 +167,7 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
         from .ast import BindingStmt
         return BindingStmt(name, value, is_static, loc=start)
 
-    def parse_for_in(self):
+    def parse_for_in_stmt(self):
         start = self._expect('KEYWORD', 'for')
         is_mut = False
         if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'mut':
@@ -209,6 +211,12 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
         self._expect('OPERATOR', ';')
         from .ast import BreakStmt
         return BreakStmt(loc=start)
+
+    def parse_continue_stmt(self):
+        start = self._expect('KEYWORD', 'continue')
+        self._expect('OPERATOR', ';')
+        from .ast import ContinueStmt
+        return ContinueStmt(loc=start)
 
     def parse_if_stmt(self) -> IfStmt:
         start = self._expect('KEYWORD', 'if')

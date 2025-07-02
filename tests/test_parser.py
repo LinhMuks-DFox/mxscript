@@ -387,3 +387,10 @@ def test_parse_break_stmt():
     assert isinstance(stmt, BreakStmt)
 
 
+def test_parse_continue_stmt():
+    program = parse("continue;")
+    stmt = program.statements[0]
+    from src.syntax_parser.ast import ContinueStmt
+    assert isinstance(stmt, ContinueStmt)
+
+

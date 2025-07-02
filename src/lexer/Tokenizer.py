@@ -30,6 +30,7 @@ KEYWORDS = {
     "do",
     "until",
     "break",
+    "continue",
     "return",
     "raise",
     "match",

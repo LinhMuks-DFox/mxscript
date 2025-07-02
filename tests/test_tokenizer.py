@@ -45,3 +45,20 @@ def test_string_escape_sequences():
     tokens = tokenize(src)
     assert tokens[0].tk_type == "STRING"
     assert tokens[0].value == 'foo\nbar\t"baz"\\'
+
+
+def test_control_flow_keywords_tokenization():
+    src = "if else for in until do loop break continue;"
+    tokens = tokenize(src)
+    kw_tokens = [t.value for t in tokens if t.tk_type == "KEYWORD"]
+    assert kw_tokens[:9] == [
+        "if",
+        "else",
+        "for",
+        "in",
+        "until",
+        "do",
+        "loop",
+        "break",
+        "continue",
+    ]

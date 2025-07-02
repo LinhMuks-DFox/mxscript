@@ -21,6 +21,7 @@ from ..syntax_parser.ast import (
     UntilStmt,
     DoUntilStmt,
     BreakStmt,
+    ContinueStmt,
     IfStmt,
     ReturnStmt,
     RaiseStmt,
@@ -171,6 +172,12 @@ class SemanticAnalyzer:
             if self.loop_depth == 0:
                 raise SemanticError(
                     "break statement outside of loop",
+                    self._get_location(stmt.loc),
+                )
+        elif isinstance(stmt, ContinueStmt):
+            if self.loop_depth == 0:
+                raise SemanticError(
+                    "continue statement outside of loop",
                     self._get_location(stmt.loc),
                 )
         elif isinstance(stmt, IfStmt):

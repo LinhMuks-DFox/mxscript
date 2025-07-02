@@ -238,6 +238,13 @@ class BreakStmt(Statement):
 
 
 @dataclass
+class ContinueStmt(Statement):
+    """Skip to the next iteration of the innermost loop."""
+
+    pass
+
+
+@dataclass
 class IfStmt(Statement):
     """Classic if-else statement."""
 
