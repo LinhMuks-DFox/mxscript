@@ -10,7 +10,7 @@ class Instr:
 
 @dataclass
 class Const(Instr):
-    value: int | str
+    value: int | float | bool | str | None
 
 
 @dataclass

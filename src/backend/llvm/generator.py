@@ -133,8 +133,28 @@ class LLVMGenerator:
             if isinstance(instr, Const):
                 if isinstance(instr.value, str):
                     stack.append(self._create_global_string(instr.value))
+                elif instr.value is True:
+                    fn = self.ffi.get_or_declare_function("mxs_get_true")
+                    obj = self.ctx.builder.call(fn, [])
+                    stack.append(self.ctx.builder.ptrtoint(obj, self.ctx.int_t))
+                elif instr.value is False:
+                    fn = self.ffi.get_or_declare_function("mxs_get_false")
+                    obj = self.ctx.builder.call(fn, [])
+                    stack.append(self.ctx.builder.ptrtoint(obj, self.ctx.int_t))
+                elif isinstance(instr.value, int):
+                    fn = self.ffi.get_or_declare_function("MXCreateInteger")
+                    obj = self.ctx.builder.call(fn, [ir.Constant(self.ctx.int_t, instr.value)])
+                    stack.append(self.ctx.builder.ptrtoint(obj, self.ctx.int_t))
+                elif isinstance(instr.value, float):
+                    fn = self.ffi.get_or_declare_function("MXCreateFloat")
+                    obj = self.ctx.builder.call(fn, [ir.Constant(ir.DoubleType(), instr.value)])
+                    stack.append(self.ctx.builder.ptrtoint(obj, self.ctx.int_t))
+                elif instr.value is None:
+                    fn = self.ffi.get_or_declare_function("mxs_get_nil")
+                    obj = self.ctx.builder.call(fn, [])
+                    stack.append(self.ctx.builder.ptrtoint(obj, self.ctx.int_t))
                 else:
-                    stack.append(ir.Constant(self.ctx.int_t, instr.value))
+                    stack.append(ir.Constant(self.ctx.int_t, 0))
             elif isinstance(instr, Load):
                 val = self.ctx.get_var(instr.name)
                 if isinstance(val.type, ir.PointerType):

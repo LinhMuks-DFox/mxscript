@@ -99,6 +99,21 @@ class Integer(Expression):
 
 
 @dataclass
+class Float(Expression):
+    value: float
+
+
+@dataclass
+class Boolean(Expression):
+    value: bool
+
+
+@dataclass
+class NilLiteral(Expression):
+    pass
+
+
+@dataclass
 class String(Expression):
     """String literal expression."""
 

@@ -17,6 +17,9 @@ from ..syntax_parser.ast import (
     ForeignFuncDecl,
     Identifier,
     Integer,
+    Float,
+    Boolean,
+    NilLiteral,
     MemberAccess,
     MemberAssign,
     RaiseStmt,
@@ -495,6 +498,12 @@ def _compile_expr(
 ) -> List[Instr]:
     if isinstance(expr, Integer):
         return [Const(expr.value)]
+    if isinstance(expr, Float):
+        return [Const(expr.value)]
+    if isinstance(expr, Boolean):
+        return [Const(expr.value)]
+    if isinstance(expr, NilLiteral):
+        return [Const(None)]
     if isinstance(expr, String):
         return [Const(expr.value)]
     if isinstance(expr, Identifier):
