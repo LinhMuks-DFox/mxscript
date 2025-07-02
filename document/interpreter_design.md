@@ -102,3 +102,41 @@ Before executing the main logic, the runtime environment performs setup steps:
   - If found, calls it automatically.
   - The integer returned becomes the program's exit code (or `0` if `main()` returns `nil`).
   - If no `main()` function is found, the program exits after top-level execution with code `0`.
+
+## 3.1  Scope-Based Lifetimes (RAII)
+
+- **Scope Binding:**  
+  - A variable's lifetime is strictly tied to its declaring scope.  
+  - **Lexical Scoping:**  
+    - A variable exists from its declaration point to the end of its enclosing block (function body, loop block, `if` body, etc.).  
+
+- **Deterministic Destruction:**  
+  - When control flow exits a scope, all variables declared within it are **immediately** and **predictably** destroyed.  
+  - Follows the **Resource Acquisition Is Initialization (RAII)** principle to ensure resources are released as soon as they are no longer needed.  
+
+- **Release Operation:**  
+  - On variable destruction, a **release** operation is automatically performed on the object it references.
+
+---
+
+## 3.2  Automatic Reference Counting (ARC)
+
+- **Division of Responsibility:**  
+  - Variable lifetimes are managed by **scope**.  
+  - Underlying **object lifetimes** are managed by **ARC**.  
+
+- **Heap Allocation:**  
+  - All objects in **MxScript** are allocated on the **heap**.  
+
+- **Reference Count:**  
+  - Every object maintains a **reference count** tracking how many variables or structures refer to it.  
+
+- **Compiler-Managed Operations:**  
+  - The compiler inserts **retain** (increment) and **release** (decrement) calls automatically:  
+    - **Retain:** When a reference is shared (e.g., `let y = x;`, or passing as a function argument).  
+    - **Release:** When a reference is destroyed (i.e., variable goes out of scope).  
+
+- **Deallocation Process:**  
+  - When an object's reference count reaches **zero**:  
+    1. The object's **destructor** (`~ClassName()`) is called for custom cleanup (e.g., closing files, releasing network connections).  
+    2. The object's **memory** is deallocated and returned to the system.
