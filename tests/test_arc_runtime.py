@@ -22,33 +22,33 @@ def compile_to_ir(src: str) -> str:
 
 
 def test_ffi_registry_contains_arc_functions():
-    assert "arc_alloc" in LIBC_FUNCTIONS
-    assert "arc_retain" in LIBC_FUNCTIONS
-    assert "arc_release" in LIBC_FUNCTIONS
+    assert "new_mx_object" in LIBC_FUNCTIONS
+    assert "increase_ref" in LIBC_FUNCTIONS
+    assert "decrease_ref" in LIBC_FUNCTIONS
 
 
 def test_arc_runtime_calls_emit_correct_ir():
     src = (
-        '@@foreign(c_name="arc_alloc")\n'
-        'func arc_alloc(size: int) -> byte*;\n'
-        '@@foreign(c_name="arc_retain")\n'
-        'func arc_retain(ptr: byte*) -> byte*;\n'
-        '@@foreign(c_name="arc_release")\n'
-        'func arc_release(ptr: byte*);\n'
+        '@@foreign(c_name="new_mx_object")\n'
+        'func new_mx_object() -> byte*;\n'
+        '@@foreign(c_name="increase_ref")\n'
+        'func increase_ref(ptr: byte*) -> int;\n'
+        '@@foreign(c_name="decrease_ref")\n'
+        'func decrease_ref(ptr: byte*) -> int;\n'
         'func main() -> int {\n'
-        '    let p: byte* = arc_alloc(4);\n'
-        '    arc_retain(p);\n'
-        '    arc_release(p);\n'
+        '    let p: byte* = new_mx_object();\n'
+        '    increase_ref(p);\n'
+        '    decrease_ref(p);\n'
         '    return 0;\n'
         '}\n'
     )
     ir = compile_to_ir(src)
-    assert 'declare i8* @"arc_alloc"(i64' in ir
-    assert 'declare i8* @"arc_retain"(i8*' in ir
-    assert 'declare void @"arc_release"(i8*' in ir
-    assert 'call i8* @"arc_alloc"' in ir
-    assert 'call i8* @"arc_retain"' in ir
-    assert 'call void @"arc_release"' in ir
+    assert 'declare i8* @"new_mx_object"(' in ir
+    assert 'declare i64 @"increase_ref"(i8*' in ir
+    assert 'declare i64 @"decrease_ref"(i8*' in ir
+    assert 'call i8* @"new_mx_object"' in ir
+    assert 'call i64 @"increase_ref"' in ir
+    assert 'call i64 @"decrease_ref"' in ir
 
 
 def test_class_allocation_uses_arc_runtime():
@@ -63,8 +63,8 @@ def test_class_allocation_uses_arc_runtime():
         '}\n'
     )
     ir = compile_to_ir(src)
-    assert 'call i8* @"arc_alloc"' in ir
-    assert 'call void @"arc_release"' in ir
+    assert 'call i8* @"new_mx_object"' in ir
+    assert 'call i64 @"decrease_ref"' in ir
 
 
 def test_arc_retain_on_assignment():
@@ -79,7 +79,7 @@ def test_arc_retain_on_assignment():
         '}\n'
     )
     ir = compile_to_ir(src)
-    assert 'call i8* @"arc_retain"' in ir
+    assert 'call i64 @"increase_ref"' in ir
 
 
 def test_arc_release_on_reassignment():
@@ -111,7 +111,7 @@ def test_arc_retain_for_function_args():
         '}\n'
     )
     ir = compile_to_ir(src)
-    assert ir.count('call i8* @"arc_retain"') == 1
+    assert ir.count('call i64 @"increase_ref"') == 1
 
 
 def test_arc_release_on_member_assignment():
@@ -130,5 +130,5 @@ def test_arc_release_on_member_assignment():
         '}\n'
     )
     ir = compile_to_ir(src)
-    assert ir.count('call void @"arc_release"') == 1
+    assert ir.count('call i64 @"decrease_ref"') == 1
 

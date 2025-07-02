@@ -1,10 +1,11 @@
 #pragma once
+
 #ifndef MXSCRIPT_OBJECT_H
 #define MXSCRIPT_OBJECT_H
-#include "object.hpp"
+
 #include <cstddef>
 #include <string>
-// cpp implementation
+
 namespace mxs_runtime {
     class MXObject {
     private:
@@ -17,8 +18,11 @@ namespace mxs_runtime {
         MXObject(const MXObject &other);
         std::size_t increase_ref();
         std::size_t decrease_ref();
+        const std::string &get_type_name() const;
+        void set_type_name(const std::string &name);
     };
 }// namespace mxs_runtime
+
 
 // C API:
 
