@@ -34,6 +34,7 @@ from ..syntax_parser.ast import (
     UntilStmt,
     DoUntilStmt,
     BreakStmt,
+    ContinueStmt,
     IfStmt,
     Program,
     UnaryOp,
@@ -224,7 +225,7 @@ def _compile_stmt(
     alias_map: Dict[str, str],
     symtab: ScopedSymbolTable,
     type_registry: Dict[str, TypeInfo] | None,
-    break_targets: List[str],
+    break_targets: List[tuple[str, str]],
 ) -> List[Instr]:
     if isinstance(stmt, LetStmt):
         code: List[Instr] = []
@@ -348,7 +349,7 @@ def _compile_stmt(
         body_label = _new_label("loop_body")
         end_label = _new_label("loop_end")
         code.append(Label(name=body_label))
-        break_targets.append(end_label)
+        break_targets.append((end_label, body_label))
         code.extend(
             _compile_stmt(stmt.body, alias_map, symtab, type_registry, break_targets)
         )
@@ -373,7 +374,7 @@ def _compile_stmt(
         symtab.leave_scope()
         code.append(ScopeExit())
         code.append(Label(name=body_label))
-        break_targets.append(end_label)
+        break_targets.append((end_label, cond_label))
         code.extend(
             _compile_stmt(stmt.body, alias_map, symtab, type_registry, break_targets)
         )
@@ -387,12 +388,11 @@ def _compile_stmt(
         body_label = _new_label("do_body")
         end_label = _new_label("do_end")
         code.append(Label(name=body_label))
-        break_targets.append(end_label)
+        break_targets.append((end_label, body_label))
         code.extend(
             _compile_stmt(stmt.body, alias_map, symtab, type_registry, break_targets)
         )
         break_targets.pop()
-        code.extend(_compile_stmt(stmt.body, alias_map, symtab, type_registry))
         code.append(ScopeEnter())
         symtab.enter_scope()
         code.extend(_compile_expr(stmt.condition, alias_map, symtab, type_registry))
@@ -431,7 +431,7 @@ def _compile_stmt(
         code.append(Call("iter_next", 1))
         code.append(Store(stmt.var, None, stmt.is_mut))
         symtab.add_symbol(Symbol(stmt.var, None, False))
-        break_targets.append(end_label)
+        break_targets.append((end_label, cond_label))
         for s in stmt.body.statements:
             code.extend(
                 _compile_stmt(s, alias_map, symtab, type_registry, break_targets)
@@ -447,7 +447,11 @@ def _compile_stmt(
         return code
     if isinstance(stmt, BreakStmt):
         from .llir import Br
-        target = break_targets[-1]
+        target = break_targets[-1][0]
+        return [Br(label=target)]
+    if isinstance(stmt, ContinueStmt):
+        from .llir import Br
+        target = break_targets[-1][1]
         return [Br(label=target)]
     if isinstance(stmt, RaiseStmt):
         code = _compile_expr(stmt.expr, alias_map, symtab, type_registry)
@@ -609,7 +613,7 @@ def _compile_function(
         body_stmts = func.body
     body_code: List[Instr] = []
     symtab = ScopedSymbolTable()
-    break_targets: List[str] = []
+    break_targets: List[tuple[str, str]] = []
     for stmt in body_stmts:
         body_code.extend(
             _compile_stmt(stmt, alias_map, symtab, type_registry, break_targets)
@@ -630,7 +634,7 @@ def _compile_constructor(
     body_code: List[Instr] = []
     symtab = ScopedSymbolTable()
     symtab.add_symbol(Symbol("self", class_name, False))
-    break_targets: List[str] = []
+    break_targets: List[tuple[str, str]] = []
     for stmt in constructor.body.statements:
         body_code.extend(
             _compile_stmt(stmt, alias_map, symtab, type_registry, break_targets)
@@ -652,7 +656,7 @@ def _compile_destructor(
     body_code: List[Instr] = []
     symtab = ScopedSymbolTable()
     symtab.add_symbol(Symbol("self", class_name, False))
-    break_targets: List[str] = []
+    break_targets: List[tuple[str, str]] = []
     for stmt in destructor.body.statements:
         body_code.extend(
             _compile_stmt(stmt, alias_map, symtab, type_registry, break_targets)

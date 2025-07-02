@@ -80,11 +80,13 @@ class LLVMGenerator:
     # Symbol table helpers ---------------------------------------------
     def _get_or_alloc_mut(self, name: str) -> ir.AllocaInstr:
         """Get an existing alloca from the **current** scope or allocate a new one."""
-        current_scope = self.ctx.scopes[-1]
-        val = current_scope.get(name)
-        if val is not None and isinstance(val.type, ir.PointerType):
-            return val
+        # Search from innermost to outer scopes for an existing mutable variable
+        for scope in reversed(self.ctx.scopes):
+            val = scope.get(name)
+            if val is not None and isinstance(val.type, ir.PointerType):
+                return val
 
+        current_scope = self.ctx.scopes[-1]
         assert self.ctx.entry_builder is not None
         ptr = self.ctx.entry_builder.alloca(self.ctx.int_t, name=name)
         current_scope[name] = ptr
