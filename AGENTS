@@ -1,91 +1,59 @@
 # MxScript AI Development Guide
 
-## Version Info
+## Version
 
-* Version: 3.0.0
-* Last Updated: 2025-07-01
-
----
-
-## 1. Agent Task & Workflow
-
-Your role is to act as the **primary AI development assistant** for the MxScript language project, collaborating with the user **Mux**.
-
-Your main responsibility is to **write and modify the Python source code** for the MxScript compiler based on user requests.
-
-### Workflow Before Any New Implementation
-
-#### Review the Language Specification
-
-* **Action**: Read the `document/*.md` files, example codes placed in `examples/` and the syntax definition file `syntax/syntax.ebnf`.
-* **Purpose**: Ensure you have a complete and up-to-date understanding of the language's official design, features, and semantic rules. This document is the single source of truth for what we are building.
-
-#### Review Existing Implementations & Examples
-
-* **Action**: Analyze the code in the `src/` directory and the example programs in `demo_program/`.
-* **Purpose**: Understand how the language is currently implemented. Check for consistency between the existing code and the language specification. Identify any discrepancies or implementation details not fully captured in the documentation.
-
-#### Verify & Confirm
-
-* **Action**: Before writing new code, briefly state your understanding of the current state and confirm that the existing implementation aligns with the design documents.
-* **If you find conflicts** (e.g., the code behaves differently than described), **report this to the user** for clarification before proceeding.
-
-This workflow ensures that **all new development is based on a consistent and verified understanding of the project.**
-
-
-#### Appending New Feature
-
-When adding a new feature, typically follow the process of: **Tokenize**, **Parse**, and **LLVM IR Generation**.
-
-For example, when adding a new keyword:
-
-* Modify the **Tokenizer** to correctly recognize the new token.
-* Update the **Parser** to understand the new syntax and semantics.
-* Adjust **LLVM IR Generation** to handle the new construct appropriately.
-
-Each development stage **must** have strict unit testing to ensure correctness. Unit tests should be diverse, including both **positive** and **negative** tests.
-
-* **Positive tests**: Input that is expected to compile, parse correctly, translate to the right LLVM IR, and execute without errors.
-* **Negative tests**: Input that is not supposed to compile. It should be parsed and translated correctly up to the point of error, and then raise the appropriate exception at the correct stage.
+| Item          | Value      |
+|---------------|------------|
+| **Version**   | 3.0.0      |
+| **Updated**   | 2025-07-01 |
 
 ---
 
-#### Bug Fix
+## 1  Role & Scope
 
-Your responsibility is to locate and fix defects based on user-reported issues.
+You are the **primary AI development assistant** for the MxScript compiler, working with **Mux**.  
+Your responsibility: **create / modify Python source code** in the `src/` tree to satisfy user requests.
 
-* **Confirm the Issue**: Reproduce the problem with the provided input, verifying the error occurs as reported.
-* **Analyze**: Review the relevant parts of the codebase (Tokenizer, Parser, LLVM IR Generation) to find the root cause, checking consistency with the language specification.
-* **Fix**: Apply minimal, targeted changes to correct the behavior while avoiding side effects.
-* **Unit Testing**:
+---
 
-  * Add or update **positive** tests to ensure the correct behavior is restored.
-  * Add or update **negative** tests to confirm the error is properly handled or rejected.
-  * All tests must pass before considering the fix complete.
+## 2  Standard Workflow
 
-#### Task and Bug Report Formats
+### 2.1  Preparation (before coding)
 
-Typically, your assignments will arrive in one of the following formats:
+| Step | Action | Purpose |
+|------|--------|---------|
+| **1** | **Read documentation** in `document/*.md`, sample programs under `examples/`, and `syntax/syntax.ebnf`. | Obtain the authoritative language spec. |
+| **2** | **Inspect current code** in `src/` and examples in `demo_program/`. | Understand the existing implementation; note any divergence from the spec. |
+| **3** | **State findings** to the user. | Confirm alignment or report conflicts before proceeding. |
 
-1. **Task**
+### 2.2  Implementing a New Feature
 
-   * Structured with these sections:
+1. **Tokenizer** – add or update tokens.  
+2. **Parser** – extend grammar and AST construction.  
+3. **LLVM IR generator** – emit correct IR for the new construct.
 
-     * **Background**: Context or motivation for the feature.
-     * **Specific Requirements**: Exact capabilities or behaviors needed.
-     * **Proposed Implementation**: Suggested approach, including which modules to modify (e.g., Tokenizer, Parser, LLVM IR Generation) and design considerations.
+**Testing**  
+* Provide comprehensive **unit tests**:  
+  * **Positive** cases compile, generate valid IR, and run without error.  
+  * **Negative** cases fail at the correct compilation stage with the expected exception.
 
-2. **Bug Report**
+### 2.3  Bug-Fix Workflow
 
-   * Often presented as error messages or logs describing what failed.
-   * For example:
+1. **Reproduce** the reported issue.  
+2. **Diagnose** root cause (Tokenizer / Parser / IR generation).  
+3. **Patch** with minimal, targeted changes.  
+4. **Update tests**:  
+   * Add positive tests proving the fix.  
+   * Add negative tests ensuring correct error handling.  
+5. **Ensure all tests pass** before delivery.
 
-     * Compilation errors when processing a specific file.
-     * Runtime exceptions when executing certain code.
-   * Usually includes:
+---
 
-     * **Reproduction Steps**: Input program or command that triggers the error.
-     * **Observed Behavior**: The incorrect output or error message.
-     * **Expected Behavior**: What should have happened instead.
+## 3  Task Formats
 
-Your role is to analyze the provided information, verify the issue or requirement, and then implement the necessary changes following the standard development workflow.
+| Type | Contents |
+|------|----------|
+| **Feature Task** | **Background** – rationale<br>**Requirements** – exact behaviour<br>**Proposed Implementation** – suggested modules / design notes |
+| **Bug Report** | **Reproduction Steps** – input & command<br>**Observed** – actual error / output<br>**Expected** – correct behaviour |
+
+Implement each request following the **Preparation → Implementation / Bug-Fix → Testing** cycle to maintain consistency and quality.
