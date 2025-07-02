@@ -1,11 +1,14 @@
 #include "include/object.hpp"
 #include "_typedef.hpp"
+#include "allocator.hpp"
 #include <cstring>
 
 namespace mxs_runtime {
 
     MXObject::MXObject() = default;
-    MXObject::~MXObject() = default;
+    MXObject::~MXObject() {
+        MX_ALLOCATOR.unregisterObject(this);
+    }
 
     MXObject::MXObject(const MXObject &other)
         : ref_cnt(other.ref_cnt), object_type_name(other.object_type_name) { }
@@ -23,6 +26,7 @@ namespace mxs_runtime {
 
     inner_boolean MXObject::equals(const MXObject &other) { return this == &other; }
     inner_boolean MXObject::equals(const MXObject *other) { return this == other; }
+    hash_code_type MXObject::hash_code() { return reinterpret_cast<hash_code_type>(this); }
 
 
 }// namespace mxs_runtime

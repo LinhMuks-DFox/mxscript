@@ -8,6 +8,8 @@ namespace mxs_runtime {
     using hash_code_type = std::uint64_t;
     using inner_string = std::string;
     using inner_boolean = bool;
+    using inner_integer = std::int64_t;
+    using inner_float = double;
     using refer_count_type = std::uint64_t;
 }
 
