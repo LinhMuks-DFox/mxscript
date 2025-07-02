@@ -1,22 +1,28 @@
 #pragma once
-#ifndef MX_OBJECT_NUMERIC_HPP
-#define MX_OBJECT_NUMERIC_HPP
+#ifndef MXSCRIPT_NUMERIC_HPP
+#define MXSCRIPT_NUMERIC_HPP
 
 #include "object.hpp"
+#include "_typedef.hpp"
+#include "macro.hpp"
 
 namespace mxs_runtime {
-    class MXInteger : MXObject { };
 
-    class MXSmallInteger : MXInteger { };
+class MXInteger : public MXObject {
+public:
+    const inner_integer value;
+    explicit MXInteger(inner_integer v);
+};
 
-    class MXBigIneterer : MXInteger { };
+class MXFloat : public MXObject {
+public:
+    const inner_float value;
+    explicit MXFloat(inner_float v);
+};
 
-    class MXFloatPoint : MXObject { };
+MXS_API MXInteger* MXCreateInteger(inner_integer value);
+MXS_API MXFloat* MXCreateFloat(inner_float value);
 
-    class MXComplex : MXObject { };
+} // namespace mxs_runtime
 
-    class MXDecimal : MXObject { };
-}
-
-// C API
-#endif//MX_OBJECT_NUMERIC_HPP
+#endif // MXSCRIPT_NUMERIC_HPP

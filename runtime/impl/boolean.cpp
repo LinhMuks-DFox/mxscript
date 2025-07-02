@@ -1,40 +1,23 @@
-#include "include/boolean.hpp"
-#include "_typedef.hpp"
-#include "macro.hpp"
-#include "object.hpp"
+#include "boolean.hpp"
 
 namespace mxs_runtime {
-    static MXBoolean mx_true_instance{ true };
-    static MXBoolean mx_false_instance{ false };
 
-    MXS_API const MXBoolean &MXTRUE = mx_true_instance;
-    MXS_API const MXBoolean &MXFALSE = mx_false_instance;
+static MXBoolean true_instance{true};
+static MXBoolean false_instance{false};
 
-    MXBoolean::MXBoolean() : MXObject(), value(false) {
-        this->set_type_name("boolean");
-    }
+MXS_API const MXBoolean& MX_TRUE = true_instance;
+MXS_API const MXBoolean& MX_FALSE = false_instance;
 
-    MXBoolean::MXBoolean(inner_boolean v) : MXObject(), value(v) {
-        this->set_type_name("boolean");
-    }
+MXBoolean::MXBoolean(inner_boolean v) : MXObject(true), value(v) {
+    this->set_type_name("boolean");
+}
 
-    MXBoolean::~MXBoolean() = default;
+} // namespace mxs_runtime
 
-    inner_boolean MXBoolean::equals(const MXObject &other) {
-        const MXBoolean *b = dynamic_cast<const MXBoolean*>(&other);
-        return b && b->value == value;
-    }
+extern "C" {
 
-    inner_boolean MXBoolean::equals(const MXObject *other) {
-        return other && equals(*other);
-    }
+const mxs_runtime::MXBoolean* mxs_get_true() { return &mxs_runtime::MX_TRUE; }
+const mxs_runtime::MXBoolean* mxs_get_false() { return &mxs_runtime::MX_FALSE; }
 
-    inner_boolean MXBoolean::equals(const MXBoolean &other) {
-        return value == other.value;
-    }
+} // extern "C"
 
-    inner_boolean MXBoolean::equals(const MXBoolean *other) {
-        return other && value == other->value;
-    }
-
-}// namespace
