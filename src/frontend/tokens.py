@@ -4,6 +4,29 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 
+class _TokenCategory:
+    """Wrapper providing backward-compatible ``name`` and comparison behaviour."""
+
+    def __init__(self, token_type: 'TokenType', category: str | None = None) -> None:
+        self.actual = token_type
+        self.name = category or token_type.name
+
+    def __eq__(self, other: object) -> bool:  # type: ignore[override]
+        if isinstance(other, TokenType):
+            return self.actual == other
+        if isinstance(other, str):
+            return self.name == other
+        if isinstance(other, _TokenCategory):
+            return self.actual == other.actual
+        return False
+
+    def __hash__(self) -> int:  # type: ignore[override]
+        return hash(self.actual)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<_TokenCategory {self.name}:{self.actual.name}>"
+
+
 class TokenType(Enum):
     # Generic token types
     IDENTIFIER = auto()
@@ -87,7 +110,7 @@ class TokenType(Enum):
 
 @dataclass
 class Token:
-    type: TokenType
+    type: _TokenCategory
     value: str
     line: int
     column: int
