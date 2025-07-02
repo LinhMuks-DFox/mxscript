@@ -7,21 +7,22 @@
 #include <string>
 
 namespace mxs_runtime {
-class MXObject {
-private:
-  std::size_t ref_cnt = 0;
-  std::string object_type_name{"object"};
+    class MXObject {
+    private:
+        std::size_t ref_cnt = 0;
+        std::string object_type_name{ "object" };
 
-public:
-  ~MXObject();
-  MXObject();
-  MXObject(const MXObject &other);
-  std::size_t increase_ref();
-  std::size_t decrease_ref();
-  const std::string &get_type_name() const;
-  void set_type_name(const std::string &name);
-};
-} // namespace mxs_runtime
+    public:
+        virtual ~MXObject();
+        MXObject();
+        MXObject(const MXObject &other);
+        std::size_t increase_ref();
+        std::size_t decrease_ref();
+        const std::string &get_type_name() const;
+        void set_type_name(const std::string &name);
+    };
+}// namespace mxs_runtime
+
 
 // C API:
 
@@ -39,4 +40,4 @@ void set_object_type_name(mxs_runtime::MXObject *obj, const char *name);
 }
 #endif
 
-#endif // MXSCRIPT_OBJECT_H
+#endif// MXSCRIPT_OBJECT_H
