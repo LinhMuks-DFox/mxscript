@@ -4,7 +4,7 @@
 #include "object.hpp"
 // cpp implementation
 namespace mxs_runtime {
-class MXBoolean
+    class MXBoolean { };
 }
 
 // C API:
@@ -17,4 +17,4 @@ extern "C" {
 }
 #endif
 
-#endif // MXSCRIPT_BOOLEAN_H
+#endif// MXSCRIPT_BOOLEAN_H
