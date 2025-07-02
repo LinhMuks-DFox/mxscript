@@ -1,37 +1,33 @@
 #pragma once
-#ifndef MXSCRIPT_BOOLEAN_H
-#define MXSCRIPT_BOOLEAN_H
+#ifndef MXSCRIPT_BOOLEAN_HPP
+#define MXSCRIPT_BOOLEAN_HPP
+
+#include "object.hpp"
 #include "_typedef.hpp"
 #include "macro.hpp"
-#include "object.hpp"
-// cpp implementation
+
 namespace mxs_runtime {
-    class MXBoolean : MXObject {
-    public:
-        MXBoolean();
-        MXBoolean(inner_boolean value);
-        ~MXBoolean();
-        const inner_boolean value;
 
-    public:
-        inner_boolean equals(const MXObject &other);
-        inner_boolean equals(const MXObject *other);
-        inner_boolean equals(const MXBoolean &other);
-        inner_boolean equals(const MXBoolean *other);
-    };
-    extern MXS_API const MXBoolean &MX_TRUE;
-    extern MXS_API const MXBoolean &MX_FALSE;
-}
+class MXBoolean : public MXObject {
+public:
+    const inner_boolean value;
+    explicit MXBoolean(inner_boolean v);
+};
 
+extern MXS_API const MXBoolean& MX_TRUE;
+extern MXS_API const MXBoolean& MX_FALSE;
 
-// C API:
+} // namespace mxs_runtime
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+MXS_API const mxs_runtime::MXBoolean* mxs_get_true();
+MXS_API const mxs_runtime::MXBoolean* mxs_get_false();
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif// MXSCRIPT_BOOLEAN_H
+#endif // MXSCRIPT_BOOLEAN_HPP

@@ -11,12 +11,13 @@ namespace mxs_runtime {
     class MXObject {
     private:
         refer_count_type ref_cnt = 0;
-        std::string object_type_name{ "object" };
+        std::string object_type_name{"object"};
+        bool _is_static = false;
 
     public:
-        virtual ~MXObject();
-        MXObject();
+        explicit MXObject(bool is_static = false);
         MXObject(const MXObject &other);
+        virtual ~MXObject();
         refer_count_type increase_ref();
         refer_count_type decrease_ref();
         const std::string &get_type_name() const;

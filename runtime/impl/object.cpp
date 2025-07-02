@@ -5,13 +5,15 @@
 
 namespace mxs_runtime {
 
-    MXObject::MXObject() = default;
+    MXObject::MXObject(bool is_static) : _is_static(is_static) {}
     MXObject::~MXObject() {
-        MX_ALLOCATOR.unregisterObject(this);
+        if (!_is_static) {
+            MX_ALLOCATOR.unregisterObject(this);
+        }
     }
 
     MXObject::MXObject(const MXObject &other)
-        : ref_cnt(other.ref_cnt), object_type_name(other.object_type_name) { }
+        : ref_cnt(other.ref_cnt), object_type_name(other.object_type_name), _is_static(other._is_static) {}
 
     refer_count_type MXObject::increase_ref() { return ++ref_cnt; }
 
