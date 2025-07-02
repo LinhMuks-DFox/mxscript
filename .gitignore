@@ -13,3 +13,10 @@ ENV/
 .DS_Store
 
 runtime/arc_runtime.so
+*.o
+*.o.d
+build/
+.cache/
+*.so
+*.dylib
+*.dll

@@ -37,31 +37,41 @@ from .runtime import execute
 _RUNTIME_LOADED = False
 
 
-def _load_arc_runtime() -> None:
-    """Compile and load the ARC runtime as a shared library."""
+def _load_runtime() -> None:
+    """
+    Check for the runtime library in the project's bin/ directory.
+    If not found, configure and build it using CMake.
+    Finally, load the shared library.
+    """
     global _RUNTIME_LOADED
     if _RUNTIME_LOADED:
         return
-
     base_dir = Path(__file__).resolve().parents[2]
-    src_path = base_dir / "runtime" / "arc_runtime.c"
-    so_path = base_dir / "runtime" / "arc_runtime.so"
+    runtime_dir = base_dir / "runtime"
+    build_dir = runtime_dir / "build"
+    so_path = base_dir / "bin" / "libruntime.so"
 
     if not so_path.exists():
+        print("Runtime library not found. Building...")
+        build_dir.mkdir(exist_ok=True)
+
         subprocess.run(
-            [
-                "clang",
-                "-shared",
-                "-fPIC",
-                "-o",
-                str(so_path),
-                str(src_path),
-            ],
+            ["cmake", str(runtime_dir)],
+            cwd=build_dir, # 在构建目录中运行
             check=True,
         )
 
+        subprocess.run(
+            ["cmake", "--build", "."],
+            cwd=build_dir, # 在构建目录中运行
+            check=True,
+        )
+        print("Runtime library built successfully.")
+
+    # --- 加载共享库 ---
     binding.load_library_permanently(str(so_path))
     _RUNTIME_LOADED = True
+
 
 class LLIRInstr:
     """Base class for low-level IR instructions."""
@@ -147,7 +157,7 @@ def to_llvm_ir(program: ProgramIR) -> str:
 
 def execute_llvm(program: ProgramIR) -> int:
     """JIT compile and execute program via LLVM."""
-    _load_arc_runtime()
+    _load_runtime()
 
     binding.initialize()
     binding.initialize_native_target()
