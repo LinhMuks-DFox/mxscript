@@ -22,9 +22,12 @@ from src.syntax_parser import (
     MatchExpr,
     MemberAccess,
     ConstructorDef,
+    InterfaceDef,
+    FieldDef,
     IfStmt,
     Identifier,
     Parser,
+    MethodDef,
 )
 
 
@@ -39,7 +42,7 @@ def test_parse_let_statement():
     assert len(program.statements) == 1
     stmt = program.statements[0]
     assert isinstance(stmt, LetStmt)
-    assert stmt.name == "x"
+    assert stmt.names == ["x"]
     assert isinstance(stmt.value, Integer)
     assert stmt.value.value == 42
 
@@ -48,7 +51,7 @@ def test_parse_typed_let():
     program = parse("let x: int = 42;")
     stmt = program.statements[0]
     assert isinstance(stmt, LetStmt)
-    assert stmt.name == "x"
+    assert stmt.names == ["x"]
     assert stmt.type_name == "int"
     assert isinstance(stmt.value, Integer)
 
@@ -58,6 +61,21 @@ def test_parse_mutable_let():
     stmt = program.statements[0]
     assert isinstance(stmt, LetStmt)
     assert stmt.is_mut
+
+
+def test_parse_let_without_initializer():
+    program = parse("let x: int;")
+    stmt = program.statements[0]
+    assert isinstance(stmt, LetStmt)
+    assert stmt.names == ["x"]
+    assert stmt.value is None
+
+
+def test_parse_grouped_let():
+    program = parse("let a, b: int;")
+    stmt = program.statements[0]
+    assert isinstance(stmt, LetStmt)
+    assert stmt.names == ["a", "b"]
 
 
 def test_parse_variable_assignment():
@@ -197,7 +215,7 @@ def test_parse_class_with_destructor():
     class File {
         let fd: int;
 
-        func ~File() {
+        ~File() {
             io.close_file(self.fd);
         }
     }
@@ -235,7 +253,7 @@ def test_parse_class_with_members_and_access():
     struct_def = ast.statements[0]
     assert isinstance(struct_def, ClassDef)
     member_decl = struct_def.body.statements[0]
-    assert isinstance(member_decl, LetStmt)
+    assert isinstance(member_decl, FieldDef)
     assert member_decl.name == "value"
 
     main_func = ast.statements[1]
@@ -274,7 +292,7 @@ def test_parse_class_with_constructor():
     source = """
     class Box {
         let value: int;
-        func Box(v: int) {}
+        Box(v: int) {}
     }
     """
     tokens = tokenize(source)
@@ -322,7 +340,7 @@ def test_parse_class_with_access_specifiers():
 
     struct_def = ast.statements[0]
     assert isinstance(struct_def, ClassDef)
-    assert len(struct_def.body.statements) == 3
+    assert len(struct_def.body.statements) == 5
 
 
 def test_parse_class_with_operator():
@@ -392,5 +410,38 @@ def test_parse_continue_stmt():
     stmt = program.statements[0]
     from src.syntax_parser.ast import ContinueStmt
     assert isinstance(stmt, ContinueStmt)
+
+
+def test_parse_interface_def():
+    src = "interface Printable { func print(); }"
+    tokens = tokenize(src)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+    iface = ast.statements[0]
+    assert isinstance(iface, InterfaceDef)
+    assert iface.name == "Printable"
+    assert len(iface.body.statements) == 1
+    assert isinstance(iface.body.statements[0], MethodDef)
+
+
+def test_parse_method_override():
+    src = "class Foo : Bar { override func baz() {} }"
+    tokens = tokenize(src)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+    cls = ast.statements[0]
+    assert isinstance(cls, ClassDef)
+    method = next(m for m in cls.body.statements if isinstance(m, MethodDef))
+    assert method.is_override
+
+
+def test_parse_static_field():
+    src = "class Foo { static let count: int; }"
+    tokens = tokenize(src)
+    stream = TokenStream(tokens)
+    ast = Parser(stream).parse()
+    cls = ast.statements[0]
+    field = next(m for m in cls.body.statements if isinstance(m, FieldDef))
+    assert field.is_static
 
 

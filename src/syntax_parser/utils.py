@@ -28,8 +28,11 @@ def dump_ast(node, indent: int = 0) -> str:
             extra.append(f"type={node.type_name}")
         if node.is_mut:
             extra.append("mut")
-        desc = f"LetStmt(name={node.name}" + (", " + ", ".join(extra) if extra else "") + ")"
-        lines = [prefix + desc, dump_ast(node.value, indent + 1)]
+        names = ",".join(node.names)
+        desc = f"LetStmt(names=[{names}]" + (", " + ", ".join(extra) if extra else "") + ")"
+        lines = [prefix + desc]
+        if node.value is not None:
+            lines.append(dump_ast(node.value, indent + 1))
         return "\n".join(lines)
     if isinstance(node, BindingStmt):
         kind = "static" if node.is_static else "dynamic"

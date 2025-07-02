@@ -6,6 +6,9 @@ from .ast import (
     FuncDef,
     ForeignFuncDecl,
     ClassDef,
+    InterfaceDef,
+    FieldDef,
+    AccessSpec,
     LetStmt,
     DestructorDef,
     ConstructorDef,
@@ -30,90 +33,156 @@ class DefinitionParserMixin:
     def parse_class_def(self):
         start = self._expect('KEYWORD', 'class')
         name = self._expect('IDENTIFIER').value
+        generic_params = None
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '<':
+            generic_params = self.parse_generic_params()
+        super_class = None
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
+            self.stream.next()
+            super_class = self.parse_type_spec()
         self._expect('OPERATOR', '{')
-        statements = []
+        members = []
         while self.stream.peek() and not (
             self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '}'
         ):
-            tok = self.stream.peek()
-            if tok.tk_type == 'KEYWORD' and tok.value in ('public', 'private'):
-                self.stream.next()
-                if (
-                    self.stream.peek().tk_type == 'OPERATOR'
-                    and self.stream.peek().value == ':'
-                ):
-                    self.stream.next()
-                continue
-            if tok.tk_type == 'KEYWORD' and tok.value == 'let':
-                statements.append(self.parse_field_decl())
-            elif (
-                tok.tk_type == 'KEYWORD'
-                and tok.value == 'func'
-                and self.stream.peek(1)
-                and self.stream.peek(1).tk_type == 'OPERATOR'
-                and self.stream.peek(1).value == '~'
-            ):
-                statements.append(self.parse_destructor_def())
-            elif (
-                tok.tk_type == 'KEYWORD'
-                and tok.value == 'func'
-                and self.stream.peek(1)
-                and self.stream.peek(1).tk_type == 'IDENTIFIER'
-                and self.stream.peek(1).value == name
-            ):
-                statements.append(self.parse_constructor_def())
-            elif tok.tk_type == 'KEYWORD' and tok.value == 'func':
-                statements.append(self.parse_method_def())
-            elif tok.tk_type == 'KEYWORD' and tok.value == 'operator':
-                statements.append(self.parse_operator_def())
-            else:
-                statements.append(self.parse_statement())
+            members.append(self.parse_class_member(name))
         self._expect('OPERATOR', '}')
-        return ClassDef(name, Block(statements), loc=start)
+        return ClassDef(name, Block(members), generic_params, super_class, loc=start)
 
-    def parse_field_decl(self):
-        start = self._expect('KEYWORD', 'let')
-        is_mut = False
-        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'mut':
-            self.stream.next()
-            is_mut = True
+    def parse_interface_def(self):
+        start = self._expect('KEYWORD', 'interface')
         name = self._expect('IDENTIFIER').value
-        type_name = None
+        generic_params = None
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '<':
+            generic_params = self.parse_generic_params()
+        super_iface = None
         if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
             self.stream.next()
-            type_name = self.parse_type_spec()
-        self._expect('OPERATOR', ';')
-        return LetStmt(name, None, type_name, is_mut, loc=start)
+            super_iface = self.parse_type_spec()
+        self._expect('OPERATOR', '{')
+        members = []
+        while self.stream.peek() and not (
+            self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '}'
+        ):
+            members.append(self.parse_interface_member())
+        self._expect('OPERATOR', '}')
+        return InterfaceDef(name, Block(members), generic_params, [super_iface] if super_iface else None, loc=start)
+
+    def parse_class_member(self, class_name: str):
+        tok = self.stream.peek()
+        if tok.tk_type == 'KEYWORD' and tok.value in ('public', 'private'):
+            level = tok.value
+            self.stream.next()
+            self._expect('OPERATOR', ':')
+            return AccessSpec(level, loc=tok)
+        if tok.tk_type == 'KEYWORD' and tok.value == 'static':
+            self.stream.next()
+            next_tok = self.stream.peek()
+            if next_tok.tk_type == 'KEYWORD' and next_tok.value == 'let':
+                return self.parse_field_def(is_static=True)
+            else:
+                return self.parse_class_member(class_name)
+        if tok.tk_type == 'OPERATOR' and tok.value == '~':
+            return self.parse_destructor_def()
+        if tok.tk_type == 'IDENTIFIER' and tok.value == class_name:
+            return self.parse_constructor_def()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'operator':
+            return self.parse_operator_def()
+        if tok.tk_type == 'KEYWORD' and tok.value in ('override', 'func'):
+            return self.parse_method_def()
+        if tok.tk_type == 'KEYWORD' and tok.value == 'let':
+            return self.parse_field_def(is_static=False)
+        return self.parse_statement()
+
+    def parse_field_def(self, *, is_static: bool = False):
+        stmt = self.parse_let()
+        assert len(stmt.names) == 1
+        return FieldDef(is_static, stmt.is_mut, stmt.names[0], stmt.type_name, stmt.value, loc=stmt.loc)
 
     def parse_destructor_def(self):
-        start = self._expect('KEYWORD', 'func')
-        self._expect('OPERATOR', '~')
+        start = self._expect('OPERATOR', '~')
         self._expect('IDENTIFIER')
         self._expect('OPERATOR', '(')
         self._expect('OPERATOR', ')')
+        super_call = None
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
+            self.stream.next()
+            self._expect('OPERATOR', '~')
+            super_call = self._expect('IDENTIFIER').value
         body = self.parse_block()
-        return DestructorDef(body, loc=start)
+        return DestructorDef(body, super_call, loc=start)
 
     def parse_constructor_def(self):
-        start = self._expect('KEYWORD', 'func')
-        self._expect('IDENTIFIER')
+        start_ident = self._expect('IDENTIFIER')
         sig = self.parse_func_sig()
+        super_call = None
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ':':
+            self.stream.next()
+            super_name = self._expect('IDENTIFIER').value
+            args = self.parse_call_args()
+            super_call = (super_name, args)
         body = self.parse_block()
-        return ConstructorDef(sig, body, loc=start)
+        return ConstructorDef(sig, body, super_call, loc=start_ident)
 
     def parse_method_def(self):
+        override = False
+        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'override':
+            self.stream.next()
+            override = True
         start = self._expect('KEYWORD', 'func')
         name = self._expect('IDENTIFIER').value
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '<':
+            self.parse_generic_params()  # ignore for now
         sig = self.parse_func_sig()
         body = self.parse_block()
-        return MethodDef(name, sig, body, loc=start)
+        return MethodDef(name, sig, body, override, loc=start)
 
     def parse_operator_def(self):
+        override = False
+        if self.stream.peek().tk_type == 'KEYWORD' and self.stream.peek().value == 'override':
+            self.stream.next()
+            override = True
         start = self._expect('KEYWORD', 'operator')
         op_token = self._expect('OPERATOR')
         sig = self.parse_func_sig()
         body = self.parse_block()
-        return OperatorDef(op_token.value, sig, body, loc=start)
+        return OperatorDef(op_token.value, sig, body, override, loc=start)
+
+    def parse_interface_member(self):
+        start = self._expect('KEYWORD', 'func')
+        name = self._expect('IDENTIFIER').value
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '<':
+            self.parse_generic_params()
+        sig = self.parse_func_sig()
+        body = None
+        if self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == '{':
+            body = self.parse_block()
+        self._expect('OPERATOR', ';')
+        if body is None:
+            body = Block([])
+        return MethodDef(name, sig, body, False, loc=start)
+
+    def parse_generic_params(self) -> list[str]:
+        params = []
+        self._expect('OPERATOR', '<')
+        params.append(self._expect('IDENTIFIER').value)
+        while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+            self.stream.next()
+            params.append(self._expect('IDENTIFIER').value)
+        self._expect('OPERATOR', '>')
+        return params
+
+    def parse_call_args(self) -> list:
+        self._expect('OPERATOR', '(')
+        args = []
+        if not (self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ')'):
+            args.append(self.parse_expression())
+            while self.stream.peek().tk_type == 'OPERATOR' and self.stream.peek().value == ',':
+                self.stream.next()
+                args.append(self.parse_expression())
+        self._expect('OPERATOR', ')')
+        return args
+
 
     def parse_func_sig(self) -> FuncSig:
         start = self._expect('OPERATOR', '(')

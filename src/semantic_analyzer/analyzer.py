@@ -38,8 +38,11 @@ from ..syntax_parser.ast import (
     ImportStmt,
     Block,
     ClassDef,
+    InterfaceDef,
     DestructorDef,
     ConstructorDef,
+    FieldDef,
+    AccessSpec,
     Program,
     Statement,
     Expression,
@@ -118,7 +121,20 @@ class SemanticAnalyzer:
             self._visit_statement(s)
 
     def _visit_statement(self, stmt: Statement) -> None:
-        if isinstance(stmt, (LetStmt, BindingStmt)):
+        if isinstance(stmt, LetStmt):
+            for name in stmt.names:
+                if name in self._current_scope():
+                    raise NameError(
+                        f"Variable '{name}' is already defined.",
+                        self._get_location(stmt.loc),
+                    )
+            if stmt.value is not None:
+                self._visit_expression(stmt.value)
+            for name in stmt.names:
+                self._current_scope()[name] = VarInfo(
+                    name, stmt.type_name, stmt.is_mut
+                )
+        elif isinstance(stmt, BindingStmt):
             if stmt.name in self._current_scope():
                 raise NameError(
                     f"Variable '{stmt.name}' is already defined.",
@@ -126,9 +142,8 @@ class SemanticAnalyzer:
                 )
             if stmt.value is not None:
                 self._visit_expression(stmt.value)
-            is_mut = stmt.is_mut if isinstance(stmt, LetStmt) else False
             self._current_scope()[stmt.name] = VarInfo(
-                stmt.name, getattr(stmt, "type_name", None), is_mut
+                stmt.name, getattr(stmt, "type_name", None), False
             )
         elif isinstance(stmt, ExprStmt):
             self._visit_expression(stmt.expr)
@@ -216,6 +231,8 @@ class SemanticAnalyzer:
             pass
         elif isinstance(stmt, ClassDef):
             self._visit_class_def(stmt)
+        elif isinstance(stmt, InterfaceDef):
+            pass
         else:
             raise SemanticError(
                 f"Unsupported statement {type(stmt).__name__}",
@@ -268,9 +285,13 @@ class SemanticAnalyzer:
                 for stmt in member.body.statements:
                     self._visit_statement(stmt)
                 self.variables_stack.pop()
+            elif isinstance(member, FieldDef):
+                type_info.members[member.name] = member.type_spec
             elif isinstance(member, LetStmt):
-                # store member type information (type name may be None)
-                type_info.members[member.name] = member.type_name
+                for name in member.names:
+                    type_info.members[name] = member.type_name
+            elif isinstance(member, AccessSpec):
+                continue
             else:
                 # For now, simply visit any nested statements
                 self._visit_statement(member)
