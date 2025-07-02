@@ -140,3 +140,55 @@ Before executing the main logic, the runtime environment performs setup steps:
   - When an object's reference count reaches **zero**:  
     1. The object's **destructor** (`~ClassName()`) is called for custom cleanup (e.g., closing files, releasing network connections).  
     2. The object's **memory** is deallocated and returned to the system.
+
+## 4. The builtin Module and Hybrid Implementation
+
+- **Purpose**  
+  - The **builtin module** forms the foundation of the MxScript standard library.  
+  - Provides core types (`Object`, `int`, `String`) and fundamental functions (e.g., `println`).  
+  - Implements a **hybrid model** that combines C/C++ backend performance with Python-based compiler frontend flexibility.  
+
+---
+
+### 4.1 C/C++ Runtime Engine
+
+- All builtin feature implementations are in **high-performance C/C++**.  
+- Includes:  
+  - The **ARC** system.  
+  - **Memory layout** and operations for `String` objects.  
+  - Low-level logic for **I/O functions**.  
+- These are compiled into a **shared C runtime library**.  
+- The **LLVM JIT engine** links against this library at runtime.
+
+---
+
+### 4.2 Python Compiler Frontend
+
+- The **compiler frontend** defines the interface to these builtins.  
+- The **Analyzer** has intrinsic ("magical") knowledge of builtin types and function signatures.  
+
+- **Interface Definition:**  
+  - The compiler hard-codes metadata about builtins.  
+  - Example:  
+    - Knows `println` exists.  
+    - Knows it takes one `String` argument.  
+    - Knows it returns `nil`.  
+
+---
+
+### 4.3 "Opening the Hole"
+
+- When the **Analyzer** sees a call like `println(my_string)`:  
+  1. Performs **type checking** based on its internal builtin knowledge.  
+  2. During **LLIR generation**, it doesn't search for MxScript source code.  
+  3. Instead, it directly emits an instruction to call the corresponding **C runtime** function (e.g., `__mx_println`).  
+
+---
+
+### 4.4 Benefit of the Hybrid Approach
+
+- **Performance:**  
+  - Uses native C/C++ code for core operations.  
+- **Flexibility:**  
+  - Defines interfaces and semantic rules in the compiler's analysis phase.  
+- Combines **native execution speed** with **high-level language design clarity**.
