@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from src.lexer import TokenStream, tokenize
 from src.syntax_parser import Parser
 from src.semantic_analyzer import SemanticAnalyzer
-from src.backend import compile_program, optimize, execute
+from src.backend import compile_program, execute_llvm
 from src.backend.llir import ErrorValue
 
 
@@ -17,8 +17,8 @@ def compile_and_run(src: str):
     ast = Parser(stream).parse()
     analyzer = SemanticAnalyzer()
     analyzer.analyze(ast)
-    program_ir = optimize(compile_program(ast, analyzer.type_registry))
-    return execute(program_ir)
+    program_ir = compile_program(ast, analyzer.type_registry)
+    return execute_llvm(program_ir)
 
 
 def test_raise_returns_error_value():

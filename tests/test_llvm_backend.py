@@ -7,7 +7,7 @@ from src.lexer import TokenStream, tokenize
 from src.syntax_parser import Parser
 from src.semantic_analyzer import SemanticAnalyzer
 from pathlib import Path
-from src.backend import compile_program, optimize, execute_llvm, to_llvm_ir
+from src.backend import compile_program, execute_llvm, to_llvm_ir
 import pytest
 
 
@@ -17,7 +17,7 @@ def compile_and_run(src: str) -> int:
     ast = Parser(stream).parse()
     analyzer = SemanticAnalyzer()
     analyzer.analyze(ast)
-    ir_prog = optimize(compile_program(ast, analyzer.type_registry))
+    ir_prog = compile_program(ast, analyzer.type_registry)
     return execute_llvm(ir_prog)
 
 
@@ -28,7 +28,7 @@ def compile_to_ir(src: str) -> str:
     ast = Parser(stream).parse()
     analyzer = SemanticAnalyzer()
     analyzer.analyze(ast)
-    ir_prog = optimize(compile_program(ast, analyzer.type_registry))
+    ir_prog = compile_program(ast, analyzer.type_registry)
     return to_llvm_ir(ir_prog)
 
 def compile_and_run_file(file_path: Path) -> int:
@@ -39,7 +39,7 @@ def compile_and_run_file(file_path: Path) -> int:
     ast = Parser(stream).parse()
     analyzer = SemanticAnalyzer()
     analyzer.analyze(ast)
-    ir_prog = optimize(compile_program(ast, analyzer.type_registry))
+    ir_prog = compile_program(ast, analyzer.type_registry)
     return execute_llvm(ir_prog)
 
 

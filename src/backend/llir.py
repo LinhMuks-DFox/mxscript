@@ -12,7 +12,6 @@ from .compiler import (
     build_search_paths,
     load_module_ast,
     compile_program,
-    optimize,
 )
 from .ir import (
     ProgramIR,
@@ -139,7 +138,6 @@ __all__ = [
     "Instr",
     "ErrorValue",
     "compile_program",
-    "optimize",
     "execute",
     "build_search_paths",
     "load_module_ast",

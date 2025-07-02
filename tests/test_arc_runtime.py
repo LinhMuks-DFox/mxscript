@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from src.lexer import TokenStream, tokenize
 from src.syntax_parser import Parser
 from src.semantic_analyzer import SemanticAnalyzer, SemanticError
-from src.backend import compile_program, optimize, to_llvm_ir
+from src.backend import compile_program, to_llvm_ir
 from src.backend.ffi import LIBC_FUNCTIONS
 
 
@@ -17,7 +17,7 @@ def compile_to_ir(src: str) -> str:
     ast = Parser(stream).parse()
     analyzer = SemanticAnalyzer()
     analyzer.analyze(ast)
-    ir_prog = optimize(compile_program(ast, analyzer.type_registry))
+    ir_prog = compile_program(ast, analyzer.type_registry)
     return to_llvm_ir(ir_prog)
 
 
