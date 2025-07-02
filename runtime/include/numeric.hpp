@@ -8,13 +8,18 @@
 
 namespace mxs_runtime {
 
-class MXInteger : public MXObject {
+class MXNumeric : public MXObject {
+public:
+    explicit MXNumeric(bool is_static = false);
+};
+
+class MXInteger : public MXNumeric {
 public:
     const inner_integer value;
     explicit MXInteger(inner_integer v);
 };
 
-class MXFloat : public MXObject {
+class MXFloat : public MXNumeric {
 public:
     const inner_float value;
     explicit MXFloat(inner_float v);
