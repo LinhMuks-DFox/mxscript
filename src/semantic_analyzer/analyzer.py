@@ -50,6 +50,7 @@ from ..syntax_parser.ast import (
     Statement,
     Expression,
     UnaryOp,
+    Parameter,
     FuncSig,
 )
 from ..frontend.tokens import Token
@@ -82,9 +83,20 @@ class SemanticAnalyzer:
         self.source_lines = []
         self.loop_depth = 0
         self.builtin_functions: Set[str] = {"print"}
+        self.builtin_signatures: Dict[str, FuncSig] = {
+            "print": FuncSig(
+                [
+                    Parameter(names=["object"], type_name="Object"),
+                    Parameter(names=["end"], type_name="string", default=String("\n")),
+                ],
+                None,
+            )
+        }
         self.function_signatures = None
 
-    def analyze(self, program: Program, *, source: str = "", filename: str = "<stdin>") -> None:
+    def analyze(
+        self, program: Program, *, source: str = "", filename: str = "<stdin>"
+    ) -> None:
         self.filename = filename
         self.source_lines = source.splitlines()
         self.functions = set()
@@ -219,7 +231,11 @@ class SemanticAnalyzer:
             return None
         line = token.line
         column = token.col
-        source_line = self.source_lines[line - 1] if 0 <= line - 1 < len(self.source_lines) else ""
+        source_line = (
+            self.source_lines[line - 1]
+            if 0 <= line - 1 < len(self.source_lines)
+            else ""
+        )
         return SourceLocation(self.filename, line, column, source_line)
 
     def _visit_block(self, block: Block) -> None:
@@ -237,9 +253,7 @@ class SemanticAnalyzer:
             if stmt.value is not None:
                 self._visit_expression(stmt.value)
             for name in stmt.names:
-                self._current_scope()[name] = VarInfo(
-                    name, stmt.type_name, stmt.is_mut
-                )
+                self._current_scope()[name] = VarInfo(name, stmt.type_name, stmt.is_mut)
         elif isinstance(stmt, BindingStmt):
             if stmt.name in self._current_scope():
                 raise NameError(
@@ -260,7 +274,9 @@ class SemanticAnalyzer:
                 self._visit_expression(stmt.value)
         elif isinstance(stmt, ForInStmt):
             self._visit_expression(stmt.iterable)
-            self.variables_stack.append({stmt.var: VarInfo(stmt.var, None, stmt.is_mut)})
+            self.variables_stack.append(
+                {stmt.var: VarInfo(stmt.var, None, stmt.is_mut)}
+            )
             self.loop_depth += 1
             for s in stmt.body.statements:
                 self._visit_statement(s)
@@ -392,7 +408,9 @@ class SemanticAnalyzer:
                     self._visit_statement(stmt)
                 self.variables_stack.pop()
             elif isinstance(member, (MethodDef, OperatorDef)):
-                param_names = {n: VarInfo(n) for p in member.signature.params for n in p.names}
+                param_names = {
+                    n: VarInfo(n) for p in member.signature.params for n in p.names
+                }
                 param_names["self"] = VarInfo("self")
                 self.variables_stack.append(param_names)
                 for stmt in member.body.statements:
@@ -411,7 +429,7 @@ class SemanticAnalyzer:
 
     def _visit_expression(self, expr: Expression) -> None:
         if isinstance(expr, Identifier):
-            name = expr.name.split('.')[0]
+            name = expr.name.split(".")[0]
             if not self._is_defined(name):
                 raise NameError(
                     f"Undefined variable '{expr.name}'",
@@ -482,14 +500,11 @@ class SemanticAnalyzer:
                 self.variables_stack.pop()
         elif isinstance(expr, FunctionCall):
             sig: FuncSig | None = None
-            if (
-                self.type_registry is not None
-                and expr.name in self.type_registry
-            ):
+            if self.type_registry is not None and expr.name in self.type_registry:
                 sig = self.type_registry[expr.name].constructor
             else:
                 if (
-                    '.' not in expr.name
+                    "." not in expr.name
                     and self.functions is not None
                     and expr.name not in self.functions
                     and expr.name not in self.builtin_functions
@@ -500,6 +515,8 @@ class SemanticAnalyzer:
                     )
                 if self.function_signatures is not None:
                     sig = self.function_signatures.get(expr.name)
+                if sig is None and expr.name in self.builtin_signatures:
+                    sig = self.builtin_signatures[expr.name]
 
             final_args = expr.args
             if sig is not None:
@@ -509,7 +526,7 @@ class SemanticAnalyzer:
                 expr.args = final_args
                 expr.kwargs = []
             else:
-                for _, val in (expr.kwargs or []):
+                for _, val in expr.kwargs or []:
                     self._visit_expression(val)
             for arg in final_args:
                 self._visit_expression(arg)

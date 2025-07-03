@@ -4,6 +4,7 @@
 #include "nil.hpp"
 #include "numeric.hpp"
 #include "object.h"
+#include "string.hpp"
 #include <cstddef>
 #include <cstdio>
 #include <iostream>
@@ -26,8 +27,13 @@ namespace mxs_runtime {
     auto type_of(const MXObject &obj) -> inner_string { return obj.get_type_name(); }
 }
 
-extern "C" auto mxs_print_object(mxs_runtime::MXObject *obj) -> std::size_t {
+extern "C" auto mxs_print_object_ext(mxs_runtime::MXObject *obj,
+                                     mxs_runtime::MXObject *end)
+        -> mxs_runtime::MXObject * {
     auto text = obj->repr();
-    std::print("{}", text);
-    return text.length();
+    auto *end_str = dynamic_cast<mxs_runtime::MXString *>(end);
+    auto suffix = end_str ? end_str->value : mxs_runtime::inner_string{};
+    std::print("{}{}", text, suffix);
+    return const_cast<mxs_runtime::MXObject *>(
+            reinterpret_cast<const mxs_runtime::MXObject *>(mxs_get_nil()));
 }

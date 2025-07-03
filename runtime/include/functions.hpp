@@ -10,5 +10,6 @@ namespace mxs_runtime {
     inner_string type_of(const MXObject &obj);
 }
 
-extern "C" std::size_t mxs_print_object(mxs_runtime::MXObject *obj);
+extern "C" mxs_runtime::MXObject *mxs_print_object_ext(mxs_runtime::MXObject *obj,
+                                                       mxs_runtime::MXObject *end);
 #endif// MX_FUNCTIONS_HPP

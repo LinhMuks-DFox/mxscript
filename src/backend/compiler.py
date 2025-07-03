@@ -75,7 +75,7 @@ _label_counter = 0
 _temp_counter = 0
 
 # Mapping of builtin function names to their runtime implementation
-BUILTIN_FUNCTIONS = {"print": "mxs_print_object"}
+BUILTIN_FUNCTIONS = {"print": "mxs_print_object_ext"}
 
 
 def _new_label(prefix: str) -> str:
