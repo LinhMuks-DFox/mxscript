@@ -308,6 +308,27 @@ class LLVMGenerator:
                     func_ty = ir.FunctionType(ret_ty, arg_tys)
                 except KeyError:
                     func_ty = callee.function_type
+                if instr.name == "mxs_print_object" and args:
+                    obj_arg = args[0]
+                    if isinstance(obj_arg.type, ir.IntType):
+                        if obj_arg.type.width == 1:
+                            true_fn = self.ffi.get_or_declare_function("mxs_get_true")
+                            false_fn = self.ffi.get_or_declare_function("mxs_get_false")
+                            obj_true = self.ctx.builder.call(true_fn, [])
+                            obj_false = self.ctx.builder.call(false_fn, [])
+                            args[0] = self.ctx.builder.select(obj_arg, obj_true, obj_false)
+                        else:
+                            if obj_arg.type.width < self.ctx.int_t.width:
+                                obj_arg = self.ctx.builder.sext(obj_arg, self.ctx.int_t)
+                            elif obj_arg.type.width > self.ctx.int_t.width:
+                                obj_arg = self.ctx.builder.trunc(obj_arg, self.ctx.int_t)
+                            create_int = self.ffi.get_or_declare_function("MXCreateInteger")
+                            args[0] = self.ctx.builder.call(create_int, [obj_arg])
+                    elif isinstance(obj_arg.type, ir.DoubleType) or isinstance(obj_arg.type, ir.FloatType):
+                        if isinstance(obj_arg.type, ir.FloatType):
+                            obj_arg = self.ctx.builder.fpext(obj_arg, ir.DoubleType())
+                        create_float = self.ffi.get_or_declare_function("MXCreateFloat")
+                        args[0] = self.ctx.builder.call(create_float, [obj_arg])
                 cast_args: List[ir.Value] = []
                 for i, arg in enumerate(args):
                     if i < len(func_ty.args):

@@ -79,9 +79,18 @@ def test_llvm_ffi_time_random():
     assert isinstance(res_rand, int)
 
 def test_llvm_print_functions(capfd):
-    compile_and_run('print(101); print(true);')
+    src = (
+        'func main() -> nil {\n'
+        '    let i = 101;\n'
+        '    let f = 2.5;\n'
+        '    print(i);\n'
+        '    print(f);\n'
+        '    print(true);\n'
+        '}'
+    )
+    compile_and_run(src)
     captured = capfd.readouterr()
-    assert captured.out == "101true"
+    assert captured.out == "1012.5true"
 
 
 def test_llvm_file_operations(tmp_path):
