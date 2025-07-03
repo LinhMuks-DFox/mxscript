@@ -74,6 +74,9 @@ ENV_VAR = "MXSCRIPT_PATH"
 _label_counter = 0
 _temp_counter = 0
 
+# Mapping of builtin function names to their runtime implementation
+BUILTIN_FUNCTIONS = {"print": "mxs_print_object"}
+
 
 def _new_label(prefix: str) -> str:
     """Generate a unique label name."""
@@ -134,7 +137,7 @@ def compile_program(
 ) -> ProgramIR:
     code: List[Instr] = []
     functions: Dict[str, Function] = {}
-    foreign_functions: Dict[str, str] = {}
+    foreign_functions: Dict[str, str] = dict(BUILTIN_FUNCTIONS)
     alias_map: Dict[str, str] = {}
     symtab = ScopedSymbolTable()
     if module_cache is None:
@@ -614,7 +617,8 @@ def _compile_expr(
         name = expr.name
         while name in alias_map:
             name = alias_map[name]
-        code.append(Call(name, len(expr.args)))
+        target = BUILTIN_FUNCTIONS.get(name, name)
+        code.append(Call(target, len(expr.args)))
         return code
     raise NotImplementedError(f"Unsupported expr {type(expr).__name__}")
 

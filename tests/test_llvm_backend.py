@@ -79,18 +79,9 @@ def test_llvm_ffi_time_random():
     assert isinstance(res_rand, int)
 
 def test_llvm_print_functions(capfd):
-    src = (
-        '@@foreign(c_name="write")\n'
-        'func __internal_write(fd: int, buf: byte*, len: int) -> int;\n'
-        'func main() -> int {\n'
-        '    __internal_write(1, "foo", 3);\n'
-        '    __internal_write(1, "bar\\n", 4);\n'
-        '    return 0;\n'
-        '}'
-    )
-    compile_and_run(src)
+    compile_and_run('print(101); print(true);')
     captured = capfd.readouterr()
-    assert captured.out == "foobar\n"
+    assert captured.out == "101true"
 
 
 def test_llvm_file_operations(tmp_path):
