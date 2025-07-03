@@ -1,11 +1,11 @@
 # Example 1: Hello World
 # Demonstrates basic function definition, imports, static binding and I/O.
 
-import std.io as io;
-static let println = io.println;
+# import std.io as io;
+# static let println = io.println;
 
 func hello_world() -> nil {
-    println("Hello, World!");
+    print("Hello, World!");
 }
 
 func variable() -> nil {
