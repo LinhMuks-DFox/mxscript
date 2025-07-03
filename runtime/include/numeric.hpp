@@ -10,7 +10,7 @@ namespace mxs_runtime {
 
     class MXNumeric : public MXObject {
     public:
-        explicit MXNumeric(const RTTI* rtti, bool is_static = false);
+        explicit MXNumeric(const RTTI *rtti, bool is_static = false);
         virtual auto to_string() const -> std::string = 0;
         auto repr() const -> inner_string override { return to_string(); }
     };
