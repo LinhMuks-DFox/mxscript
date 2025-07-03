@@ -598,7 +598,14 @@ def _compile_expr(
         return (
             _compile_expr(expr.left, alias_map, symtab, type_registry)
             + _compile_expr(expr.right, alias_map, symtab, type_registry)
-            + [BinOpInstr(expr.op)]
+            + [
+                BinOpInstr(
+                    expr.op,
+                    getattr(expr, "left_type", None),
+                    getattr(expr, "right_type", None),
+                    getattr(expr, "result_type", None),
+                )
+            ]
         )
     if isinstance(expr, UnaryOp):
         # Only unary '-' supported

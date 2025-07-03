@@ -117,6 +117,23 @@ class SemanticAnalyzer:
                 return scope[name]
         return None
 
+    def _resolve_type(self, expr: Expression) -> str | None:
+        if isinstance(expr, Integer):
+            return "int"
+        if isinstance(expr, Float):
+            return "float"
+        if isinstance(expr, Boolean):
+            return "bool"
+        if isinstance(expr, NilLiteral):
+            return "nil"
+        if isinstance(expr, String):
+            return "string"
+        if isinstance(expr, Identifier):
+            var = self._lookup_var(expr.name)
+            if var is not None:
+                return var.type_name
+        return None
+
     def _is_defined(self, name: str) -> bool:
         return self._lookup_var(name) is not None
 
@@ -329,6 +346,19 @@ class SemanticAnalyzer:
         elif isinstance(expr, BinaryOp):
             self._visit_expression(expr.left)
             self._visit_expression(expr.right)
+            left_t = self._resolve_type(expr.left)
+            right_t = self._resolve_type(expr.right)
+            if left_t is None or right_t is None or left_t != right_t:
+                raise SemanticError(
+                    "Type mismatch in binary expression",
+                    self._get_location(expr.loc),
+                )
+            expr.left_type = left_t
+            expr.right_type = right_t
+            if expr.op in {"==", "!=", ">", "<", ">=", "<="}:
+                expr.result_type = "bool"
+            else:
+                expr.result_type = left_t
         elif isinstance(expr, UnaryOp):
             self._visit_expression(expr.operand)
         elif isinstance(expr, MemberAccess):

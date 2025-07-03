@@ -38,6 +38,9 @@ class Store(Instr):
 @dataclass
 class BinOpInstr(Instr):
     op: str
+    left_type: str | None = None
+    right_type: str | None = None
+    result_type: str | None = None
 
 
 @dataclass

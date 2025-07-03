@@ -6,13 +6,15 @@
 namespace mxs_runtime {
 
     static MXObject* integer_add_integer(MXObject* left, MXObject* right);
+    static MXObject* integer_sub_integer(MXObject* left, MXObject* right);
     static MXObject* integer_add(MXObject* self, MXObject* other);
+    static MXObject* integer_sub(MXObject* self, MXObject* other);
 
     static const MXTypeInfo g_integer_type_info{
         "Integer",
         nullptr,
-        integer_add,
-        nullptr,
+        integer_add_integer,
+        integer_sub_integer,
         nullptr
     };
 
@@ -33,9 +35,22 @@ namespace mxs_runtime {
         return MXCreateInteger(l->value + r->value);
     }
 
+    static MXObject* integer_sub_integer(MXObject* left, MXObject* right) {
+        auto* l = static_cast<MXInteger*>(left);
+        auto* r = static_cast<MXInteger*>(right);
+        return MXCreateInteger(l->value - r->value);
+    }
+
     static MXObject* integer_add(MXObject* self, MXObject* other) {
         if (other->get_type_info() == &g_integer_type_info) {
             return integer_add_integer(self, other);
+        }
+        return nullptr;
+    }
+
+    static MXObject* integer_sub(MXObject* self, MXObject* other) {
+        if (other->get_type_info() == &g_integer_type_info) {
+            return integer_sub_integer(self, other);
         }
         return nullptr;
     }
@@ -47,8 +62,21 @@ MXS_API mxs_runtime::MXObject* integer_add_integer(mxs_runtime::MXObject* left, 
     return mxs_runtime::integer_add_integer(left, right);
 }
 
+MXS_API mxs_runtime::MXObject* integer_sub_integer(mxs_runtime::MXObject* left, mxs_runtime::MXObject* right) {
+    return mxs_runtime::integer_sub_integer(left, right);
+}
+
 MXS_API mxs_runtime::MXObject* mxs_op_add(mxs_runtime::MXObject* left, mxs_runtime::MXObject* right) {
     return left->get_type_info()->op_add(left, right);
+}
+
+MXS_API mxs_runtime::MXObject* mxs_op_sub(mxs_runtime::MXObject* left, mxs_runtime::MXObject* right) {
+    return left->get_type_info()->op_sub(left, right);
+}
+
+MXS_API mxs_runtime::inner_integer mxs_get_integer_value(mxs_runtime::MXObject* obj) {
+    auto* i = static_cast<mxs_runtime::MXInteger*>(obj);
+    return i->value;
 }
 
 auto MXCreateInteger(mxs_runtime::inner_integer value) -> mxs_runtime::MXInteger * {

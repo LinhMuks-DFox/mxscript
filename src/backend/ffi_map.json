@@ -127,10 +127,30 @@
             "char_ptr"
         ]
     },
+    "integer_sub_integer": {
+        "ret": "char_ptr",
+        "args": [
+            "char_ptr",
+            "char_ptr"
+        ]
+    },
     "mxs_op_add": {
         "ret": "char_ptr",
         "args": [
             "char_ptr",
+            "char_ptr"
+        ]
+    },
+    "mxs_op_sub": {
+        "ret": "char_ptr",
+        "args": [
+            "char_ptr",
+            "char_ptr"
+        ]
+    },
+    "mxs_get_integer_value": {
+        "ret": "int64",
+        "args": [
             "char_ptr"
         ]
     }
