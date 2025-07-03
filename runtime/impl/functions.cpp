@@ -8,17 +8,26 @@
 #include <cstdio>
 #include <iostream>
 #include <ostream>
+#if __has_include(<print>)
+#  include <print>
+#else
+#  include <format>
+#  include <cstdio>
+namespace std {
+    template <class... Args>
+    void print(std::format_string<Args...> fmt, Args&&... args) {
+        std::fputs(std::format(fmt, std::forward<Args>(args)...).c_str(), stdout);
+    }
+}
+#endif
 
 namespace mxs_runtime {
-    inner_string type_of(const MXObject *obj) { return obj->get_type_name(); }
-    inner_string type_of(const MXObject &obj) { return obj.get_type_name(); }
+    auto type_of(const MXObject* obj) -> inner_string { return obj->get_type_name(); }
+    auto type_of(const MXObject& obj) -> inner_string { return obj.get_type_name(); }
 }
 
-extern "C" std::size_t mx_print(mxs_runtime::MXObject *obj) {
-    using namespace mxs_runtime;
-    auto repr = obj->repr();
-    std::fprintf(stdout, "%s", repr.c_str());
-    std::fflush(stdout);
-
-    return repr.length();
+extern "C" auto mxs_print_object(mxs_runtime::MXObject* obj) -> std::size_t {
+    auto text = obj->repr();
+    std::print("{}\n", text);
+    return text.length();
 }

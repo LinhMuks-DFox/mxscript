@@ -6,7 +6,7 @@
   "close": {"ret": "int32", "args": ["int32"]},
   "malloc": {"ret": "char_ptr", "args": ["int64"]},
   "free": {"ret": "void", "args": ["char_ptr"]},
-  "mxs_print_object": {"ret": "void", "args": ["char_ptr"]},
+  "mxs_print_object": {"ret": "int64", "args": ["char_ptr"]},
   "new_mx_object": {"ret": "char_ptr", "args": []},
   "increase_ref": {"ret": "int64", "args": ["char_ptr"]},
   "decrease_ref": {"ret": "int64", "args": ["char_ptr"]},

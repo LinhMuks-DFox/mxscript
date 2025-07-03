@@ -10,23 +10,23 @@ namespace mxs_runtime {
 
     class MXNumeric : public MXObject {
     public:
-        explicit MXNumeric(bool is_static = false);
+        explicit MXNumeric(const RTTI* rtti, bool is_static = false);
+        virtual auto to_string() const -> std::string = 0;
+        auto repr() const -> inner_string override { return to_string(); }
     };
 
     class MXInteger : public MXNumeric {
     public:
         const inner_integer value;
         explicit MXInteger(inner_integer v);
-        // auto to_string() const -> MXString;
-        auto to_string() const -> inner_string;
-        auto repr() const -> inner_string override;
+        auto to_string() const -> inner_string override;
     };
 
     class MXFloat : public MXNumeric {
     public:
         const inner_float value;
         explicit MXFloat(inner_float v);
-        auto repr() const -> inner_string override;
+        auto to_string() const -> inner_string override;
     };
 
     MXS_API MXInteger *MXCreateInteger(inner_integer value);

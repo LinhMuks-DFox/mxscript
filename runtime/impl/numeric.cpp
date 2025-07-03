@@ -1,30 +1,35 @@
 #include "numeric.hpp"
 #include "allocator.hpp"
+#include <format>
 
 namespace mxs_runtime {
 
-MXNumeric::MXNumeric(bool is_static) : MXObject(is_static) {
-    this->set_type_name("numeric");
-}
+static const RTTI RTTI_INTEGER{"Integer"};
+static const RTTI RTTI_FLOAT{"Float"};
 
-MXInteger::MXInteger(inner_integer v) : MXNumeric(false), value(v) {
-    this->set_type_name("integer");
-}
+MXNumeric::MXNumeric(const RTTI* rtti, bool is_static) : MXObject(rtti, is_static) {}
 
-MXFloat::MXFloat(inner_float v) : MXNumeric(false), value(v) {
-    this->set_type_name("float");
+MXInteger::MXInteger(inner_integer v) : MXNumeric(&RTTI_INTEGER, false), value(v) {}
+
+auto MXInteger::to_string() const -> inner_string {
+    return std::format("{}", value);
+}
+MXFloat::MXFloat(inner_float v) : MXNumeric(&RTTI_FLOAT, false), value(v) {}
+
+auto MXFloat::to_string() const -> inner_string {
+    return std::format("{}", value);
 }
 } // namespace mxs_runtime
 
 extern "C" {
 
-MXS_API mxs_runtime::MXInteger* MXCreateInteger(mxs_runtime::inner_integer value) {
+auto MXCreateInteger(mxs_runtime::inner_integer value) -> mxs_runtime::MXInteger* {
     auto* obj = new mxs_runtime::MXInteger(value);
     mxs_runtime::MX_ALLOCATOR.registerObject(obj);
     return obj;
 }
 
-MXS_API mxs_runtime::MXFloat* MXCreateFloat(mxs_runtime::inner_float value) {
+auto MXCreateFloat(mxs_runtime::inner_float value) -> mxs_runtime::MXFloat* {
     auto* obj = new mxs_runtime::MXFloat(value);
     mxs_runtime::MX_ALLOCATOR.registerObject(obj);
     return obj;
