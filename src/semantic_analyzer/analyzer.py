@@ -50,6 +50,7 @@ from ..syntax_parser.ast import (
     Statement,
     Expression,
     UnaryOp,
+    FuncSig,
 )
 from ..frontend.tokens import Token
 
@@ -67,6 +68,7 @@ class SemanticAnalyzer:
 
     variables_stack: List[Dict[str, VarInfo]] | None = None
     functions: Set[str] | None = None
+    function_signatures: Dict[str, FuncSig | None] | None = None
     type_registry: Dict[str, TypeInfo] | None = None
     filename: str = "<stdin>"
     source_lines: List[str] = field(default_factory=list)
@@ -80,11 +82,13 @@ class SemanticAnalyzer:
         self.source_lines = []
         self.loop_depth = 0
         self.builtin_functions: Set[str] = {"print"}
+        self.function_signatures = None
 
     def analyze(self, program: Program, *, source: str = "", filename: str = "<stdin>") -> None:
         self.filename = filename
         self.source_lines = source.splitlines()
         self.functions = set()
+        self.function_signatures = {}
         self._collect_functions(program)
         self.type_registry = {}
         self.variables_stack = [{}]
@@ -92,8 +96,18 @@ class SemanticAnalyzer:
 
     def _collect_functions(self, program: Program) -> None:
         for stmt in program.statements:
-            if isinstance(stmt, (FunctionDecl, FuncDef, ForeignFuncDecl)):
+            if isinstance(stmt, FuncDef):
                 self.functions.add(stmt.name)
+                if self.function_signatures is not None:
+                    self.function_signatures[stmt.name] = stmt.signature
+            elif isinstance(stmt, FunctionDecl):
+                self.functions.add(stmt.name)
+                if self.function_signatures is not None:
+                    self.function_signatures[stmt.name] = None
+            elif isinstance(stmt, ForeignFuncDecl):
+                self.functions.add(stmt.name)
+                if self.function_signatures is not None:
+                    self.function_signatures[stmt.name] = stmt.signature
             elif isinstance(stmt, ImportStmt):
                 try:
                     mod_ast = load_module_ast(stmt.module)
@@ -136,6 +150,69 @@ class SemanticAnalyzer:
 
     def _is_defined(self, name: str) -> bool:
         return self._lookup_var(name) is not None
+
+    def _bind_arguments(
+        self,
+        pos: List[Expression],
+        kw: List[tuple[str, Expression]],
+        sig: FuncSig,
+        loc: Token | None,
+    ) -> List[Expression]:
+        param_names: List[str] = []
+        defaults: List[Expression | None] = []
+        for p in sig.params:
+            for n in p.names:
+                param_names.append(n)
+                defaults.append(p.default)
+        bound: List[Expression | None] = [None] * len(param_names)
+        used = [False] * len(param_names)
+
+        if not sig.var_arg and len(pos) > len(param_names):
+            raise SemanticError(
+                f"Function takes {len(param_names)} arguments",
+                self._get_location(loc),
+            )
+
+        for i, arg in enumerate(pos):
+            if i < len(param_names):
+                bound[i] = arg
+                used[i] = True
+            elif not sig.var_arg:
+                raise SemanticError(
+                    f"Function takes {len(param_names)} arguments",
+                    self._get_location(loc),
+                )
+
+        for name, value in kw:
+            if name not in param_names:
+                raise SemanticError(
+                    f"Unknown parameter '{name}'",
+                    self._get_location(loc),
+                )
+            idx = param_names.index(name)
+            if used[idx]:
+                raise SemanticError(
+                    f"Multiple values for parameter '{name}'",
+                    self._get_location(loc),
+                )
+            bound[idx] = value
+            used[idx] = True
+
+        final_args: List[Expression] = []
+        for i, name in enumerate(param_names):
+            if not used[i]:
+                if defaults[i] is not None:
+                    bound[i] = defaults[i]
+                else:
+                    raise SemanticError(
+                        f"Missing argument '{name}'",
+                        self._get_location(loc),
+                    )
+            final_args.append(bound[i])
+
+        if sig.var_arg and len(pos) > len(param_names):
+            final_args.extend(pos[len(param_names) :])
+        return final_args
 
     def _get_location(self, token: Token | None) -> SourceLocation | None:
         if token is None:
@@ -249,7 +326,14 @@ class SemanticAnalyzer:
                 params = {name: VarInfo(name) for name in stmt.params}
                 body = stmt.body
             else:
-                params = {n: VarInfo(n) for p in stmt.signature.params for n in p.names}
+                params = {
+                    n: VarInfo(n, p.type_name)
+                    for p in stmt.signature.params
+                    for n in p.names
+                }
+                for p in stmt.signature.params:
+                    if p.default is not None:
+                        self._visit_expression(p.default)
                 body = stmt.body.statements
             self.variables_stack.append(params)
             for s in body:
@@ -397,20 +481,12 @@ class SemanticAnalyzer:
                         self._visit_statement(s)
                 self.variables_stack.pop()
         elif isinstance(expr, FunctionCall):
+            sig: FuncSig | None = None
             if (
                 self.type_registry is not None
                 and expr.name in self.type_registry
             ):
-                ctor_sig = self.type_registry[expr.name].constructor
-                if ctor_sig is not None:
-                    expected = [n for p in ctor_sig.params for n in p.names]
-                    if len(expected) != len(expr.args):
-                        raise SemanticError(
-                            f"Constructor for {expr.name} takes {len(expected)} arguments",
-                            self._get_location(expr.loc),
-                        )
-                for arg in expr.args:
-                    self._visit_expression(arg)
+                sig = self.type_registry[expr.name].constructor
             else:
                 if (
                     '.' not in expr.name
@@ -422,8 +498,21 @@ class SemanticAnalyzer:
                         f"Undefined function '{expr.name}'",
                         self._get_location(expr.loc),
                     )
-                for arg in expr.args:
-                    self._visit_expression(arg)
+                if self.function_signatures is not None:
+                    sig = self.function_signatures.get(expr.name)
+
+            final_args = expr.args
+            if sig is not None:
+                final_args = self._bind_arguments(
+                    expr.args, expr.kwargs or [], sig, expr.loc
+                )
+                expr.args = final_args
+                expr.kwargs = []
+            else:
+                for _, val in (expr.kwargs or []):
+                    self._visit_expression(val)
+            for arg in final_args:
+                self._visit_expression(arg)
         else:
             raise SemanticError(
                 f"Unsupported expression {type(expr).__name__}",

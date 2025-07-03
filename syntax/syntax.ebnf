@@ -131,7 +131,8 @@ postfix_op       = "." , identifier            (* Member access: a.b *)
                  ;
 
 call_args        = "(" , [ arg_list ] , ")" ;
-arg_list         = expression , { "," , expression } ;
+arg_list         = argument , { "," , argument } ;
+argument         = expression | identifier , "=" , expression ;
 
 primary_expr     = literal
                  | identifier

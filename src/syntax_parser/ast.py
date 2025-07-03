@@ -146,6 +146,7 @@ class Block(Statement):
 class Parameter(Node):
     names: List[str]
     type_name: str
+    default: "Expression" | None = None
 
 
 @dataclass
@@ -243,6 +244,7 @@ class InterfaceDef(Statement):
 class FunctionCall(Expression):
     name: str
     args: List[Expression]
+    kwargs: List[tuple[str, Expression]] | None = None
 
 
 @dataclass
