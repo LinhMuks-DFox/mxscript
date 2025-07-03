@@ -46,8 +46,8 @@ class LLVMContext:
     # global variable helpers ---------------------------------------
     def get_global(self, name: str) -> ir.GlobalVariable:
         if name not in self.globals:
-            g = ir.GlobalVariable(self.module, self.int_t, name=name)
+            g = ir.GlobalVariable(self.module, self.obj_ptr_t, name=name)
             g.linkage = "internal"
-            g.initializer = ir.Constant(self.int_t, 0)
+            g.initializer = ir.Constant(self.obj_ptr_t, None)
             self.globals[name] = g
         return self.globals[name]

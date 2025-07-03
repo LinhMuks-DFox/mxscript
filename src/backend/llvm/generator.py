@@ -54,17 +54,17 @@ class LLVMGenerator:
             gvar,
             [ir.Constant(self.ctx.int_t, 0), ir.Constant(self.ctx.int_t, 0)],
         )
-        return self.ctx.builder.ptrtoint(ptr, self.ctx.int_t)
+        return ptr
 
     # ------------------------------------------------------------------
     def declare_functions(self, program) -> None:
         for func in program.functions.values():
-            arg_types = [self.ctx.int_t] * len(func.params)
+            arg_types = [self.ctx.obj_ptr_t] * len(func.params)
             if func.name.endswith("_destructor"):
-                arg_types = [self.ctx.int_t.as_pointer()]
+                arg_types = [self.ctx.obj_ptr_t.as_pointer()]
             elif func.name.endswith("_constructor"):
-                arg_types = [self.ctx.int_t.as_pointer()] + [self.ctx.int_t] * (len(func.params) - 1)
-            ty = ir.FunctionType(self.ctx.int_t, arg_types)
+                arg_types = [self.ctx.obj_ptr_t.as_pointer()] + [self.ctx.obj_ptr_t] * (len(func.params) - 1)
+            ty = ir.FunctionType(self.ctx.obj_ptr_t, arg_types)
             self.functions[func.name] = ir.Function(self.ctx.module, ty, name=func.name)
         for alias, c_name in program.foreign_functions.items():
             try:
@@ -92,7 +92,7 @@ class LLVMGenerator:
             return g
 
         assert self.ctx.entry_builder is not None
-        ptr = self.ctx.entry_builder.alloca(self.ctx.int_t, name=name)
+        ptr = self.ctx.entry_builder.alloca(self.ctx.obj_ptr_t, name=name)
         current_scope[name] = ptr
         return ptr
 
@@ -118,8 +118,7 @@ class LLVMGenerator:
         self.ctx.builder.call(callee, [ptr])
         arc_release = self.ffi.get_or_declare_function("decrease_ref")
         loaded = self.ctx.builder.load(ptr)
-        obj_ptr = self.ctx.builder.inttoptr(loaded, self.ctx.obj_ptr_t)
-        self.ctx.builder.call(arc_release, [obj_ptr])
+        self.ctx.builder.call(arc_release, [loaded])
         # remove variable after destruction
         for scope in reversed(self.var_info_stack):
             if instr.name in scope:
@@ -140,25 +139,25 @@ class LLVMGenerator:
                 elif instr.value is True:
                     fn = self.ffi.get_or_declare_function("mxs_get_true")
                     obj = self.ctx.builder.call(fn, [])
-                    stack.append(self.ctx.builder.ptrtoint(obj, self.ctx.int_t))
+                    stack.append(obj)
                 elif instr.value is False:
                     fn = self.ffi.get_or_declare_function("mxs_get_false")
                     obj = self.ctx.builder.call(fn, [])
-                    stack.append(self.ctx.builder.ptrtoint(obj, self.ctx.int_t))
+                    stack.append(obj)
                 elif isinstance(instr.value, int):
                     fn = self.ffi.get_or_declare_function("MXCreateInteger")
                     obj = self.ctx.builder.call(fn, [ir.Constant(self.ctx.int_t, instr.value)])
-                    stack.append(self.ctx.builder.ptrtoint(obj, self.ctx.int_t))
+                    stack.append(obj)
                 elif isinstance(instr.value, float):
                     fn = self.ffi.get_or_declare_function("MXCreateFloat")
                     obj = self.ctx.builder.call(fn, [ir.Constant(ir.DoubleType(), instr.value)])
-                    stack.append(self.ctx.builder.ptrtoint(obj, self.ctx.int_t))
+                    stack.append(obj)
                 elif instr.value is None:
                     fn = self.ffi.get_or_declare_function("mxs_get_nil")
                     obj = self.ctx.builder.call(fn, [])
-                    stack.append(self.ctx.builder.ptrtoint(obj, self.ctx.int_t))
+                    stack.append(obj)
                 else:
-                    stack.append(ir.Constant(self.ctx.int_t, 0))
+                    stack.append(ir.Constant(self.ctx.obj_ptr_t, None))
             elif isinstance(instr, Load):
                 val = self.ctx.get_var(instr.name)
                 if isinstance(val.type, ir.PointerType):
@@ -168,7 +167,7 @@ class LLVMGenerator:
             elif isinstance(instr, Alloc):
                 new_obj_fn = self.ffi.get_or_declare_function("new_mx_object")
                 ptr = self.ctx.builder.call(new_obj_fn, [])
-                stack.append(self.ctx.builder.ptrtoint(ptr, self.ctx.int_t))
+                stack.append(ptr)
             elif isinstance(instr, Dup):
                 if stack:
                     stack.append(stack[-1])
@@ -189,8 +188,7 @@ class LLVMGenerator:
                     ):
                         arc_release = self.ffi.get_or_declare_function("decrease_ref")
                         loaded_old = self.ctx.builder.load(info["ptr"])
-                        obj_ptr = self.ctx.builder.inttoptr(loaded_old, self.ctx.obj_ptr_t)
-                        self.ctx.builder.call(arc_release, [obj_ptr])
+                        self.ctx.builder.call(arc_release, [loaded_old])
 
                     self.ctx.builder.store(val, ptr)
 
@@ -261,21 +259,37 @@ class LLVMGenerator:
                                 arg = self.ctx.builder.bitcast(arg, target_ty)
                     cast_args.append(arg)
                 result = self.ctx.builder.call(callee, cast_args)
-                if result.type != self.ctx.int_t:
+                if result.type != self.ctx.int_t and not isinstance(result.type, ir.PointerType):
                     if isinstance(result.type, ir.IntType):
                         if result.type.width < self.ctx.int_t.width:
                             result = self.ctx.builder.zext(result, self.ctx.int_t)
                         elif result.type.width > self.ctx.int_t.width:
                             result = self.ctx.builder.trunc(result, self.ctx.int_t)
-                    elif isinstance(result.type, ir.PointerType):
-                        result = self.ctx.builder.ptrtoint(result, self.ctx.int_t)
                     else:
                         result = self.ctx.builder.bitcast(result, self.ctx.int_t)
                 stack.append(result)
             elif isinstance(instr, DestructorCall):
                 self._process_DestructorCall(instr)
             elif isinstance(instr, Return):
-                ret_val = stack.pop() if stack else ir.Constant(self.ctx.int_t, 0)
+                default = (
+                    ir.Constant(self.ctx.obj_ptr_t, None)
+                    if self.ctx.builder.function.function_type.return_type
+                    is self.ctx.obj_ptr_t
+                    else ir.Constant(self.ctx.int_t, 0)
+                )
+                ret_val = stack.pop() if stack else default
+                if (
+                    self.ctx.builder.function.function_type.return_type
+                    is self.ctx.int_t
+                    and isinstance(ret_val.type, ir.PointerType)
+                ):
+                    ret_val = self.ctx.builder.ptrtoint(ret_val, self.ctx.int_t)
+                elif (
+                    self.ctx.builder.function.function_type.return_type
+                    is self.ctx.obj_ptr_t
+                    and isinstance(ret_val.type, ir.IntType)
+                ):
+                    ret_val = self.ctx.builder.inttoptr(ret_val, self.ctx.obj_ptr_t)
                 self.ctx.builder.ret(ret_val)
                 terminated = True
                 stack = []
