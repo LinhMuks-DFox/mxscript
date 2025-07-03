@@ -175,7 +175,7 @@ class LLVMGenerator:
                     stack.append(ir.Constant(self.ctx.obj_ptr_t, None))
             elif isinstance(instr, Load):
                 val = self.ctx.get_var(instr.name)
-                if isinstance(val.type, ir.PointerType):
+                if isinstance(val.type, ir.PointerType) and val.type != self.ctx.obj_ptr_t:
                     stack.append(self.ctx.builder.load(val))
                 else:
                     stack.append(val)
@@ -340,6 +340,27 @@ class LLVMGenerator:
                 for i, arg in enumerate(args):
                     if i < len(func_ty.args):
                         target_ty = func_ty.args[i]
+                        # Box primitive arguments when the callee expects an object pointer
+                        if target_ty is self.ctx.obj_ptr_t:
+                            if isinstance(arg.type, ir.IntType):
+                                if arg.type.width == 1:
+                                    true_fn = self.ffi.get_or_declare_function("mxs_get_true")
+                                    false_fn = self.ffi.get_or_declare_function("mxs_get_false")
+                                    obj_true = self.ctx.builder.call(true_fn, [])
+                                    obj_false = self.ctx.builder.call(false_fn, [])
+                                    arg = self.ctx.builder.select(arg, obj_true, obj_false)
+                                else:
+                                    if arg.type.width < self.ctx.int_t.width:
+                                        arg = self.ctx.builder.sext(arg, self.ctx.int_t)
+                                    elif arg.type.width > self.ctx.int_t.width:
+                                        arg = self.ctx.builder.trunc(arg, self.ctx.int_t)
+                                    create_int = self.ffi.get_or_declare_function("MXCreateInteger")
+                                    arg = self.ctx.builder.call(create_int, [arg])
+                            elif isinstance(arg.type, ir.DoubleType) or isinstance(arg.type, ir.FloatType):
+                                if isinstance(arg.type, ir.FloatType):
+                                    arg = self.ctx.builder.fpext(arg, ir.DoubleType())
+                                create_float = self.ffi.get_or_declare_function("MXCreateFloat")
+                                arg = self.ctx.builder.call(create_float, [arg])
                         if arg.type != target_ty:
                             if isinstance(target_ty, ir.PointerType) and isinstance(
                                 arg.type, ir.IntType
@@ -356,7 +377,6 @@ class LLVMGenerator:
                                     arg = self.ctx.builder.trunc(arg, target_ty)
                                 elif arg.type.width < target_ty.width:
                                     arg = self.ctx.builder.zext(arg, target_ty)
-                                # widths equal handled above
                             else:
                                 arg = self.ctx.builder.bitcast(arg, target_ty)
                     cast_args.append(arg)
