@@ -72,6 +72,15 @@ class SemanticAnalyzer:
     source_lines: List[str] = field(default_factory=list)
     loop_depth: int = 0
 
+    def __init__(self) -> None:
+        self.variables_stack = None
+        self.functions = None
+        self.type_registry = None
+        self.filename = "<stdin>"
+        self.source_lines = []
+        self.loop_depth = 0
+        self.builtin_functions: Set[str] = {"print"}
+
     def analyze(self, program: Program, *, source: str = "", filename: str = "<stdin>") -> None:
         self.filename = filename
         self.source_lines = source.splitlines()
@@ -373,7 +382,12 @@ class SemanticAnalyzer:
                 for arg in expr.args:
                     self._visit_expression(arg)
             else:
-                if '.' not in expr.name and self.functions is not None and expr.name not in self.functions:
+                if (
+                    '.' not in expr.name
+                    and self.functions is not None
+                    and expr.name not in self.functions
+                    and expr.name not in self.builtin_functions
+                ):
                     raise NameError(
                         f"Undefined function '{expr.name}'",
                         self._get_location(expr.loc),
