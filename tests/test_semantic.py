@@ -52,7 +52,7 @@ def test_function_scope_success():
                     ExprStmt(BinaryOp(Identifier("c"), "+", Identifier("b"))),
                 ],
             ),
-            ExprStmt(FunctionCall("foo", [Integer(1), Integer(2)])),
+            ExprStmt(FunctionCall("foo", [Integer(1), Integer(2)], [])),
         ]
     )
     analyze_ast(prog)

@@ -124,14 +124,27 @@ class ExpressionParserMixin:
             if peek_tok.type == TokenType.LPAREN:
                 paren_tok = self.stream.next()
                 args = []
+                kwargs = []
                 if not (self.stream.peek().type == TokenType.RPAREN):
-                    args.append(self.parse_expression())
-                    while self.stream.peek().type == TokenType.COMMA:
-                        self.stream.next()
-                        args.append(self.parse_expression())
+                    while True:
+                        if (
+                            self.stream.peek().type == TokenType.IDENTIFIER
+                            and self.stream.peek(1)
+                            and self.stream.peek(1).type == TokenType.ASSIGN
+                        ):
+                            key = self._expect(TokenType.IDENTIFIER).value
+                            self._expect(TokenType.ASSIGN)
+                            value = self.parse_expression()
+                            kwargs.append((key, value))
+                        else:
+                            args.append(self.parse_expression())
+                        if self.stream.peek().type == TokenType.COMMA:
+                            self.stream.next()
+                            continue
+                        break
                 self._expect(TokenType.RPAREN)
                 name = self._flatten_member(expr)
-                expr = FunctionCall(name, args, loc=paren_tok)
+                expr = FunctionCall(name, args, kwargs, loc=paren_tok)
                 continue
             break
         return expr

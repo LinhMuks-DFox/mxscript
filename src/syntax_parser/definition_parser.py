@@ -220,7 +220,11 @@ class DefinitionParserMixin:
                 break
         self._expect(TokenType.COLON)
         type_name = self.parse_type_spec()
-        return Parameter(names, type_name)
+        default = None
+        if self.stream.peek().type == TokenType.ASSIGN:
+            self.stream.next()
+            default = self.parse_expression()
+        return Parameter(names, type_name, default)
 
     def parse_type_spec(self) -> str:
         # Union types using '|' are not yet supported by the tokenizer.

@@ -21,6 +21,7 @@ from src.syntax_parser import (
     RaiseStmt,
     MatchExpr,
     MemberAccess,
+    FunctionCall,
     ConstructorDef,
     InterfaceDef,
     FieldDef,
@@ -443,5 +444,26 @@ def test_parse_static_field():
     cls = ast.statements[0]
     field = next(m for m in cls.body.statements if isinstance(m, FieldDef))
     assert field.is_static
+
+
+def test_parse_default_parameter():
+    program = parse("func foo(a: int, b: int = 5) {}")
+    func = program.statements[0]
+    assert isinstance(func, FuncDef)
+    assert func.signature.params[1].default is not None
+    assert isinstance(func.signature.params[1].default, Integer)
+    assert func.signature.params[1].default.value == 5
+
+
+def test_parse_call_with_keywords():
+    program = parse("foo(a=1, b=2);")
+    stmt = program.statements[0]
+    assert isinstance(stmt, ExprStmt)
+    call = stmt.expr
+    assert isinstance(call, FunctionCall)
+    assert call.args == []
+    assert len(call.kwargs) == 2
+    assert call.kwargs[0][0] == "a"
+    assert isinstance(call.kwargs[0][1], Integer)
 
 
