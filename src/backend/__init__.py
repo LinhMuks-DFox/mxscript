@@ -16,7 +16,6 @@ from .llir import (
     Pop,
     Store,
     compile_program,
-    execute,
     to_llvm_ir,
     execute_llvm,
     build_search_paths,

@@ -32,7 +32,6 @@ from .ir import (
     ScopeExit,
     ErrorValue,
 )
-from .runtime import execute
 
 _RUNTIME_LOADED = False
 
