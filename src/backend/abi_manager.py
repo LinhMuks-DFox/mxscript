@@ -1,0 +1,44 @@
+from __future__ import annotations
+
+from llvmlite import ir
+import json
+from pathlib import Path
+from typing import Dict, Tuple, List
+
+int32 = ir.IntType(32)
+int64 = ir.IntType(64)
+char_ptr = ir.IntType(8).as_pointer()
+
+_TYPE_MAP = {
+    "int32": int32,
+    "int64": int64,
+    "char_ptr": char_ptr,
+    "cstr_ptr": char_ptr,
+    "double": ir.DoubleType(),
+    "void": ir.VoidType(),
+}
+
+_PATH = Path(__file__).with_name("ffi_map.json")
+_RAW_MAP: Dict[str, dict] = json.loads(_PATH.read_text())
+_TYPED_MAP: Dict[str, dict] = {}
+for name, info in _RAW_MAP.items():
+    entry = {
+        "ret": _TYPE_MAP[info["ret"]],
+        "args": [_TYPE_MAP[a] for a in info["args"]],
+    }
+    if "name" in info:
+        entry["name"] = info["name"]
+    if "wrapper_args" in info:
+        entry["wrapper_args"] = [_TYPE_MAP[a] for a in info["wrapper_args"]]
+    if "var_arg" in info:
+        entry["var_arg"] = info["var_arg"]
+    _TYPED_MAP[name] = entry
+
+
+def get_function_signature(name: str) -> Tuple[ir.Type, List[ir.Type]]:
+    info = _TYPED_MAP[name]
+    return info["ret"], info["args"]
+
+
+def get_abi_entry(name: str) -> dict:
+    return _TYPED_MAP[name]
