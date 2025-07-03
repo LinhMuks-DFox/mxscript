@@ -16,6 +16,7 @@ class LLVMContext:
     scopes: List[Dict[str, ir.Value]]
     int_t: ir.IntType
     obj_ptr_t: ir.PointerType
+    globals: Dict[str, ir.GlobalVariable]
 
     def __init__(self, module_name: str = "mxscript") -> None:
         self.module = ir.Module(name=module_name)
@@ -24,6 +25,7 @@ class LLVMContext:
         self.int_t = ir.IntType(64)
         self.obj_ptr_t = ir.IntType(8).as_pointer()
         self.scopes = [{}]
+        self.globals = {}
 
     # scope helpers -------------------------------------------------
     def push_scope(self) -> None:
@@ -40,3 +42,12 @@ class LLVMContext:
             if name in scope:
                 return scope[name]
         raise KeyError(name)
+
+    # global variable helpers ---------------------------------------
+    def get_global(self, name: str) -> ir.GlobalVariable:
+        if name not in self.globals:
+            g = ir.GlobalVariable(self.module, self.int_t, name=name)
+            g.linkage = "internal"
+            g.initializer = ir.Constant(self.int_t, 0)
+            self.globals[name] = g
+        return self.globals[name]
