@@ -93,6 +93,12 @@ def test_llvm_print_functions(capfd):
     assert captured.out == "1012.5true"
 
 
+def test_print_string_literal(capfd):
+    compile_and_run('print("Hello, MxScript!");')
+    captured = capfd.readouterr()
+    assert captured.out == "Hello, MxScript!"
+
+
 def test_llvm_file_operations(tmp_path):
     path = tmp_path / "out.txt"
     src = (
