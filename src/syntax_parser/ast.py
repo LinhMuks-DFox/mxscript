@@ -124,6 +124,9 @@ class BinaryOp(Expression):
     left: Expression
     op: str
     right: Expression
+    left_type: str | None = None
+    right_type: str | None = None
+    result_type: str | None = None
 
 
 @dataclass

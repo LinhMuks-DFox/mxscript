@@ -27,6 +27,16 @@ from .context import LLVMContext
 from ..ffi import FFIManager
 from ..abi_manager import get_function_signature
 
+STATIC_DISPATCH_MAP = {
+    ("int", "+", "int"): "integer_add_integer",
+    ("int", "-", "int"): "integer_sub_integer",
+}
+
+DYNAMIC_DISPATCH_MAP = {
+    "+": "mxs_op_add",
+    "-": "mxs_op_sub",
+}
+
 
 class LLVMGenerator:
     """Generate LLVM IR from :class:`ProgramIR`."""
@@ -274,30 +284,24 @@ class LLVMGenerator:
                 b = stack.pop()
                 a = stack.pop()
                 op = instr.op
-                if op == "+":
-                    stack.append(self.ctx.builder.add(a, b))
-                elif op == "-":
-                    stack.append(self.ctx.builder.sub(a, b))
-                elif op == "*":
-                    stack.append(self.ctx.builder.mul(a, b))
-                elif op == "/":
-                    stack.append(self.ctx.builder.sdiv(a, b))
-                elif op == "%":
-                    stack.append(self.ctx.builder.srem(a, b))
-                elif op == "==":
-                    stack.append(self.ctx.builder.icmp_signed("==", a, b))
-                elif op == "!=":
-                    stack.append(self.ctx.builder.icmp_signed("!=", a, b))
-                elif op == ">":
-                    stack.append(self.ctx.builder.icmp_signed(">", a, b))
-                elif op == "<":
-                    stack.append(self.ctx.builder.icmp_signed("<", a, b))
-                elif op == ">=":
-                    stack.append(self.ctx.builder.icmp_signed(">=", a, b))
-                elif op == "<=":
-                    stack.append(self.ctx.builder.icmp_signed("<=", a, b))
+                key = (instr.left_type, op, instr.right_type)
+                create_int = self.ffi.get_or_declare_function("MXCreateInteger")
+                a_obj = self.ctx.builder.call(create_int, [a])
+                b_obj = self.ctx.builder.call(create_int, [b])
+                func_name = STATIC_DISPATCH_MAP.get(key)
+                if func_name:
+                    self.ctx.builder.comment("STATIC dispatch")
+                    callee = self.ffi.get_or_declare_function(func_name)
                 else:
-                    raise RuntimeError(f"Unsupported op {op}")
+                    self.ctx.builder.comment("DYNAMIC dispatch")
+                    callee_name = DYNAMIC_DISPATCH_MAP.get(op)
+                    if callee_name is None:
+                        raise RuntimeError(f"Unsupported op {op}")
+                    callee = self.ffi.get_or_declare_function(callee_name)
+                obj_res = self.ctx.builder.call(callee, [a_obj, b_obj])
+                get_val = self.ffi.get_or_declare_function("mxs_get_integer_value")
+                result = self.ctx.builder.call(get_val, [obj_res])
+                stack.append(result)
             elif isinstance(instr, Call):
                 args = [stack.pop() for _ in range(instr.argc)][::-1]
                 callee = self.functions.get(instr.name)
