@@ -147,7 +147,10 @@ class LLVMGenerator:
                 continue
             if isinstance(instr, Const):
                 if isinstance(instr.value, str):
-                    stack.append(self._create_global_string(instr.value))
+                    cstr_ptr = self._create_global_string(instr.value)
+                    create_fn = self.ffi.get_or_declare_function("MXCreateString")
+                    obj = self.ctx.builder.call(create_fn, [cstr_ptr])
+                    stack.append(obj)
                 elif isinstance(instr.value, bool):
                     stack.append(ir.Constant(ir.IntType(1), int(instr.value)))
                 elif isinstance(instr.value, int):

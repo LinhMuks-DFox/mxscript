@@ -631,13 +631,10 @@ def _compile_expr(
             return code
         for arg in expr.args:
             special_print = expr.name == "print" and isinstance(
-                arg, (String, Integer, Float, Boolean, NilLiteral)
+                arg, (Integer, Float, Boolean, NilLiteral)
             )
             if special_print:
-                if isinstance(arg, String):
-                    code.append(Const(arg.value))
-                    code.append(Call("MXCreateString", 1))
-                elif isinstance(arg, Integer):
+                if isinstance(arg, Integer):
                     code.append(Const(arg.value))
                     code.append(Call("MXCreateInteger", 1))
                 elif isinstance(arg, Float):
