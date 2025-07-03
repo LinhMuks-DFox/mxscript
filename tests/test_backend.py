@@ -54,9 +54,9 @@ def test_backend_return_statement():
 
 
 def test_print_functions(capfd):
-    compile_and_run('import std.io as io; io.print("foo"); io.println("bar");')
+    compile_and_run('print(101); print(true);')
     captured = capfd.readouterr()
-    assert captured.out == "foobar\n"
+    assert captured.out == "101true"
 
 
 def test_file_operations(tmp_path):

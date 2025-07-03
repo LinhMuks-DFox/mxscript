@@ -1,0 +1,20 @@
+{
+  "printf": {"ret": "int32", "args": ["char_ptr"], "var_arg": true},
+  "write": {"ret": "int64", "args": ["int32", "char_ptr", "int64"]},
+  "read": {"ret": "int64", "args": ["int32", "char_ptr", "int64"]},
+  "open": {"ret": "int64", "args": ["char_ptr", "int32", "int32"]},
+  "close": {"ret": "int32", "args": ["int32"]},
+  "malloc": {"ret": "char_ptr", "args": ["int64"]},
+  "free": {"ret": "void", "args": ["char_ptr"]},
+  "mxs_print_object": {"ret": "void", "args": ["char_ptr"]},
+  "new_mx_object": {"ret": "char_ptr", "args": []},
+  "increase_ref": {"ret": "int64", "args": ["char_ptr"]},
+  "decrease_ref": {"ret": "int64", "args": ["char_ptr"]},
+  "MXCreateInteger": {"ret": "char_ptr", "args": ["int64"]},
+  "MXCreateFloat": {"ret": "char_ptr", "args": ["double"]},
+  "mxs_get_true": {"ret": "char_ptr", "args": []},
+  "mxs_get_false": {"ret": "char_ptr", "args": []},
+  "mxs_get_nil": {"ret": "char_ptr", "args": []},
+  "time_now": {"name": "time", "ret": "int64", "args": ["char_ptr"], "wrapper_args": []},
+  "random_rand": {"name": "rand", "ret": "int32", "args": [], "wrapper_args": []}
+}

@@ -6,7 +6,8 @@ from pathlib import Path
 from src.frontend import tokenize, TokenStream
 from src.syntax_parser import Parser
 from src.semantic_analyzer import SemanticAnalyzer
-from src.backend import compile_program, execute_llvm, build_search_paths
+from src.backend import compile_program, execute, build_search_paths
+from src.backend.ir import ProgramIR
 from src.errors import CompilerError
 
 
@@ -24,11 +25,19 @@ def _load_runtime_lib() -> ctypes.CDLL:
 def run_shell() -> int:
     """Start an interactive MxScript REPL."""
     runtime = None
+    env_stack = [{}]
+    var_info_stack = [{}]
+    functions = {}
+    foreign_functions = {}
+    module_cache = {}
     while True:
         try:
             line = input("mxs> ")
         except EOFError:
             print()
+            break
+
+        if line.strip() in (":quit", ":q"):
             break
 
         if not line.strip():
@@ -53,8 +62,15 @@ def run_shell() -> int:
             sema.analyze(ast, source=line, filename="<repl>")
 
             search_paths = build_search_paths(None)
-            ir = compile_program(ast, search_paths=search_paths)
-            result = execute_llvm(ir)
+            ir = compile_program(
+                ast,
+                module_cache=module_cache,
+                search_paths=search_paths,
+            )
+            functions.update(ir.functions)
+            foreign_functions.update(ir.foreign_functions)
+            partial_prog = ProgramIR(ir.code, functions, foreign_functions)
+            result = execute(partial_prog, env_stack, var_info_stack)
             if result is not None:
                 print(result)
         except CompilerError as e:  # pragma: no cover - debug helper

@@ -31,7 +31,12 @@ _libc_rand.argtypes = []
 _libc_rand.restype = ctypes.c_int
 
 
-def execute(program: ProgramIR) -> int | None:
+def execute(program: ProgramIR, env_stack: List[Dict[str, object]] | None = None, var_info_stack: List[Dict[str, Dict[str, object | None]]] | None = None) -> int | None:
+    if env_stack is None:
+        env_stack = [{}]
+    if var_info_stack is None:
+        var_info_stack = [{}]
+
     def run(
         code: List[Instr],
         env_stack: List[Dict[str, object]],
@@ -125,7 +130,7 @@ def execute(program: ProgramIR) -> int | None:
                 raise RuntimeError(f"Unknown instruction {instr}")
         return stack[-1] if stack else None
 
-    result = run(program.code, [{}], [{}])
+    result = run(program.code, env_stack, var_info_stack)
     if isinstance(result, ErrorValue) and result.panic:
         raise RuntimeError(f"Panic: {result.msg}")
     return result

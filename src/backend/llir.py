@@ -49,6 +49,8 @@ def _load_runtime() -> None:
     runtime_dir = base_dir / "runtime"
     build_dir = runtime_dir / "build"
     so_path = base_dir / "bin" / "libruntime.so"
+    extra = os.environ.get("MXSCRIPT_EXTRA_RUNTIMES", "")
+    extra_libs = [Path(p) for p in extra.split(os.pathsep) if p]
 
     if not so_path.exists():
         print("Runtime library not found. Building...")
@@ -69,6 +71,9 @@ def _load_runtime() -> None:
 
     # --- 加载共享库 ---
     binding.load_library_permanently(str(so_path))
+    for lib in extra_libs:
+        if lib.exists():
+            binding.load_library_permanently(str(lib))
     _RUNTIME_LOADED = True
 
 

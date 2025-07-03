@@ -1,5 +1,7 @@
 from llvmlite import ir
 from typing import Dict
+import json
+from pathlib import Path
 
 # Map of supported libc functions. Keys are names used in MxScript FFI
 # declarations. Each entry can optionally specify a different symbol name
@@ -8,30 +10,36 @@ int32 = ir.IntType(32)
 int64 = ir.IntType(64)
 char_ptr = ir.IntType(8).as_pointer()
 
-LIBC_FUNCTIONS: Dict[str, dict] = {
-    'printf': {'ret': int32, 'args': [char_ptr], 'var_arg': True},
-    'write': {'ret': int64, 'args': [int32, char_ptr, int64]},
-    'read': {'ret': int64, 'args': [int32, char_ptr, int64]},
-    'open': {'ret': int64, 'args': [char_ptr, int32, int32]},
-    'close': {'ret': int32, 'args': [int32]},
-    'malloc': {'ret': char_ptr, 'args': [int64]},
-    'free': {'ret': ir.VoidType(), 'args': [char_ptr]},
-    # MXObject runtime
-    'new_mx_object': {'ret': char_ptr, 'args': []},
-    'increase_ref': {'ret': int64, 'args': [char_ptr]},
-    'decrease_ref': {'ret': int64, 'args': [char_ptr]},
-    'MXCreateInteger': {'ret': char_ptr, 'args': [int64]},
-    'MXCreateFloat': {'ret': char_ptr, 'args': [ir.DoubleType()]},
-    'mxs_get_true': {'ret': char_ptr, 'args': []},
-    'mxs_get_false': {'ret': char_ptr, 'args': []},
-    'mxs_get_nil': {'ret': char_ptr, 'args': []},
-    # Aliases used in the current standard library
-    # MxScript convenience wrappers
-    # time_now() -> time(NULL)
-    'time_now': {'name': 'time', 'ret': int64, 'args': [char_ptr], 'wrapper_args': []},
-    # random_rand() simply forwards to rand()
-    'random_rand': {'name': 'rand', 'ret': int32, 'args': [], 'wrapper_args': []},
+
+_TYPE_MAP = {
+    "int32": int32,
+    "int64": int64,
+    "char_ptr": char_ptr,
+    "double": ir.DoubleType(),
+    "void": ir.VoidType(),
 }
+
+
+def _load_ffi_map() -> Dict[str, dict]:
+    path = Path(__file__).with_name("ffi_map.json")
+    raw = json.loads(path.read_text())
+    result: Dict[str, dict] = {}
+    for name, info in raw.items():
+        entry = {
+            "ret": _TYPE_MAP[info["ret"]],
+            "args": [_TYPE_MAP[a] for a in info["args"]],
+        }
+        if "name" in info:
+            entry["name"] = info["name"]
+        if "wrapper_args" in info:
+            entry["wrapper_args"] = [_TYPE_MAP[a] for a in info["wrapper_args"]]
+        if "var_arg" in info:
+            entry["var_arg"] = info["var_arg"]
+        result[name] = entry
+    return result
+
+
+LIBC_FUNCTIONS: Dict[str, dict] = _load_ffi_map()
 
 class FFIManager:
     """Helper for declaring and reusing foreign function declarations."""

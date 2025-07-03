@@ -254,6 +254,7 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
         from .ast import ReturnStmt
         return ReturnStmt(value, loc=start)
 
+
     def parse_match_expr(self):
         start_kw = self._expect(TokenType.MATCH)
         self._expect(TokenType.LPAREN)
