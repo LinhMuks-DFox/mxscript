@@ -11,7 +11,9 @@ namespace mxs_runtime {
     public:
         MXNil();
         ~MXNil() = default;
+        auto repr() const -> inner_string override;
     };
+
 
     extern MXS_API const MXNil &MX_NIL;
 

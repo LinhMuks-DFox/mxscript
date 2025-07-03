@@ -11,7 +11,7 @@ namespace mxs_runtime {
     class MXObject {
     private:
         refer_count_type ref_cnt = 0;
-        std::string object_type_name{"object"};
+        std::string object_type_name{ "object" };
         bool _is_static = false;
 
     public:
@@ -25,6 +25,8 @@ namespace mxs_runtime {
         virtual inner_boolean equals(const MXObject &other);
         virtual inner_boolean equals(const MXObject *other);
         virtual hash_code_type hash_code();
+
+        virtual inner_string repr() const;// return a representation in string form
     };
 }// namespace mxs_runtime
 
@@ -42,6 +44,8 @@ const char *get_object_type_name(mxs_runtime::MXObject *obj);
 void set_object_type_name(mxs_runtime::MXObject *obj, const char *name);
 mxs_runtime::inner_boolean mx_object_equals(mxs_runtime::MXObject *obj1,
                                             mxs_runtime::MXObject *obj2);
+std::size_t mx_object_repr_length(mxs_runtime::MXObject *obj);
+void mx_object_repr(mxs_runtime::MXObject *obj, char *buffer, std::size_t buffer_size);
 #ifdef __cplusplus
 }
 #endif

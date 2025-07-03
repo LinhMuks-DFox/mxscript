@@ -5,30 +5,37 @@
 
 namespace mxs_runtime {
 
-    MXObject::MXObject(bool is_static) : _is_static(is_static) {}
+    MXObject::MXObject(bool is_static) : _is_static(is_static) { }
     MXObject::~MXObject() {
-        if (!_is_static) {
-            MX_ALLOCATOR.unregisterObject(this);
-        }
+        if (!_is_static) { MX_ALLOCATOR.unregisterObject(this); }
     }
 
     MXObject::MXObject(const MXObject &other)
-        : ref_cnt(other.ref_cnt), object_type_name(other.object_type_name), _is_static(other._is_static) {}
+        : ref_cnt(other.ref_cnt), object_type_name(other.object_type_name),
+          _is_static(other._is_static) { }
 
-    refer_count_type MXObject::increase_ref() { return ++ref_cnt; }
+    auto MXObject::increase_ref() -> refer_count_type { return ++ref_cnt; }
 
     refer_count_type MXObject::decrease_ref() {
         if (ref_cnt > 0) { --ref_cnt; }
         return ref_cnt;
     }
 
-    const std::string &MXObject::get_type_name() const { return object_type_name; }
+    auto MXObject::get_type_name() const -> const std::string & {
+        return object_type_name;
+    }
 
-    void MXObject::set_type_name(const std::string &name) { object_type_name = name; }
+    auto MXObject::equals(const MXObject &other) -> inner_boolean {
+        return this == &other;
+    }
+    auto MXObject::equals(const MXObject *other) -> inner_boolean {
+        return this == other;
+    }
+    auto MXObject::hash_code() -> hash_code_type {
+        return reinterpret_cast<hash_code_type>(this);
+    }
 
-    inner_boolean MXObject::equals(const MXObject &other) { return this == &other; }
-    inner_boolean MXObject::equals(const MXObject *other) { return this == other; }
-    hash_code_type MXObject::hash_code() { return reinterpret_cast<hash_code_type>(this); }
+    auto MXObject::repr() const -> inner_string { return object_type_name; }
 
 
 }// namespace mxs_runtime
@@ -60,5 +67,19 @@ void set_object_type_name(mxs_runtime::MXObject *obj, const char *name) {
     if (!obj) return;
     obj->set_type_name(name ? std::string(name) : std::string());
 }
+
+std::size_t mx_object_repr_length(mxs_runtime::MXObject *obj) {
+    if (!obj) return 0;
+    return obj->repr().length();
+}
+
+
+void mx_object_repr(mxs_runtime::MXObject *obj, char *buffer, std::size_t buffer_size) {
+    if (!obj || !buffer || buffer_size == 0) return;
+    std::string repr = obj->repr();
+    std::strncpy(buffer, repr.c_str(), buffer_size - 1);
+    buffer[buffer_size - 1] = '\0';
+}
+
 
 }// extern "C"
