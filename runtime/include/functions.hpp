@@ -1,7 +1,7 @@
 #ifndef MX_FUNCTIONS_HPP
 #define MX_FUNCTIONS_HPP
 #include "include/_typedef.hpp"
-#include "include/object.hpp"
+#include "include/object.h"
 #include <cstddef>
 #include <iostream>
 namespace mxs_runtime {

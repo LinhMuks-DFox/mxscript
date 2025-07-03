@@ -3,7 +3,8 @@
 #define MXSCRIPT_NIL_HPP
 
 #include "macro.hpp"
-#include "object.hpp"
+#include "object.h"
+#include "typeinfo.h"
 
 namespace mxs_runtime {
 

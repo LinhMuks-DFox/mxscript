@@ -7,7 +7,7 @@
 #include "functions.hpp"
 #include "nil.hpp"
 #include "numeric.hpp"
-#include "object.hpp"
+#include "object.h"
 #include "string.hpp"
 
 #endif

@@ -1,23 +1,55 @@
 #include "numeric.hpp"
+#include "typeinfo.h"
 #include "allocator.hpp"
 #include <format>
 
 namespace mxs_runtime {
 
-    static const RTTI RTTI_INTEGER{ "Integer" };
-    static const RTTI RTTI_FLOAT{ "Float" };
+    static MXObject* integer_add_integer(MXObject* left, MXObject* right);
+    static MXObject* integer_add(MXObject* self, MXObject* other);
 
-    MXNumeric::MXNumeric(const RTTI *rtti, bool is_static) : MXObject(rtti, is_static) { }
+    static const MXTypeInfo g_integer_type_info{
+        "Integer",
+        nullptr,
+        integer_add,
+        nullptr,
+        nullptr
+    };
 
-    MXInteger::MXInteger(inner_integer v) : MXNumeric(&RTTI_INTEGER, false), value(v) { }
+    static const MXTypeInfo g_float_type_info{ "Float", nullptr, nullptr, nullptr, nullptr };
+
+    MXNumeric::MXNumeric(const MXTypeInfo *info, bool is_static) : MXObject(info, is_static) { }
+
+    MXInteger::MXInteger(inner_integer v) : MXNumeric(&g_integer_type_info, false), value(v) { }
 
     auto MXInteger::to_string() const -> inner_string { return std::format("{}", value); }
-    MXFloat::MXFloat(inner_float v) : MXNumeric(&RTTI_FLOAT, false), value(v) { }
+    MXFloat::MXFloat(inner_float v) : MXNumeric(&g_float_type_info, false), value(v) { }
 
     auto MXFloat::to_string() const -> inner_string { return std::format("{}", value); }
+
+    static MXObject* integer_add_integer(MXObject* left, MXObject* right) {
+        auto* l = static_cast<MXInteger*>(left);
+        auto* r = static_cast<MXInteger*>(right);
+        return MXCreateInteger(l->value + r->value);
+    }
+
+    static MXObject* integer_add(MXObject* self, MXObject* other) {
+        if (other->get_type_info() == &g_integer_type_info) {
+            return integer_add_integer(self, other);
+        }
+        return nullptr;
+    }
 }// namespace mxs_runtime
 
 extern "C" {
+
+MXS_API mxs_runtime::MXObject* integer_add_integer(mxs_runtime::MXObject* left, mxs_runtime::MXObject* right) {
+    return mxs_runtime::integer_add_integer(left, right);
+}
+
+MXS_API mxs_runtime::MXObject* mxs_op_add(mxs_runtime::MXObject* left, mxs_runtime::MXObject* right) {
+    return left->get_type_info()->op_add(left, right);
+}
 
 auto MXCreateInteger(mxs_runtime::inner_integer value) -> mxs_runtime::MXInteger * {
     auto *obj = new mxs_runtime::MXInteger(value);

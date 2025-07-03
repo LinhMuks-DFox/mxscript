@@ -3,7 +3,7 @@
 #include "boolean.hpp"
 #include "nil.hpp"
 #include "numeric.hpp"
-#include "object.hpp"
+#include "object.h"
 #include <cstddef>
 #include <cstdio>
 #include <iostream>
