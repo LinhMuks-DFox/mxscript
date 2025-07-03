@@ -6,8 +6,7 @@ from pathlib import Path
 from src.frontend import tokenize, TokenStream
 from src.syntax_parser import Parser
 from src.semantic_analyzer import SemanticAnalyzer
-from src.backend import compile_program, build_search_paths
-from src.backend.ir import ProgramIR
+from src.backend import compile_program, build_search_paths, execute_llvm
 from src.errors import CompilerError
 
 
@@ -60,7 +59,8 @@ def run_shell() -> int:
 
             sema = SemanticAnalyzer()
             sema.analyze(ast, source=line, filename="<repl>")
-            # TODO: Execute code by calling execute_llvm
+            ir_prog = compile_program(ast)
+            result = execute_llvm(ir_prog)
         except CompilerError as e:  # pragma: no cover - debug helper
             print(f"Error: {e.message}")
     return 0
