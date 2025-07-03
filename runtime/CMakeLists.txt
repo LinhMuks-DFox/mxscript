@@ -1,42 +1,34 @@
-# CMake最低版本要求
 cmake_minimum_required(VERSION 3.10)
-
-# 定义项目名称
 project(mx_runtime CXX C)
 
-# 设置C++标准
+# ----------- C++23 ----------
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- 设置输出目录 ---
-# 获取项目根目录 (runtime目录的上一级)
+# ----------- Clang + libc++ ----------
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  message(STATUS "Detected Clang, adding libc++ flags")
+  add_compile_options(-stdlib=libc++)
+  add_link_options(-stdlib=libc++)
+endif()
+
+
+# ----------- 输出目录 ----------
 get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." REALPATH)
-# 将所有二进制文件（.so）输出到 <project_root>/bin
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_ROOT}/bin")
-# 将所有静态库文件（.a）输出到 <project_root>/bin
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_ROOT}/bin")
 
-# --- 为了让clangd工作，生成compile_commands.json到构建目录 ---
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-# --- 查找所有源文件 ---
-# 递归查找impl目录下的所有.cpp文件
+# ----------- 源文件 ----------
 file(GLOB_RECURSE IMPL_SOURCES "impl/*.cpp")
 list(APPEND IMPL_SOURCES "impl/object.cpp")
-list(APPEND IMPL_SOURCES ${SRC_SOURCES})
 
-# --- 定义要构建的目标 ---
-# 将所有源文件编译成一个名为 "runtime" 的共享库 (最终生成 <project_root>/bin/libruntime.so)
-add_library(runtime SHARED
-    ${IMPL_SOURCES}
-)
-
-# --- 设置头文件搜索路径 ---
-# 让编译器在编译时能找到 include/ 和顶层目录的头文件
+# ----------- 目标 ----------
+add_library(runtime SHARED ${IMPL_SOURCES})
 target_include_directories(runtime PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}"
 )
-
-# 设置所有目标都需要-fPIC选项（共享库必需）
 set_target_properties(runtime PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# ----------- clangd ----------
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
