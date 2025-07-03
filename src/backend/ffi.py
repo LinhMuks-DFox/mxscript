@@ -1,45 +1,11 @@
 from llvmlite import ir
 from typing import Dict
-import json
-from pathlib import Path
+from .abi_manager import get_abi_entry
 
 # Map of supported libc functions. Keys are names used in MxScript FFI
 # declarations. Each entry can optionally specify a different symbol name
 # via the 'name' field.
-int32 = ir.IntType(32)
-int64 = ir.IntType(64)
-char_ptr = ir.IntType(8).as_pointer()
-
-
-_TYPE_MAP = {
-    "int32": int32,
-    "int64": int64,
-    "char_ptr": char_ptr,
-    "double": ir.DoubleType(),
-    "void": ir.VoidType(),
-}
-
-
-def _load_ffi_map() -> Dict[str, dict]:
-    path = Path(__file__).with_name("ffi_map.json")
-    raw = json.loads(path.read_text())
-    result: Dict[str, dict] = {}
-    for name, info in raw.items():
-        entry = {
-            "ret": _TYPE_MAP[info["ret"]],
-            "args": [_TYPE_MAP[a] for a in info["args"]],
-        }
-        if "name" in info:
-            entry["name"] = info["name"]
-        if "wrapper_args" in info:
-            entry["wrapper_args"] = [_TYPE_MAP[a] for a in info["wrapper_args"]]
-        if "var_arg" in info:
-            entry["var_arg"] = info["var_arg"]
-        result[name] = entry
-    return result
-
-
-LIBC_FUNCTIONS: Dict[str, dict] = _load_ffi_map()
+from .abi_manager import _TYPED_MAP as LIBC_FUNCTIONS
 
 class FFIManager:
     """Helper for declaring and reusing foreign function declarations."""
@@ -75,7 +41,8 @@ class FFIManager:
         return target_fn
 
 def resolve_symbol(name: str) -> str:
-    info = LIBC_FUNCTIONS.get(name)
-    if info is None:
+    try:
+        info = get_abi_entry(name)
+    except KeyError:
         return name
-    return info.get('name', name)
+    return info.get("name", name)

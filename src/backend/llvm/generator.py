@@ -25,6 +25,7 @@ from ..llir import (
 )
 from .context import LLVMContext
 from ..ffi import FFIManager
+from ..abi_manager import get_function_signature
 
 
 class LLVMGenerator:
@@ -239,7 +240,11 @@ class LLVMGenerator:
                         callee = self.ctx.module.get_global(instr.name)
                     except KeyError:
                         callee = self.ffi.get_or_declare_function(instr.name)
-                func_ty = callee.function_type
+                try:
+                    ret_ty, arg_tys = get_function_signature(instr.name)
+                    func_ty = ir.FunctionType(ret_ty, arg_tys)
+                except KeyError:
+                    func_ty = callee.function_type
                 cast_args: List[ir.Value] = []
                 for i, arg in enumerate(args):
                     if i < len(func_ty.args):
