@@ -3,6 +3,7 @@ func main() -> nil {
     let my_float = 2.718;
     print(my_int);
     print(my_float);
+    print("test\n");
     print(true);
     print(nil);
 }
