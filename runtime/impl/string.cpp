@@ -1,12 +1,14 @@
 #include "string.hpp"
+#include "typeinfo.h"
 #include "allocator.hpp"
 
 namespace mxs_runtime {
 
-    static const RTTI RTTI_STRING{ "String" };
+    static MXObject* string_add_stub(MXObject*, MXObject*) { return nullptr; }
+    static const MXTypeInfo STRING_TYPE_INFO{ "String", nullptr, string_add_stub, nullptr, nullptr };
 
     MXString::MXString(inner_string v)
-        : MXObject(&RTTI_STRING, false), value(std::move(v)) { }
+        : MXObject(&STRING_TYPE_INFO, false), value(std::move(v)) { }
 
     auto MXString::repr() const -> inner_string { return value; }
 

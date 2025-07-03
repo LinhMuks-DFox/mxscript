@@ -4,7 +4,8 @@
 
 #include "_typedef.hpp"
 #include "macro.hpp"
-#include "object.hpp"
+#include "object.h"
+#include "typeinfo.h"
 
 namespace mxs_runtime {
 

@@ -1,14 +1,16 @@
 #include "nil.hpp"
+#include "typeinfo.h"
 #include "_typedef.hpp"
 
 namespace mxs_runtime {
 
-    static const RTTI RTTI_NIL{ "Nil" };
+    static MXObject* nil_add_stub(MXObject*, MXObject*) { return nullptr; }
+    static const MXTypeInfo NIL_TYPE_INFO{ "Nil", nullptr, nil_add_stub, nullptr, nullptr };
     static MXNil nil_instance;
 
     MXS_API const MXNil &MX_NIL = nil_instance;
 
-    MXNil::MXNil() : MXObject(&RTTI_NIL, true) { }
+    MXNil::MXNil() : MXObject(&NIL_TYPE_INFO, true) { }
     auto MXNil::repr() const -> inner_string { return "nil"; }
 
 }// namespace mxs_runtime

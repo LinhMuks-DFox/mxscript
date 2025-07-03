@@ -119,5 +119,19 @@
         "args": [
             "cstr_ptr"
         ]
+    },
+    "integer_add_integer": {
+        "ret": "char_ptr",
+        "args": [
+            "char_ptr",
+            "char_ptr"
+        ]
+    },
+    "mxs_op_add": {
+        "ret": "char_ptr",
+        "args": [
+            "char_ptr",
+            "char_ptr"
+        ]
     }
 }

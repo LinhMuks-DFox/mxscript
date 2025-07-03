@@ -1,43 +1,38 @@
 #pragma once
-
 #ifndef MXSCRIPT_OBJECT_H
 #define MXSCRIPT_OBJECT_H
 
 #include "_typedef.hpp"
 #include "macro.hpp"
+#include "typeinfo.h"
 #include <cstddef>
 #include <string>
 
 namespace mxs_runtime {
 
-    struct RTTI {
-        std::string type_name;
-    };
+class MXObject {
+private:
+    refer_count_type ref_cnt = 0;
+    const MXTypeInfo* type_info;
+    bool _is_static = false;
 
-    class MXObject {
-    private:
-        refer_count_type ref_cnt = 0;
-        const RTTI *const rtti;
-        bool _is_static = false;
+public:
+    explicit MXObject(const MXTypeInfo* info, bool is_static = false);
+    MXObject(const MXObject& other);
+    virtual ~MXObject();
 
-    public:
-        explicit MXObject(const RTTI *rtti, bool is_static = false);
-        MXObject(const MXObject &other);
-        virtual ~MXObject();
-        auto increase_ref() -> refer_count_type;
-        auto decrease_ref() -> refer_count_type;
-        auto get_type_name() const -> const std::string &;
-        virtual auto equals(const MXObject &other) -> inner_boolean;
-        virtual auto equals(const MXObject *other) -> inner_boolean;
-        virtual auto hash_code() -> hash_code_type;
-        virtual auto repr() const
-                -> inner_string;// return a representation in string form
-    };
+    auto increase_ref() -> refer_count_type;
+    auto decrease_ref() -> refer_count_type;
+    auto get_type_name() const -> const char*;
+    virtual auto equals(const MXObject& other) -> inner_boolean;
+    virtual auto equals(const MXObject* other) -> inner_boolean;
+    virtual auto hash_code() -> hash_code_type;
+    virtual auto repr() const -> inner_string; // representation
+
+    const MXTypeInfo* get_type_info() const { return type_info; }
+};
 
 }// namespace mxs_runtime
-
-
-// C API:
 
 #ifdef __cplusplus
 extern "C" {

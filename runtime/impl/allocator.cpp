@@ -1,5 +1,5 @@
 #include "allocator.hpp"
-#include "object.hpp"
+#include "object.h"
 #include <cstdio>
 
 namespace mxs_runtime {
@@ -23,7 +23,7 @@ namespace mxs_runtime {
         std::lock_guard<std::mutex> lock(mtx);
         printf("Live objects: %zu\n", objects.size());
         for (MXObject *obj : objects) {
-            const char *type = obj ? obj->get_type_name().c_str() : "<null>";
+            const char *type = obj ? obj->get_type_name() : "<null>";
             printf("  %p (%s)\n", (void *) obj, type);
         }
     }
