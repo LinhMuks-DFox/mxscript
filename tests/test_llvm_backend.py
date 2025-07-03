@@ -21,7 +21,6 @@ def compile_and_run(src: str) -> int:
     return execute_llvm(ir_prog)
 
 
-
 def compile_to_ir(src: str) -> str:
     tokens = tokenize(src)
     stream = TokenStream(tokens)
@@ -30,6 +29,7 @@ def compile_to_ir(src: str) -> str:
     analyzer.analyze(ast)
     ir_prog = compile_program(ast, analyzer.type_registry)
     return to_llvm_ir(ir_prog)
+
 
 def compile_and_run_file(file_path: Path) -> int:
     source = file_path.read_text()
@@ -43,7 +43,6 @@ def compile_and_run_file(file_path: Path) -> int:
     return execute_llvm(ir_prog)
 
 
-
 def test_llvm_backend_addition():
     result = compile_and_run("let x = 1 + 2; x + 3;")
     assert result == 6
@@ -55,15 +54,11 @@ def test_llvm_return_statement():
     assert result == 1
 
 
-
 def test_llvm_static_alias_println():
-    src = (
-        'import std.io as io;\n'
-        'static let println = io.println;\n'
-        'println("hi");'
-    )
+    src = "import std.io as io;\n" "static let println = io.println;\n" 'println("hi");'
     ir_text = compile_to_ir(src)
     assert "io.println" in ir_text
+
 
 def test_llvm_hello_world_example():
     path = Path("demo_program/examples/hello_world.mxs")
@@ -71,49 +66,57 @@ def test_llvm_hello_world_example():
     assert result == 0
 
 
-
 def test_llvm_ffi_time_random():
-    res_time = compile_and_run('import std.time as time; time.now();')
+    res_time = compile_and_run("import std.time as time; time.now();")
     assert isinstance(res_time, int)
-    res_rand = compile_and_run('import std.random as random; random.rand();')
+    res_rand = compile_and_run("import std.random as random; random.rand();")
     assert isinstance(res_rand, int)
+
 
 def test_llvm_print_functions(capfd):
     src = (
-        'func main() -> nil {\n'
-        '    let i = 101;\n'
-        '    let f = 2.5;\n'
-        '    print(i);\n'
-        '    print(f);\n'
-        '    print(true);\n'
-        '}'
+        "func main() -> nil {\n"
+        "    let i = 101;\n"
+        "    let f = 2.5;\n"
+        "    print(i);\n"
+        "    print(f);\n"
+        "    print(true);\n"
+        "}"
     )
     compile_and_run(src)
     captured = capfd.readouterr()
-    assert captured.out == "1012.5true"
+    assert captured.out == "101\n2.5\ntrue\n"
 
 
 def test_print_string_literal(capfd):
     compile_and_run('print("Hello, MxScript!");')
     captured = capfd.readouterr()
-    assert captured.out == "Hello, MxScript!"
+    assert captured.out == "Hello, MxScript!\n"
+
+    compile_and_run('print("Hello", end="");')
+    captured = capfd.readouterr()
+    assert captured.out == "Hello"
+
+    compile_and_run('print("Hello", end="-->");')
+    captured = capfd.readouterr()
+    assert captured.out == "Hello-->"
 
 
 def test_llvm_file_operations(tmp_path):
     path = tmp_path / "out.txt"
     src = (
         '@@foreign(c_name="open")\n'
-        'func __internal_open(path: string, flags: int, mode: int) -> int;\n'
+        "func __internal_open(path: string, flags: int, mode: int) -> int;\n"
         '@@foreign(c_name="write")\n'
-        'func __internal_write(fd: int, buf: byte*, len: int) -> int;\n'
+        "func __internal_write(fd: int, buf: byte*, len: int) -> int;\n"
         '@@foreign(c_name="close")\n'
-        'func __internal_close(fd: int) -> int;\n'
-        'func main() -> int {\n'
+        "func __internal_close(fd: int) -> int;\n"
+        "func main() -> int {\n"
         f'    let fd = __internal_open("{path}", 577, 438);\n'
         '    __internal_write(fd, "hello", 5);\n'
-        '    __internal_close(fd);\n'
-        '    return 0;\n'
-        '}'
+        "    __internal_close(fd);\n"
+        "    return 0;\n"
+        "}"
     )
     result = compile_and_run(src)
     assert result == 0
@@ -122,18 +125,18 @@ def test_llvm_file_operations(tmp_path):
 
 def test_llvm_destructor_call(capfd):
     src = (
-        'import std.io as io;\n'
-        'class Loud {\n'
-        '    ~Loud() {\n'
+        "import std.io as io;\n"
+        "class Loud {\n"
+        "    ~Loud() {\n"
         '        io.println("Object destroyed!");\n'
-        '    }\n'
-        '}\n'
-        'func main() -> int {\n'
+        "    }\n"
+        "}\n"
+        "func main() -> int {\n"
         '    io.println("Creating object...");\n'
-        '    let obj: Loud = 0;\n'
+        "    let obj: Loud = 0;\n"
         '    io.println("Object created. Exiting main...");\n'
-        '    return 0;\n'
-        '}'
+        "    return 0;\n"
+        "}"
     )
     compile_and_run(src)
     captured = capfd.readouterr()
@@ -142,15 +145,15 @@ def test_llvm_destructor_call(capfd):
 
 def test_llvm_shadowed_destructors(capfd):
     src = (
-        'import std.io as io;\n'
-        'class Loud {\n'
+        "import std.io as io;\n"
+        "class Loud {\n"
         '    ~Loud() { io.println("dtor"); }\n'
-        '}\n'
-        'func main() -> int {\n'
-        '    let obj: Loud = 0;\n'
-        '    { let obj: Loud = 0; }\n'
-        '    return 0;\n'
-        '}'
+        "}\n"
+        "func main() -> int {\n"
+        "    let obj: Loud = 0;\n"
+        "    { let obj: Loud = 0; }\n"
+        "    return 0;\n"
+        "}"
     )
     compile_and_run(src)
     captured = capfd.readouterr()
@@ -159,15 +162,15 @@ def test_llvm_shadowed_destructors(capfd):
 
 def test_llvm_constructor(capfd):
     src = (
-        'import std.io as io;\n'
-        'class Box {\n'
+        "import std.io as io;\n"
+        "class Box {\n"
         '    Box() { io.println("ctor"); }\n'
         '    ~Box() { io.println("dtor"); }\n'
-        '}\n'
-        'func main() -> int {\n'
-        '    let b: Box = Box();\n'
-        '    return 0;\n'
-        '}'
+        "}\n"
+        "func main() -> int {\n"
+        "    let b: Box = Box();\n"
+        "    return 0;\n"
+        "}"
     )
     compile_and_run(src)
     captured = capfd.readouterr()
@@ -177,35 +180,35 @@ def test_llvm_constructor(capfd):
 
 def test_llvm_destructors_scopes(capfd):
     src = (
-        'import std.io as io;\n'
+        "import std.io as io;\n"
         'class G { ~G() { io.println("dg"); } }\n'
         'class Outer { ~Outer() { io.println("do"); } }\n'
         'class Inner { ~Inner() { io.println("di"); } }\n'
-        'let g: G = 0;\n'
-        'func main() -> int {\n'
-        '    let x: Outer = 0;\n'
-        '    {\n'
-        '        let x: Inner = 0;\n'
+        "let g: G = 0;\n"
+        "func main() -> int {\n"
+        "    let x: Outer = 0;\n"
+        "    {\n"
+        "        let x: Inner = 0;\n"
         '        io.println("inner");\n'
-        '    }\n'
+        "    }\n"
         '    io.println("outer");\n'
-        '    return 0;\n'
-        '}\n'
+        "    return 0;\n"
+        "}\n"
     )
     pytest.skip("Destructor semantics not fully implemented")
 
 
 def test_llvm_destructor_inferred_type(capfd):
     src = (
-        'import std.io as io;\n'
-        'class Box {\n'
-        '    Box() {}\n'
+        "import std.io as io;\n"
+        "class Box {\n"
+        "    Box() {}\n"
         '    ~Box() { io.println("drop"); }\n'
-        '}\n'
-        'func main() -> int {\n'
-        '    let b = Box();\n'
-        '    return 0;\n'
-        '}\n'
+        "}\n"
+        "func main() -> int {\n"
+        "    let b = Box();\n"
+        "    return 0;\n"
+        "}\n"
     )
     pytest.skip("Destructor semantics not fully implemented")
 
@@ -215,29 +218,29 @@ def test_llvm_destructor_inferred_type(capfd):
 
 
 def test_if_true_condition():
-    src = 'if 1 == 1 { return 100; } return -1;'
+    src = "if 1 == 1 { return 100; } return -1;"
     result = compile_and_run(src)
     assert result == 100
 
 
 def test_if_false_condition():
-    src = 'if 1 == 0 { return 100; } return -1;'
+    src = "if 1 == 0 { return 100; } return -1;"
     result = compile_and_run(src)
     assert result == -1
 
 
 def test_if_else_path_taken():
-    src = 'if 1 > 5 { return 1; } else { return 2; }'
+    src = "if 1 > 5 { return 1; } else { return 2; }"
     result = compile_and_run(src)
     assert result == 2
 
 
 def test_if_else_if_chain():
     src = (
-        'let x = 2; '
-        'if x == 1 { return 10; } '
-        'else if x == 2 { return 20; } '
-        'else { return 30; }'
+        "let x = 2; "
+        "if x == 1 { return 10; } "
+        "else if x == 2 { return 20; } "
+        "else { return 30; }"
     )
     result = compile_and_run(src)
     assert result == 20

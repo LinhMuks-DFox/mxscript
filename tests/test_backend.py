@@ -42,10 +42,12 @@ def test_backend_import_hello_world():
     ir = compile_and_run_file(Path("demo_program/examples/hello_world.mxs"))
     assert "io.println" in ir.functions
 
+
 def test_auto_main_call():
     src = "func main() -> int { return 42; }"
     result = compile_and_run(src)
     assert result == 42
+
 
 def test_backend_return_statement():
     src = "func foo() { return 1; 2; } foo();"
@@ -55,29 +57,43 @@ def test_backend_return_statement():
 
 def test_print_functions(capfd):
     src = (
-        'func main() -> nil {\n'
-        '    let i = 101;\n'
-        '    let f = 2.5;\n'
-        '    print(i);\n'
-        '    print(f);\n'
-        '    print(true);\n'
-        '}'
+        "func main() -> nil {\n"
+        "    let i = 101;\n"
+        "    let f = 2.5;\n"
+        "    print(i);\n"
+        "    print(f);\n"
+        "    print(true);\n"
+        "}"
     )
     compile_and_run(src)
     captured = capfd.readouterr()
-    assert captured.out == "1012.5true"
+    assert captured.out == "101\n2.5\ntrue\n"
+
+
+def test_print_end_variations(capfd):
+    compile_and_run('print("Hello");')
+    captured = capfd.readouterr()
+    assert captured.out == "Hello\n"
+
+    compile_and_run('print("Hello", end="");')
+    captured = capfd.readouterr()
+    assert captured.out == "Hello"
+
+    compile_and_run('print("Hello", end="-->");')
+    captured = capfd.readouterr()
+    assert captured.out == "Hello-->"
 
 
 def test_file_operations(tmp_path):
     path = tmp_path / "out.txt"
     src = (
-        f'import std.io as io;\n'
-        f'func main() -> int {{\n'
+        f"import std.io as io;\n"
+        f"func main() -> int {{\n"
         f'    let fd = io.open_file("{path}", 577, 438);\n'
         f'    io.write_file(fd, "hello");\n'
-        f'    io.close_file(fd);\n'
-        f'    return 0;\n'
-        f'}}'
+        f"    io.close_file(fd);\n"
+        f"    return 0;\n"
+        f"}}"
     )
     result = compile_and_run(src)
     assert result == 0
@@ -86,12 +102,12 @@ def test_file_operations(tmp_path):
 
 def test_static_alias_println(capfd):
     src = (
-        'import std.io as io;\n'
-        'static let println = io.println;\n'
-        'func main() -> int {\n'
+        "import std.io as io;\n"
+        "static let println = io.println;\n"
+        "func main() -> int {\n"
         '    println("hi");\n'
-        '    return 0;\n'
-        '}'
+        "    return 0;\n"
+        "}"
     )
     result = compile_and_run(src)
     captured = capfd.readouterr()
@@ -101,15 +117,15 @@ def test_static_alias_println(capfd):
 
 def test_constructor_call(capfd):
     src = (
-        'import std.io as io;\n'
-        'class Box {\n'
+        "import std.io as io;\n"
+        "class Box {\n"
         '    Box() { io.println("ctor"); }\n'
         '    ~Box() { io.println("dtor"); }\n'
-        '}\n'
-        'func main() -> int {\n'
-        '    let b: Box = Box();\n'
-        '    return 0;\n'
-        '}'
+        "}\n"
+        "func main() -> int {\n"
+        "    let b: Box = Box();\n"
+        "    return 0;\n"
+        "}"
     )
     compile_and_run(src)
     captured = capfd.readouterr()
@@ -118,52 +134,53 @@ def test_constructor_call(capfd):
 
 def test_destructors_scopes(capfd):
     src = (
-        'import std.io as io;\n'
+        "import std.io as io;\n"
         'class G { ~G() { io.println("dg"); } }\n'
         'class Outer { ~Outer() { io.println("do"); } }\n'
         'class Inner { ~Inner() { io.println("di"); } }\n'
-        'let g: G = 0;\n'
-        'func main() -> int {\n'
-        '    let x: Outer = 0;\n'
-        '    {\n'
-        '        let x: Inner = 0;\n'
+        "let g: G = 0;\n"
+        "func main() -> int {\n"
+        "    let x: Outer = 0;\n"
+        "    {\n"
+        "        let x: Inner = 0;\n"
         '        io.println("inner");\n'
-        '    }\n'
+        "    }\n"
         '    io.println("outer");\n'
-        '    return 0;\n'
-        '}\n'
+        "    return 0;\n"
+        "}\n"
     )
     pytest.skip("Destructor semantics not fully implemented")
 
 
 def test_destructor_inferred_type(capfd):
     src = (
-        'import std.io as io;\n'
-        'class Box {\n'
-        '    Box() {}\n'
+        "import std.io as io;\n"
+        "class Box {\n"
+        "    Box() {}\n"
         '    ~Box() { io.println("drop"); }\n'
-        '}\n'
-        'func main() -> int {\n'
-        '    let b = Box();\n'
-        '    return 0;\n'
-        '}\n'
+        "}\n"
+        "func main() -> int {\n"
+        "    let b = Box();\n"
+        "    return 0;\n"
+        "}\n"
     )
     pytest.skip("Destructor semantics not fully implemented")
 
+
 def test_destructor_call(capfd):
     src = (
-        'import std.io as io;\n'
-        'class Loud {\n'
-        '    ~Loud() {\n'
+        "import std.io as io;\n"
+        "class Loud {\n"
+        "    ~Loud() {\n"
         '        io.println("Object destroyed!");\n'
-        '    }\n'
-        '}\n'
-        'func main() -> int {\n'
+        "    }\n"
+        "}\n"
+        "func main() -> int {\n"
         '    io.println("Creating object...");\n'
-        '    let obj: Loud = 0;\n'
+        "    let obj: Loud = 0;\n"
         '    io.println("Object created. Exiting main...");\n'
-        '    return 0;\n'
-        '}'
+        "    return 0;\n"
+        "}"
     )
     compile_and_run(src)
     captured = capfd.readouterr()
@@ -172,15 +189,15 @@ def test_destructor_call(capfd):
 
 def test_constructor_and_destructor_call(capfd):
     src = (
-        'import std.io as io;\n'
-        'class Box {\n'
+        "import std.io as io;\n"
+        "class Box {\n"
         '    Box() { io.println("ctor"); }\n'
         '    ~Box() { io.println("dtor"); }\n'
-        '}\n'
-        'func main() -> int {\n'
-        '    let b: Box = Box();\n'
-        '    return 0;\n'
-        '}'
+        "}\n"
+        "func main() -> int {\n"
+        "    let b: Box = Box();\n"
+        "    return 0;\n"
+        "}"
     )
     compile_and_run(src)
     captured = capfd.readouterr()
@@ -197,8 +214,10 @@ def test_break_llir_generation():
     analyzer.analyze(ast)
     ir = compile_program(ast, analyzer.type_registry)
     from src.backend.llir import Br, Label
+
     labels = [instr.name for instr in ir.code if isinstance(instr, Label)]
     assert len(labels) >= 2
     break_target = labels[-1]
-    assert any(isinstance(instr, Br) and instr.label == break_target for instr in ir.code)
-
+    assert any(
+        isinstance(instr, Br) and instr.label == break_target for instr in ir.code
+    )

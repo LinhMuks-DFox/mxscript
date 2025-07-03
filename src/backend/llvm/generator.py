@@ -315,7 +315,7 @@ class LLVMGenerator:
                     func_ty = ir.FunctionType(ret_ty, arg_tys)
                 except KeyError:
                     func_ty = callee.function_type
-                if instr.name == "mxs_print_object" and args:
+                if instr.name == "mxs_print_object_ext" and args:
                     obj_arg = args[0]
                     if isinstance(obj_arg.type, ir.IntType):
                         if obj_arg.type.width == 1:

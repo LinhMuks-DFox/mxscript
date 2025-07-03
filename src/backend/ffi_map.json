@@ -48,9 +48,10 @@
             "cstr_ptr"
         ]
     },
-    "mxs_print_object": {
-        "ret": "int64",
+    "mxs_print_object_ext": {
+        "ret": "char_ptr",
         "args": [
+            "char_ptr",
             "char_ptr"
         ]
     },
