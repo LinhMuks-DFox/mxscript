@@ -604,6 +604,8 @@ def _compile_expr(
             return code
         for arg in expr.args:
             code.extend(_compile_expr(arg, alias_map, symtab, type_registry))
+            if expr.name == "print" and isinstance(arg, String):
+                code.append(Call("MXCreateString", 1))
             if isinstance(arg, Identifier) and type_registry is not None:
                 sym = symtab.lookup(arg.name)
                 if (
