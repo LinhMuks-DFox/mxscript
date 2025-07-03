@@ -78,15 +78,19 @@ class LLVMGenerator:
             self.functions[alias] = func
 
     # Symbol table helpers ---------------------------------------------
-    def _get_or_alloc_mut(self, name: str) -> ir.AllocaInstr:
-        """Get an existing alloca from the **current** scope or allocate a new one."""
-        # Search from innermost to outer scopes for an existing mutable variable
+    def _get_or_alloc_mut(self, name: str) -> ir.Value:
+        """Get an existing pointer for ``name`` or allocate a new one."""
         for scope in reversed(self.ctx.scopes):
             val = scope.get(name)
             if val is not None and isinstance(val.type, ir.PointerType):
                 return val
 
         current_scope = self.ctx.scopes[-1]
+        if self.ctx.builder and self.ctx.builder.function.name == "__start":
+            g = self.ctx.get_global(name)
+            current_scope[name] = g
+            return g
+
         assert self.ctx.entry_builder is not None
         ptr = self.ctx.entry_builder.alloca(self.ctx.int_t, name=name)
         current_scope[name] = ptr
@@ -195,7 +199,12 @@ class LLVMGenerator:
                         "ptr": ptr,
                     }
                 else:
-                    self.ctx.set_var(instr.name, val)
+                    if self.ctx.builder and self.ctx.builder.function.name == "__start":
+                        g = self.ctx.get_global(instr.name)
+                        self.ctx.builder.store(val, g)
+                        self.ctx.set_var(instr.name, g)
+                    else:
+                        self.ctx.set_var(instr.name, val)
             elif isinstance(instr, BinOpInstr):
                 b = stack.pop()
                 a = stack.pop()
