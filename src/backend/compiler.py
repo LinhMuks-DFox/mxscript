@@ -107,7 +107,10 @@ def build_search_paths(extra_paths: List[str | Path] | None = None) -> List[Path
 
 # ------------ Module Loading --------------------------------------------------
 
-def load_module_ast(module: str, search_paths: List[str | Path] | None = None) -> Program:
+
+def load_module_ast(
+    module: str, search_paths: List[str | Path] | None = None
+) -> Program:
     """Locate ``module`` and parse it into an AST."""
     if search_paths is None:
         search_paths = build_search_paths()
@@ -129,6 +132,7 @@ def load_module_ast(module: str, search_paths: List[str | Path] | None = None) -
 
 # ------------ Compilation -----------------------------------------------------
 
+
 def compile_program(
     prog: Program,
     type_registry: Dict[str, TypeInfo] | None = None,
@@ -147,7 +151,11 @@ def compile_program(
     has_main = False
     # First gather static aliases
     for stmt in prog.statements:
-        if isinstance(stmt, BindingStmt) and stmt.is_static and isinstance(stmt.value, (Identifier, MemberAccess)):
+        if (
+            isinstance(stmt, BindingStmt)
+            and stmt.is_static
+            and isinstance(stmt.value, (Identifier, MemberAccess))
+        ):
             alias_map[stmt.name] = _flatten_member(stmt.value)
 
     for stmt in prog.statements:
@@ -203,11 +211,17 @@ def compile_program(
                 else:
                     code.append(instr)
             continue
-        elif isinstance(stmt, BindingStmt) and stmt.is_static and isinstance(stmt.value, (Identifier, MemberAccess)):
+        elif (
+            isinstance(stmt, BindingStmt)
+            and stmt.is_static
+            and isinstance(stmt.value, (Identifier, MemberAccess))
+        ):
             target = _flatten_member(stmt.value)
             if target in functions:
                 target_func = functions[target]
-                functions[stmt.name] = Function(stmt.name, target_func.params, target_func.code)
+                functions[stmt.name] = Function(
+                    stmt.name, target_func.params, target_func.code
+                )
                 continue
             if target in foreign_functions:
                 foreign_functions[stmt.name] = foreign_functions[target]
@@ -350,9 +364,12 @@ def _compile_stmt(
         code.append(Label(name=end_label))
         return code
     if isinstance(stmt, ExprStmt):
-        return _compile_expr(stmt.expr, alias_map, symtab, type_registry)
+        code = _compile_expr(stmt.expr, alias_map, symtab, type_registry)
+        code.append(Pop())
+        return code
     if isinstance(stmt, LoopStmt):
         from .llir import Label, Br
+
         code: List[Instr] = []
         body_label = _new_label("loop_body")
         end_label = _new_label("loop_end")
@@ -367,6 +384,7 @@ def _compile_stmt(
         return code
     if isinstance(stmt, UntilStmt):
         from .llir import Label, Br, CondBr
+
         code: List[Instr] = []
         cond_label = _new_label("until_cond")
         body_label = _new_label("until_body")
@@ -392,6 +410,7 @@ def _compile_stmt(
         return code
     if isinstance(stmt, DoUntilStmt):
         from .llir import Label, CondBr
+
         code: List[Instr] = []
         body_label = _new_label("do_body")
         end_label = _new_label("do_end")
@@ -413,6 +432,7 @@ def _compile_stmt(
         return code
     if isinstance(stmt, ForInStmt):
         from .llir import Label, Br, CondBr
+
         code: List[Instr] = []
         cond_label = _new_label("for_cond")
         body_label = _new_label("for_body")
@@ -455,10 +475,12 @@ def _compile_stmt(
         return code
     if isinstance(stmt, BreakStmt):
         from .llir import Br
+
         target = break_targets[-1][0]
         return [Br(label=target)]
     if isinstance(stmt, ContinueStmt):
         from .llir import Br
+
         target = break_targets[-1][1]
         return [Br(label=target)]
     if isinstance(stmt, RaiseStmt):
@@ -537,10 +559,7 @@ def _compile_expr(
 
         name = _flatten_member(MemberAccess(expr.object, expr.member))
         resolved_type = None
-        if (
-            isinstance(expr.object, Identifier)
-            and type_registry is not None
-        ):
+        if isinstance(expr.object, Identifier) and type_registry is not None:
             obj_sym = symtab.lookup(expr.object.name)
             if (
                 obj_sym is not None
@@ -576,11 +595,19 @@ def _compile_expr(
         code.append(Store(expr.target.name, resolved_type, is_mut))
         return code
     if isinstance(expr, BinaryOp):
-        return _compile_expr(expr.left, alias_map, symtab, type_registry) + _compile_expr(expr.right, alias_map, symtab, type_registry) + [BinOpInstr(expr.op)]
+        return (
+            _compile_expr(expr.left, alias_map, symtab, type_registry)
+            + _compile_expr(expr.right, alias_map, symtab, type_registry)
+            + [BinOpInstr(expr.op)]
+        )
     if isinstance(expr, UnaryOp):
         # Only unary '-' supported
-        if expr.op == '-':
-            return [Const(0)] + _compile_expr(expr.operand, alias_map, symtab, type_registry) + [BinOpInstr('-')]
+        if expr.op == "-":
+            return (
+                [Const(0)]
+                + _compile_expr(expr.operand, alias_map, symtab, type_registry)
+                + [BinOpInstr("-")]
+            )
     if isinstance(expr, FunctionCall):
         code: List[Instr] = []
         if type_registry is not None and expr.name in type_registry:
@@ -603,9 +630,28 @@ def _compile_expr(
             code.append(Pop())
             return code
         for arg in expr.args:
-            code.extend(_compile_expr(arg, alias_map, symtab, type_registry))
-            if expr.name == "print" and isinstance(arg, String):
-                code.append(Call("MXCreateString", 1))
+            special_print = expr.name == "print" and isinstance(
+                arg, (String, Integer, Float, Boolean, NilLiteral)
+            )
+            if special_print:
+                if isinstance(arg, String):
+                    code.append(Const(arg.value))
+                    code.append(Call("MXCreateString", 1))
+                elif isinstance(arg, Integer):
+                    code.append(Const(arg.value))
+                    code.append(Call("MXCreateInteger", 1))
+                elif isinstance(arg, Float):
+                    code.append(Const(arg.value))
+                    code.append(Call("MXCreateFloat", 1))
+                elif isinstance(arg, Boolean):
+                    if arg.value:
+                        code.append(Call("mxs_get_true", 0))
+                    else:
+                        code.append(Call("mxs_get_false", 0))
+                else:  # NilLiteral
+                    code.append(Call("mxs_get_nil", 0))
+            else:
+                code.extend(_compile_expr(arg, alias_map, symtab, type_registry))
             if isinstance(arg, Identifier) and type_registry is not None:
                 sym = symtab.lookup(arg.name)
                 if (
@@ -691,5 +737,3 @@ def _compile_destructor(
             body_code.append(DestructorCall(sym.name))
     name = f"{class_name}_destructor"
     return Function(name, params, body_code)
-
-

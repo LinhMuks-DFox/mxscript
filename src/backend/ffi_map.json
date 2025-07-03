@@ -1,21 +1,123 @@
 {
-  "printf": {"ret": "int32", "args": ["cstr_ptr"], "var_arg": true},
-  "write": {"ret": "int64", "args": ["int32", "cstr_ptr", "int64"]},
-  "read": {"ret": "int64", "args": ["int32", "cstr_ptr", "int64"]},
-  "open": {"ret": "int64", "args": ["cstr_ptr", "int32", "int32"]},
-  "close": {"ret": "int32", "args": ["int32"]},
-  "malloc": {"ret": "cstr_ptr", "args": ["int64"]},
-  "free": {"ret": "void", "args": ["cstr_ptr"]},
-  "mxs_print_object": {"ret": "int64", "args": ["char_ptr"]},
-  "new_mx_object": {"ret": "char_ptr", "args": []},
-  "increase_ref": {"ret": "int64", "args": ["char_ptr"]},
-  "decrease_ref": {"ret": "int64", "args": ["char_ptr"]},
-  "MXCreateInteger": {"ret": "char_ptr", "args": ["int64"]},
-    "MXCreateFloat": {"ret": "char_ptr", "args": ["double"]},
-  "MXCreateString": {"ret": "char_ptr", "args": ["cstr_ptr"]},
-    "mxs_get_true": {"ret": "char_ptr", "args": []},
-  "mxs_get_false": {"ret": "char_ptr", "args": []},
-  "mxs_get_nil": {"ret": "char_ptr", "args": []},
-  "time_now": {"name": "time", "ret": "int64", "args": ["cstr_ptr"], "wrapper_args": []},
-  "random_rand": {"name": "rand", "ret": "int32", "args": [], "wrapper_args": []}
+    "printf": {
+        "ret": "int32",
+        "args": [
+            "cstr_ptr"
+        ],
+        "var_arg": true
+    },
+    "write": {
+        "ret": "int64",
+        "args": [
+            "int32",
+            "cstr_ptr",
+            "int64"
+        ]
+    },
+    "read": {
+        "ret": "int64",
+        "args": [
+            "int32",
+            "cstr_ptr",
+            "int64"
+        ]
+    },
+    "open": {
+        "ret": "int64",
+        "args": [
+            "cstr_ptr",
+            "int32",
+            "int32"
+        ]
+    },
+    "close": {
+        "ret": "int32",
+        "args": [
+            "int32"
+        ]
+    },
+    "malloc": {
+        "ret": "cstr_ptr",
+        "args": [
+            "int64"
+        ]
+    },
+    "free": {
+        "ret": "void",
+        "args": [
+            "cstr_ptr"
+        ]
+    },
+    "mxs_print_object": {
+        "ret": "int64",
+        "args": [
+            "char_ptr"
+        ]
+    },
+    "new_mx_object": {
+        "ret": "char_ptr",
+        "args": []
+    },
+    "increase_ref": {
+        "ret": "int64",
+        "args": [
+            "char_ptr"
+        ]
+    },
+    "decrease_ref": {
+        "ret": "int64",
+        "args": [
+            "char_ptr"
+        ]
+    },
+    "MXCreateInteger": {
+        "ret": "char_ptr",
+        "args": [
+            "int64"
+        ]
+    },
+    "MXCreateFloat": {
+        "ret": "char_ptr",
+        "args": [
+            "double"
+        ]
+    },
+    "MXCreateString": {
+        "ret": "char_ptr",
+        "args": [
+            "cstr_ptr"
+        ]
+    },
+    "mxs_get_true": {
+        "ret": "char_ptr",
+        "args": []
+    },
+    "mxs_get_false": {
+        "ret": "char_ptr",
+        "args": []
+    },
+    "mxs_get_nil": {
+        "ret": "char_ptr",
+        "args": []
+    },
+    "time_now": {
+        "name": "time",
+        "ret": "int64",
+        "args": [
+            "cstr_ptr"
+        ],
+        "wrapper_args": []
+    },
+    "random_rand": {
+        "name": "rand",
+        "ret": "int32",
+        "args": [],
+        "wrapper_args": []
+    },
+    "strlen": {
+        "ret": "int64",
+        "args": [
+            "cstr_ptr"
+        ]
+    }
 }

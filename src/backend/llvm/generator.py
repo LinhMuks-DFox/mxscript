@@ -64,7 +64,9 @@ class LLVMGenerator:
             if func.name.endswith("_destructor"):
                 arg_types = [self.ctx.obj_ptr_t.as_pointer()]
             elif func.name.endswith("_constructor"):
-                arg_types = [self.ctx.obj_ptr_t.as_pointer()] + [self.ctx.obj_ptr_t] * (len(func.params) - 1)
+                arg_types = [self.ctx.obj_ptr_t.as_pointer()] + [self.ctx.obj_ptr_t] * (
+                    len(func.params) - 1
+                )
             ty = ir.FunctionType(self.ctx.obj_ptr_t, arg_types)
             self.functions[func.name] = ir.Function(self.ctx.module, ty, name=func.name)
         for alias, c_name in program.foreign_functions.items():
@@ -79,21 +81,26 @@ class LLVMGenerator:
             self.functions[alias] = func
 
     # Symbol table helpers ---------------------------------------------
-    def _get_or_alloc_mut(self, name: str) -> ir.Value:
+    def _get_or_alloc_mut(self, name: str, ty: ir.Type) -> ir.Value:
         """Get an existing pointer for ``name`` or allocate a new one."""
         for scope in reversed(self.ctx.scopes):
             val = scope.get(name)
             if val is not None and isinstance(val.type, ir.PointerType):
+                if val.type.pointee is not ty:
+                    val = self.ctx.builder.bitcast(val, ty.as_pointer())
+                    scope[name] = val
                 return val
 
         current_scope = self.ctx.scopes[-1]
         if self.ctx.builder and self.ctx.builder.function.name == "__start":
             g = self.ctx.get_global(name)
+            if g.type.pointee is not ty:
+                g = self.ctx.builder.bitcast(g, ty.as_pointer())
             current_scope[name] = g
             return g
 
         assert self.ctx.entry_builder is not None
-        ptr = self.ctx.entry_builder.alloca(self.ctx.obj_ptr_t, name=name)
+        ptr = self.ctx.entry_builder.alloca(ty, name=name)
         current_scope[name] = ptr
         return ptr
 
@@ -132,27 +139,21 @@ class LLVMGenerator:
         stack: List[ir.Value] = []
         terminated = False
         for instr in code:
-            if terminated and not isinstance(instr, Label) and not isinstance(instr, ScopeExit):
+            if (
+                terminated
+                and not isinstance(instr, Label)
+                and not isinstance(instr, ScopeExit)
+            ):
                 continue
             if isinstance(instr, Const):
                 if isinstance(instr.value, str):
                     stack.append(self._create_global_string(instr.value))
-                elif instr.value is True:
-                    fn = self.ffi.get_or_declare_function("mxs_get_true")
-                    obj = self.ctx.builder.call(fn, [])
-                    stack.append(obj)
-                elif instr.value is False:
-                    fn = self.ffi.get_or_declare_function("mxs_get_false")
-                    obj = self.ctx.builder.call(fn, [])
-                    stack.append(obj)
+                elif isinstance(instr.value, bool):
+                    stack.append(ir.Constant(ir.IntType(1), int(instr.value)))
                 elif isinstance(instr.value, int):
-                    fn = self.ffi.get_or_declare_function("MXCreateInteger")
-                    obj = self.ctx.builder.call(fn, [ir.Constant(self.ctx.int_t, instr.value)])
-                    stack.append(obj)
+                    stack.append(ir.Constant(self.ctx.int_t, instr.value))
                 elif isinstance(instr.value, float):
-                    fn = self.ffi.get_or_declare_function("MXCreateFloat")
-                    obj = self.ctx.builder.call(fn, [ir.Constant(ir.DoubleType(), instr.value)])
-                    stack.append(obj)
+                    stack.append(ir.Constant(ir.DoubleType(), instr.value))
                 elif instr.value is None:
                     fn = self.ffi.get_or_declare_function("mxs_get_nil")
                     obj = self.ctx.builder.call(fn, [])
@@ -174,8 +175,11 @@ class LLVMGenerator:
                     stack.append(stack[-1])
             elif isinstance(instr, Store):
                 val = stack.pop()
+                target_ty = (
+                    self.ctx.obj_ptr_t if instr.type_name is not None else val.type
+                )
                 if instr.is_mut or instr.type_name is not None:
-                    ptr = self._get_or_alloc_mut(instr.name)
+                    ptr = self._get_or_alloc_mut(instr.name, target_ty)
 
                     current_scope = self.var_info_stack[-1]
                     info = current_scope.get(instr.name)
@@ -191,6 +195,29 @@ class LLVMGenerator:
                         loaded_old = self.ctx.builder.load(info["ptr"])
                         self.ctx.builder.call(arc_release, [loaded_old])
 
+                    if val.type != target_ty:
+                        if isinstance(target_ty, ir.PointerType) and isinstance(
+                            val.type, ir.IntType
+                        ):
+                            if val.type.width < self.ctx.int_t.width:
+                                val = self.ctx.builder.zext(val, self.ctx.int_t)
+                            if val.type.width > self.ctx.int_t.width:
+                                val = self.ctx.builder.trunc(val, self.ctx.int_t)
+                            val = self.ctx.builder.inttoptr(val, target_ty)
+                        elif isinstance(target_ty, ir.IntType) and isinstance(
+                            val.type, ir.PointerType
+                        ):
+                            val = self.ctx.builder.ptrtoint(val, target_ty)
+                        elif isinstance(target_ty, ir.IntType) and isinstance(
+                            val.type, ir.IntType
+                        ):
+                            if val.type.width > target_ty.width:
+                                val = self.ctx.builder.trunc(val, target_ty)
+                            elif val.type.width < target_ty.width:
+                                val = self.ctx.builder.zext(val, target_ty)
+                        else:
+                            val = self.ctx.builder.bitcast(val, target_ty)
+
                     self.ctx.builder.store(val, ptr)
 
                     current_scope[instr.name] = {
@@ -200,6 +227,42 @@ class LLVMGenerator:
                 else:
                     if self.ctx.builder and self.ctx.builder.function.name == "__start":
                         g = self.ctx.get_global(instr.name)
+                        if g.type.pointee != val.type:
+                            cast_val = val
+                            if isinstance(
+                                g.type.pointee, ir.PointerType
+                            ) and isinstance(val.type, ir.IntType):
+                                if val.type.width < self.ctx.int_t.width:
+                                    cast_val = self.ctx.builder.zext(
+                                        val, self.ctx.int_t
+                                    )
+                                elif val.type.width > self.ctx.int_t.width:
+                                    cast_val = self.ctx.builder.trunc(
+                                        val, self.ctx.int_t
+                                    )
+                                cast_val = self.ctx.builder.inttoptr(
+                                    cast_val, g.type.pointee
+                                )
+                            elif isinstance(g.type.pointee, ir.IntType) and isinstance(
+                                val.type, ir.PointerType
+                            ):
+                                cast_val = self.ctx.builder.ptrtoint(
+                                    val, g.type.pointee
+                                )
+                            elif isinstance(g.type.pointee, ir.IntType) and isinstance(
+                                val.type, ir.IntType
+                            ):
+                                if val.type.width > g.type.pointee.width:
+                                    cast_val = self.ctx.builder.trunc(
+                                        val, g.type.pointee
+                                    )
+                                elif val.type.width < g.type.pointee.width:
+                                    cast_val = self.ctx.builder.zext(
+                                        val, g.type.pointee
+                                    )
+                            else:
+                                cast_val = self.ctx.builder.bitcast(val, g.type.pointee)
+                            val = cast_val
                         self.ctx.builder.store(val, g)
                         self.ctx.set_var(instr.name, g)
                     else:
@@ -208,28 +271,28 @@ class LLVMGenerator:
                 b = stack.pop()
                 a = stack.pop()
                 op = instr.op
-                if op == '+':
+                if op == "+":
                     stack.append(self.ctx.builder.add(a, b))
-                elif op == '-':
+                elif op == "-":
                     stack.append(self.ctx.builder.sub(a, b))
-                elif op == '*':
+                elif op == "*":
                     stack.append(self.ctx.builder.mul(a, b))
-                elif op == '/':
+                elif op == "/":
                     stack.append(self.ctx.builder.sdiv(a, b))
-                elif op == '%':
+                elif op == "%":
                     stack.append(self.ctx.builder.srem(a, b))
-                elif op == '==':
-                    stack.append(self.ctx.builder.icmp_signed('==', a, b))
-                elif op == '!=':
-                    stack.append(self.ctx.builder.icmp_signed('!=', a, b))
-                elif op == '>':
-                    stack.append(self.ctx.builder.icmp_signed('>', a, b))
-                elif op == '<':
-                    stack.append(self.ctx.builder.icmp_signed('<', a, b))
-                elif op == '>=':
-                    stack.append(self.ctx.builder.icmp_signed('>=', a, b))
-                elif op == '<=':
-                    stack.append(self.ctx.builder.icmp_signed('<=', a, b))
+                elif op == "==":
+                    stack.append(self.ctx.builder.icmp_signed("==", a, b))
+                elif op == "!=":
+                    stack.append(self.ctx.builder.icmp_signed("!=", a, b))
+                elif op == ">":
+                    stack.append(self.ctx.builder.icmp_signed(">", a, b))
+                elif op == "<":
+                    stack.append(self.ctx.builder.icmp_signed("<", a, b))
+                elif op == ">=":
+                    stack.append(self.ctx.builder.icmp_signed(">=", a, b))
+                elif op == "<=":
+                    stack.append(self.ctx.builder.icmp_signed("<=", a, b))
                 else:
                     raise RuntimeError(f"Unsupported op {op}")
             elif isinstance(instr, Call):
@@ -250,11 +313,17 @@ class LLVMGenerator:
                     if i < len(func_ty.args):
                         target_ty = func_ty.args[i]
                         if arg.type != target_ty:
-                            if isinstance(target_ty, ir.PointerType) and isinstance(arg.type, ir.IntType):
+                            if isinstance(target_ty, ir.PointerType) and isinstance(
+                                arg.type, ir.IntType
+                            ):
                                 arg = self.ctx.builder.inttoptr(arg, target_ty)
-                            elif isinstance(target_ty, ir.IntType) and isinstance(arg.type, ir.PointerType):
+                            elif isinstance(target_ty, ir.IntType) and isinstance(
+                                arg.type, ir.PointerType
+                            ):
                                 arg = self.ctx.builder.ptrtoint(arg, target_ty)
-                            elif isinstance(target_ty, ir.IntType) and isinstance(arg.type, ir.IntType):
+                            elif isinstance(target_ty, ir.IntType) and isinstance(
+                                arg.type, ir.IntType
+                            ):
                                 if arg.type.width > target_ty.width:
                                     arg = self.ctx.builder.trunc(arg, target_ty)
                                 elif arg.type.width < target_ty.width:
@@ -264,7 +333,9 @@ class LLVMGenerator:
                                 arg = self.ctx.builder.bitcast(arg, target_ty)
                     cast_args.append(arg)
                 result = self.ctx.builder.call(callee, cast_args)
-                if result.type != self.ctx.int_t and not isinstance(result.type, ir.PointerType):
+                if result.type != self.ctx.int_t and not isinstance(
+                    result.type, ir.PointerType
+                ):
                     if isinstance(result.type, ir.IntType):
                         if result.type.width < self.ctx.int_t.width:
                             result = self.ctx.builder.zext(result, self.ctx.int_t)
@@ -330,8 +401,12 @@ class LLVMGenerator:
                     cond_val = self.ctx.builder.load(cond_val)
                 # Ensure condition is i1 for LLVM branching
                 if cond_val.type != ir.IntType(1):
-                    zero = ir.Constant(cond_val.type, 0)
-                    cond_val = self.ctx.builder.icmp_signed('!=', cond_val, zero)
+                    zero = (
+                        ir.Constant(cond_val.type, None)
+                        if isinstance(cond_val.type, ir.PointerType)
+                        else ir.Constant(cond_val.type, 0)
+                    )
+                    cond_val = self.ctx.builder.icmp_signed("!=", cond_val, zero)
                 then_block = self.blocks.get(instr.then_label)
                 else_block = self.blocks.get(instr.else_label)
                 if then_block is None or else_block is None:
@@ -366,7 +441,12 @@ class LLVMGenerator:
         if ret is not None:
             self.ctx.builder.ret(ret)
         if not self.ctx.builder.block.is_terminated:
-            self.ctx.builder.ret(ir.Constant(self.ctx.int_t, 0))
+            default = (
+                ir.Constant(self.ctx.obj_ptr_t, None)
+                if func.function_type.return_type is self.ctx.obj_ptr_t
+                else ir.Constant(self.ctx.int_t, 0)
+            )
+            self.ctx.builder.ret(default)
         self.ctx.pop_scope()
         self.var_info_stack.pop()
         # clear label map after finishing this function
@@ -388,6 +468,14 @@ class LLVMGenerator:
         self.var_info_stack.append({})
         ret = self._emit_code(code)
         if ret is not None:
+            if fn.function_type.return_type is self.ctx.int_t and isinstance(
+                ret.type, ir.PointerType
+            ):
+                ret = self.ctx.builder.ptrtoint(ret, self.ctx.int_t)
+            elif fn.function_type.return_type is self.ctx.obj_ptr_t and isinstance(
+                ret.type, ir.IntType
+            ):
+                ret = self.ctx.builder.inttoptr(ret, self.ctx.obj_ptr_t)
             self.ctx.builder.ret(ret)
         if not self.ctx.builder.block.is_terminated:
             self.ctx.builder.ret(ir.Constant(self.ctx.int_t, 0))

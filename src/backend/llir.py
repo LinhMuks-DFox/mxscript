@@ -7,6 +7,7 @@ from pathlib import Path
 import os
 
 from llvmlite import binding
+import sys
 
 from .compiler import (
     build_search_paths,
@@ -58,13 +59,13 @@ def _load_runtime() -> None:
 
         subprocess.run(
             ["cmake", str(runtime_dir)],
-            cwd=build_dir, # 在构建目录中运行
+            cwd=build_dir,  # 在构建目录中运行
             check=True,
         )
 
         subprocess.run(
             ["cmake", "--build", "."],
-            cwd=build_dir, # 在构建目录中运行
+            cwd=build_dir,  # 在构建目录中运行
             check=True,
         )
         print("Runtime library built successfully.")
@@ -102,6 +103,7 @@ class CondBr(LLIRInstr):
     cond: str
     then_label: str
     else_label: str
+
 
 LLIRInstr = Union[
     Instr,
@@ -180,4 +182,11 @@ def execute_llvm(program: ProgramIR) -> int:
 
     cfunc = CFUNCTYPE(c_longlong)(func_ptr)
     result = cfunc()
+    sys.stdout.flush()
+    try:
+        import ctypes
+
+        ctypes.CDLL(None).fflush(None)
+    except Exception:
+        pass
     return int(result)
