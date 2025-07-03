@@ -34,12 +34,13 @@ namespace mxs_runtime {
     /**
      * @brief A mutable, ordered sequence of objects. Analogous to Python's list.
      */
-    class MXList : public MXContainer {
-    public:
-        std::vector<MXObject*> elements;
+class MXList : public MXContainer {
+public:
+    std::vector<MXObject*> elements;
 
-        explicit MXList(bool is_static = false);
-        auto length() const -> std::size_t override;
+    explicit MXList(bool is_static = false);
+    ~MXList();
+    auto length() const -> std::size_t override;
         auto contains(const MXObject& obj) const -> bool override;
 
         // --- VTable Operations ---
