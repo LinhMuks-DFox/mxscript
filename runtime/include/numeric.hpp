@@ -5,8 +5,8 @@
 #include "_typedef.hpp"
 #include "macro.hpp"
 #include "object.h"
-#include "typeinfo.h"
 #include "string.hpp"
+#include "typeinfo.h"
 namespace mxs_runtime {
 
     class MXNumeric : public MXObject {
@@ -32,7 +32,10 @@ namespace mxs_runtime {
 
     MXS_API MXInteger *MXCreateInteger(inner_integer value);
     MXS_API MXFloat *MXCreateFloat(inner_float value);
-
+    MXObject *integer_add_integer(MXObject *left, MXObject *right);
+    MXObject *integer_sub_integer(MXObject *left, MXObject *right);
+    MXObject *integer_add(MXObject *self, MXObject *other);
+    MXObject *integer_sub(MXObject *self, MXObject *other);
 }// namespace mxs_runtime
 
 #endif// MXSCRIPT_NUMERIC_HPP

@@ -10,27 +10,27 @@
 
 namespace mxs_runtime {
 
-class MXObject {
-private:
-    refer_count_type ref_cnt = 0;
-    const MXTypeInfo* type_info;
-    bool _is_static = false;
+    class MXObject {
+    private:
+        refer_count_type ref_cnt = 0;
+        const MXTypeInfo *type_info;
+        bool _is_static = false;
 
-public:
-    explicit MXObject(const MXTypeInfo* info, bool is_static = false);
-    MXObject(const MXObject& other);
-    virtual ~MXObject();
+    public:
+        explicit MXObject(const MXTypeInfo *info, bool is_static = false);
+        MXObject(const MXObject &other);
+        virtual ~MXObject();
 
-    auto increase_ref() -> refer_count_type;
-    auto decrease_ref() -> refer_count_type;
-    auto get_type_name() const -> const char*;
-    virtual auto equals(const MXObject& other) -> inner_boolean;
-    virtual auto equals(const MXObject* other) -> inner_boolean;
-    virtual auto hash_code() -> hash_code_type;
-    virtual auto repr() const -> inner_string; // representation
+        auto increase_ref() -> refer_count_type;
+        auto decrease_ref() -> refer_count_type;
+        auto get_type_name() const -> const char *;
+        virtual auto equals(const MXObject &other) -> inner_boolean;
+        virtual auto equals(const MXObject *other) -> inner_boolean;
+        virtual auto hash_code() -> hash_code_type;
+        virtual auto repr() const -> inner_string;// representation
 
-    const MXTypeInfo* get_type_info() const { return type_info; }
-};
+        const MXTypeInfo *get_type_info() const { return type_info; }
+    };
 
 }// namespace mxs_runtime
 

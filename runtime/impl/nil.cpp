@@ -1,11 +1,12 @@
 #include "nil.hpp"
-#include "typeinfo.h"
 #include "_typedef.hpp"
+#include "typeinfo.h"
 
 namespace mxs_runtime {
 
-    static MXObject* nil_add_stub(MXObject*, MXObject*) { return nullptr; }
-    static const MXTypeInfo NIL_TYPE_INFO{ "Nil", nullptr, nil_add_stub, nullptr, nullptr };
+    static MXObject *nil_add_stub(MXObject *, MXObject *) { return nullptr; }
+    static const MXTypeInfo NIL_TYPE_INFO{ "Nil", nullptr, nil_add_stub, nullptr,
+                                           nullptr };
     static MXNil nil_instance;
 
     MXS_API const MXNil &MX_NIL = nil_instance;

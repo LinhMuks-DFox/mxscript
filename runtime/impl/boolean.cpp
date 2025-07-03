@@ -1,18 +1,20 @@
 #include "boolean.hpp"
-#include "typeinfo.h"
 #include "_typedef.hpp"
+#include "typeinfo.h"
 
 namespace mxs_runtime {
 
-    static MXObject* bool_add_stub(MXObject*, MXObject*) { return nullptr; }
-    static const MXTypeInfo BOOLEAN_TYPE_INFO{ "Boolean", nullptr, bool_add_stub, nullptr, nullptr };
+    static MXObject *bool_add_stub(MXObject *, MXObject *) { return nullptr; }
+    static const MXTypeInfo BOOLEAN_TYPE_INFO{ "Boolean", nullptr, bool_add_stub, nullptr,
+                                               nullptr };
     static MXBoolean true_instance{ true };
     static MXBoolean false_instance{ false };
 
     MXS_API const MXBoolean &MX_TRUE = true_instance;
     MXS_API const MXBoolean &MX_FALSE = false_instance;
 
-    MXBoolean::MXBoolean(inner_boolean v) : MXObject(&BOOLEAN_TYPE_INFO, true), value(v) { }
+    MXBoolean::MXBoolean(inner_boolean v)
+        : MXObject(&BOOLEAN_TYPE_INFO, true), value(v) { }
 
     auto MXBoolean::repr() const -> inner_string { return value ? "true" : "false"; }
 
