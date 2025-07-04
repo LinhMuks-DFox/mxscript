@@ -1,6 +1,165 @@
+// MxScript builtin library
+
+// --- Global Functions ---
+@@foreign(lib="runtime.so", symbol_name="mxs_print_object_ext")
+func print(obj: Object, end: String = "\n") -> Nil;
+
+@@foreign(lib="runtime.so", symbol_name="mxs_get_object_type_name")
+func type_of(obj: Object) -> String;
+
+@@foreign(lib="runtime.so", symbol_name="mxs_is_instance")
+func is_instance(obj: Object, target: Object) -> Boolean;
+
+@@template(Target, Origin)
+func cast(target_type: Target, value: Origin) -> Target | Error {
+    return target_type.from(value);
+}
+
+// --- Class Definitions ---
+class Integer {
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_add_integer")
+    func +(other: Integer) -> Integer;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_add_float")
+    func +(other: Float) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_sub_integer")
+    func -(other: Integer) -> Integer;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_sub_float")
+    func -(other: Float) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_mul_integer")
+    func *(other: Integer) -> Integer;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_mul_float")
+    func *(other: Float) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_div_integer")
+    func /(other: Integer) -> Integer;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_div_float")
+    func /(other: Float) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_eq_integer")
+    func ==(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_eq_float")
+    func ==(other: Float) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_ne_integer")
+    func !=(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_ne_float")
+    func !=(other: Float) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_lt_integer")
+    func <(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_lt_float")
+    func <(other: Float) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_gt_integer")
+    func >(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_gt_float")
+    func >(other: Float) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_le_integer")
+    func <=(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_le_float")
+    func <=(other: Float) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_ge_integer")
+    func >=(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_integer_ge_float")
+    func >=(other: Float) -> Boolean;
+}
+
+class Float {
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_add_integer")
+    func +(other: Integer) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_add_float")
+    func +(other: Float) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_sub_integer")
+    func -(other: Integer) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_sub_float")
+    func -(other: Float) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_mul_integer")
+    func *(other: Integer) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_mul_float")
+    func *(other: Float) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_div_integer")
+    func /(other: Integer) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_div_float")
+    func /(other: Float) -> Float;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_eq_integer")
+    func ==(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_eq_float")
+    func ==(other: Float) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_ne_integer")
+    func !=(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_ne_float")
+    func !=(other: Float) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_lt_integer")
+    func <(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_lt_float")
+    func <(other: Float) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_gt_integer")
+    func >(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_gt_float")
+    func >(other: Float) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_le_integer")
+    func <=(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_le_float")
+    func <=(other: Float) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_ge_integer")
+    func >=(other: Integer) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_float_ge_float")
+    func >=(other: Float) -> Boolean;
+}
+
 class String {
     @@foreign(lib="runtime.so", symbol_name="mxs_string_from_integer")
     static func from(value: Integer) -> String;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_string_from_float")
+    static func from(value: Float) -> String;
+
+    @@foreign(lib="runtime.so", symbol_name="mxs_string_concat")
+    func +(other: String) -> String;
+}
+
+class Boolean {
+    @@foreign(lib="runtime.so", symbol_name="boolean_and_boolean")
+    func and(other: Boolean) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="boolean_or_boolean")
+    func or(other: Boolean) -> Boolean;
+
+    @@foreign(lib="runtime.so", symbol_name="boolean_not")
+    func not() -> Boolean;
 }
 
 @@foreign(lib="runtime.so", symbol_name="mxs_int_absolute")
