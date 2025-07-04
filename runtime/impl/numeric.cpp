@@ -956,13 +956,11 @@ MXS_API mxs_runtime::MXObject *mxs_int_absolute(mxs_runtime::MXObject *integer_o
 
 auto MXCreateInteger(mxs_runtime::inner_integer value) -> mxs_runtime::MXInteger * {
     auto *obj = new mxs_runtime::MXInteger(value);
-    mxs_runtime::MX_ALLOCATOR.registerObject(obj);
     return obj;
 }
 
 auto MXCreateFloat(mxs_runtime::inner_float value) -> mxs_runtime::MXFloat * {
     auto *obj = new mxs_runtime::MXFloat(value);
-    mxs_runtime::MX_ALLOCATOR.registerObject(obj);
     return obj;
 }
 #ifdef __cplusplus

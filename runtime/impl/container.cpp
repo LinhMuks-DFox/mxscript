@@ -95,7 +95,6 @@ extern "C" {
 #endif
 MXS_API mxs_runtime::MXList *MXCreateList() {
     auto *obj = new mxs_runtime::MXList(false);
-    mxs_runtime::MX_ALLOCATOR.registerObject(obj);
     obj->increase_ref();
     return obj;
 }

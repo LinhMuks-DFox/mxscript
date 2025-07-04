@@ -11,7 +11,13 @@ namespace mxs_runtime {
     static const MXTypeInfo OBJECT_TYPE_INFO{ "object", nullptr };
 
     MXObject::MXObject(const MXTypeInfo *info, bool is_static)
-        : type_info(info), _is_static(is_static) { }
+        : type_info(info), _is_static(is_static) {
+        MX_ALLOCATOR.registerObject(this);
+    }
+
+    MXObject::~MXObject() {
+        MX_ALLOCATOR.unregisterObject(this);
+    }
 
 
     MXObject::MXObject(const MXObject &other)

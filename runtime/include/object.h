@@ -21,7 +21,7 @@ namespace mxs_runtime {
     public:
         explicit MXObject(const MXTypeInfo *info, bool is_static = false);
         MXObject(const MXObject &other);
-        virtual ~MXObject() = default;
+        virtual ~MXObject();
 
         auto increase_ref() -> refer_count_type;
         auto decrease_ref() -> refer_count_type;
