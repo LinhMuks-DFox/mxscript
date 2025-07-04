@@ -161,6 +161,7 @@ class FuncDef(Statement):
     name: str
     signature: FuncSig
     body: Block
+    template_params: list[str] | None = None
 
 
 @dataclass
@@ -200,6 +201,8 @@ class ClassDef(Statement):
     body: Block
     generic_params: List[str] | None = None
     super_class: str | None = None
+    is_pod: bool = False
+    template_params: list[str] | None = None
 
 
 @dataclass

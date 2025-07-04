@@ -24,14 +24,17 @@ class DefinitionParserMixin:
         start = self._expect(TokenType.FUNC)
         name = self._expect(TokenType.IDENTIFIER).value
         sig = self.parse_func_sig()
-        if annotation and annotation.get('name') == 'foreign':
+        template_params = None
+        if annotation and annotation.get("name") == "foreign":
             self._expect(TokenType.SEMICOLON)
-            c_name = annotation.get('c_name')
+            c_name = annotation.get("c_name")
             return ForeignFuncDecl(name, sig, c_name, loc=start)
+        if annotation and annotation.get("name") == "template":
+            template_params = annotation.get("params")
         body = self.parse_block()
-        return FuncDef(name, sig, body, loc=start)
+        return FuncDef(name, sig, body, template_params=template_params, loc=start)
 
-    def parse_class_def(self):
+    def parse_class_def(self, annotation=None):
         start = self._expect(TokenType.CLASS)
         name = self._expect(TokenType.IDENTIFIER).value
         generic_params = None
@@ -41,6 +44,13 @@ class DefinitionParserMixin:
         if self.stream.peek().type == TokenType.COLON:
             self.stream.next()
             super_class = self.parse_type_spec()
+        is_pod = False
+        template_params = None
+        if annotation:
+            if annotation.get("name") == "POD":
+                is_pod = True
+            if annotation.get("name") == "template":
+                template_params = annotation.get("params")
         self._expect(TokenType.LBRACE)
         members = []
         while self.stream.peek() and not (
@@ -48,9 +58,17 @@ class DefinitionParserMixin:
         ):
             members.append(self.parse_class_member(name))
         self._expect(TokenType.RBRACE)
-        return ClassDef(name, Block(members), generic_params, super_class, loc=start)
+        return ClassDef(
+            name,
+            Block(members),
+            generic_params,
+            super_class,
+            is_pod=is_pod,
+            template_params=template_params,
+            loc=start,
+        )
 
-    def parse_interface_def(self):
+    def parse_interface_def(self, annotation=None):
         start = self._expect(TokenType.INTERFACE)
         name = self._expect(TokenType.IDENTIFIER).value
         generic_params = None
