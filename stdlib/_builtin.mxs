@@ -1,0 +1,7 @@
+class String {
+    @@foreign(lib="runtime.so", symbol_name="mxs_string_from_integer")
+    static func from(value: Integer) -> String;
+}
+
+@@foreign(lib="runtime.so", symbol_name="mxs_int_absolute")
+func abs(value: Integer) -> Integer;

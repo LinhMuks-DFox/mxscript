@@ -155,6 +155,16 @@ class SemanticAnalyzer:
                 return var.type_name
         return None
 
+    def _flatten_member_expr(self, expr: Expression) -> str:
+        if isinstance(expr, Identifier):
+            return expr.name
+        if isinstance(expr, MemberAccess):
+            return f"{self._flatten_member_expr(expr.object)}.{expr.member.name}"
+        raise SemanticError(
+            "Invalid cast target",
+            self._get_location(getattr(expr, "loc", None)),
+        )
+
     def _is_defined(self, name: str) -> bool:
         return self._lookup_var(name) is not None
 
@@ -494,6 +504,18 @@ class SemanticAnalyzer:
                         self._visit_statement(s)
                 self.variables_stack.pop()
         elif isinstance(expr, FunctionCall):
+            # transform cast(Type, value) -> Type.from(value)
+            if (
+                expr.name == "cast"
+                and len(expr.args) == 2
+                and not expr.kwargs
+            ):
+                target_expr, value_expr = expr.args
+                method_name = self._flatten_member_expr(target_expr) + ".from"
+                expr.name = method_name
+                expr.args = [value_expr]
+                expr.kwargs = []
+
             sig: FuncSig | None = None
             if self.type_registry is not None and expr.name in self.type_registry:
                 sig = self.type_registry[expr.name].constructor
