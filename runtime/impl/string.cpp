@@ -17,7 +17,6 @@ namespace mxs_runtime {
 extern "C" MXS_API auto MXCreateString(const char *c_str) -> mxs_runtime::MXString * {
     if (!c_str) return nullptr;
     auto *obj = new mxs_runtime::MXString(mxs_runtime::inner_string(c_str));
-    mxs_runtime::MX_ALLOCATOR.registerObject(obj);
     obj->increase_ref();
     return obj;
 }
