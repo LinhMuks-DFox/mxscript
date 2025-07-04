@@ -467,3 +467,19 @@ def test_parse_call_with_keywords():
     assert isinstance(call.kwargs[0][1], Integer)
 
 
+def test_parse_template_function():
+    src = "@@template(T)\nfunc id(x: T) {}"
+    program = parse(src)
+    func = program.statements[0]
+    assert isinstance(func, FuncDef)
+    assert func.template_params == ["T"]
+
+
+def test_parse_pod_class():
+    src = "@@POD\nclass Vec { let x: int; }"
+    program = parse(src)
+    cls = program.statements[0]
+    assert isinstance(cls, ClassDef)
+    assert cls.is_pod
+
+

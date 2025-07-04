@@ -85,11 +85,14 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
             next_tok = self.stream.peek()
             if next_tok.type == TokenType.FUNC:
                 return self.parse_func_def(annotation)
-            else:
-                raise SyntaxError(
-                    'Annotation only supported before functions',
-                    self._get_location(next_tok),
-                )
+            if next_tok.type == TokenType.CLASS:
+                return self.parse_class_def(annotation)
+            if next_tok.type == TokenType.INTERFACE:
+                return self.parse_interface_def(annotation)
+            raise SyntaxError(
+                'Annotation only supported before functions or classes',
+                self._get_location(next_tok),
+            )
         if tok.type == TokenType.IMPORT:
             return self.parse_import()
         if tok.type == TokenType.LET:
@@ -132,6 +135,9 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
     def parse_annotation(self):
         start_tok = self._expect(TokenType.ANNOTATION, '@@')
         name = self._expect(TokenType.IDENTIFIER).value
+        if name == "template":
+            params = self.parse_template_params()
+            return {"name": name, "params": params}
         args = {}
         if self.stream.peek().type == TokenType.LPAREN:
             self.stream.next()
@@ -141,6 +147,25 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
             args[key] = val_tok.value
             self._expect(TokenType.RPAREN)
         return {"name": name, **args}
+
+    def parse_template_params(self) -> list[str]:
+        params: list[str] = []
+        if self.stream.peek().type in (TokenType.LPAREN, TokenType.LESS):
+            start = self.stream.next()
+            end = TokenType.RPAREN if start.type == TokenType.LPAREN else TokenType.GREATER
+            while True:
+                name = self._expect(TokenType.IDENTIFIER).value
+                if self.stream.peek().type == TokenType.ASSIGN:
+                    self.stream.next()
+                    typ = self.parse_type_spec()
+                    name = f"{name}={typ}"
+                params.append(name)
+                if self.stream.peek().type == TokenType.COMMA:
+                    self.stream.next()
+                    continue
+                break
+            self._expect(end)
+        return params
 
     def parse_let(self) -> LetStmt:
         start = self._expect(TokenType.LET)
