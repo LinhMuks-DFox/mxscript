@@ -29,6 +29,22 @@ if "ffi_functions" in _RAW_MAP:
             "ret": char_ptr,
             "args": [char_ptr, char_ptr, int32, char_ptr.as_pointer()],
         }
+    # Builtin runtime functions always available
+    _BUILTIN_MAP = {
+        "MXCreateInteger": {"ret": char_ptr, "args": [int64]},
+        "MXCreateFloat": {"ret": char_ptr, "args": [ir.DoubleType()]},
+        "MXCreateString": {"ret": char_ptr, "args": [char_ptr]},
+        "mxs_get_true": {"ret": char_ptr, "args": []},
+        "mxs_get_false": {"ret": char_ptr, "args": []},
+        "mxs_get_nil": {"ret": char_ptr, "args": []},
+        "increase_ref": {"ret": int64, "args": [char_ptr]},
+        "decrease_ref": {"ret": int64, "args": [char_ptr]},
+        "new_mx_object": {"ret": char_ptr, "args": []},
+        "mxs_print_object_ext": {"ret": char_ptr, "args": [char_ptr, char_ptr]},
+        "mxs_get_integer_value": {"ret": int64, "args": [char_ptr]},
+        "mxs_string_from_integer": {"ret": char_ptr, "args": [char_ptr]},
+    }
+    _TYPED_MAP.update(_BUILTIN_MAP)
 else:
     for name, info in _RAW_MAP.items():
         entry = {

@@ -2,6 +2,17 @@
 #include "allocator.hpp"
 #include "typeinfo.h"
 #include <format>
+#include <string>
+
+#define CHECK_INT(obj)                                                                   \
+    if (!(obj) || (obj)->type_info != &mxs_runtime::g_integer_type_info) {               \
+        return new mxs_runtime::MXError("TypeError", "Argument must be an Integer.");    \
+    }
+
+#define CHECK_FLOAT(obj)                                                                 \
+    if (!(obj) || std::string((obj)->get_type_name()) != "Float") {                      \
+        return new mxs_runtime::MXError("TypeError", "Argument must be a Float.");       \
+    }
 
 namespace mxs_runtime {
 
@@ -583,271 +594,352 @@ extern "C" {
 #endif
 MXS_API mxs_runtime::MXObject *integer_add_integer(mxs_runtime::MXObject *left,
                                                    mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_INT(right);
     return mxs_runtime::integer_add_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_add_float(mxs_runtime::MXObject *left,
                                                  mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::integer_add_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_add_integer(mxs_runtime::MXObject *left,
                                                  mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_INT(right);
     return mxs_runtime::float_add_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_add_float(mxs_runtime::MXObject *left,
                                                mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::float_add_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_sub_integer(mxs_runtime::MXObject *left,
                                                    mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_INT(right);
     return mxs_runtime::integer_sub_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_sub_float(mxs_runtime::MXObject *left,
                                                  mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::integer_sub_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_sub_integer(mxs_runtime::MXObject *left,
                                                  mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_INT(right);
     return mxs_runtime::float_sub_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_sub_float(mxs_runtime::MXObject *left,
                                                mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::float_sub_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_mul_integer(mxs_runtime::MXObject *left,
                                                    mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_INT(right);
     return mxs_runtime::integer_mul_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_mul_float(mxs_runtime::MXObject *left,
                                                  mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::integer_mul_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_mul_integer(mxs_runtime::MXObject *left,
                                                  mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_INT(right);
     return mxs_runtime::float_mul_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_mul_float(mxs_runtime::MXObject *left,
                                                mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::float_mul_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_div_integer(mxs_runtime::MXObject *left,
                                                    mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_INT(right);
     return mxs_runtime::integer_div_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_div_float(mxs_runtime::MXObject *left,
                                                  mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::integer_div_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_div_integer(mxs_runtime::MXObject *left,
                                                  mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_INT(right);
     return mxs_runtime::float_div_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_div_float(mxs_runtime::MXObject *left,
                                                mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::float_div_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_eq_integer(mxs_runtime::MXObject *left,
                                                   mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_INT(right);
     return mxs_runtime::integer_eq_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_eq_float(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::integer_eq_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_eq_integer(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_INT(right);
     return mxs_runtime::float_eq_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_eq_float(mxs_runtime::MXObject *left,
                                               mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::float_eq_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_ne_integer(mxs_runtime::MXObject *left,
                                                   mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_INT(right);
     return mxs_runtime::integer_ne_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_ne_float(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::integer_ne_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_ne_integer(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_INT(right);
     return mxs_runtime::float_ne_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_ne_float(mxs_runtime::MXObject *left,
                                               mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::float_ne_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_gt_integer(mxs_runtime::MXObject *left,
                                                   mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_INT(right);
     return mxs_runtime::integer_gt_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_gt_float(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::integer_gt_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_gt_integer(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_INT(right);
     return mxs_runtime::float_gt_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_gt_float(mxs_runtime::MXObject *left,
                                               mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::float_gt_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_lt_integer(mxs_runtime::MXObject *left,
                                                   mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_INT(right);
     return mxs_runtime::integer_lt_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_lt_float(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::integer_lt_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_lt_integer(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_INT(right);
     return mxs_runtime::float_lt_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_lt_float(mxs_runtime::MXObject *left,
                                               mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::float_lt_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_ge_integer(mxs_runtime::MXObject *left,
                                                   mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_INT(right);
     return mxs_runtime::integer_ge_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_ge_float(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::integer_ge_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_ge_integer(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_INT(right);
     return mxs_runtime::float_ge_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_ge_float(mxs_runtime::MXObject *left,
                                               mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::float_ge_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_le_integer(mxs_runtime::MXObject *left,
                                                   mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_INT(right);
     return mxs_runtime::integer_le_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *integer_le_float(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_INT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::integer_le_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_le_integer(mxs_runtime::MXObject *left,
                                                 mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_INT(right);
     return mxs_runtime::float_le_integer(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *float_le_float(mxs_runtime::MXObject *left,
                                               mxs_runtime::MXObject *right) {
+    CHECK_FLOAT(left);
+    CHECK_FLOAT(right);
     return mxs_runtime::float_le_float(left, right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_add(mxs_runtime::MXObject *left,
                                           mxs_runtime::MXObject *right) {
-    if (!left) return new mxs_runtime::MXError();
+    if (!left || !right) return new mxs_runtime::MXError("TypeError", "Invalid operand");
     return left->op_add(*right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_sub(mxs_runtime::MXObject *left,
                                           mxs_runtime::MXObject *right) {
-    if (!left) return new mxs_runtime::MXError();
+    if (!left || !right) return new mxs_runtime::MXError("TypeError", "Invalid operand");
     return left->op_sub(*right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_mul(mxs_runtime::MXObject *left,
                                           mxs_runtime::MXObject *right) {
-    if (!left) return new mxs_runtime::MXError();
+    if (!left || !right) return new mxs_runtime::MXError("TypeError", "Invalid operand");
     return left->op_mul(*right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_div(mxs_runtime::MXObject *left,
                                           mxs_runtime::MXObject *right) {
-    if (!left) return new mxs_runtime::MXError();
+    if (!left || !right) return new mxs_runtime::MXError("TypeError", "Invalid operand");
     return left->op_div(*right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_eq(mxs_runtime::MXObject *left,
                                          mxs_runtime::MXObject *right) {
-    if (!left) return new mxs_runtime::MXError();
+    if (!left || !right) return new mxs_runtime::MXError("TypeError", "Invalid operand");
     return left->op_eq(*right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_ne(mxs_runtime::MXObject *left,
                                          mxs_runtime::MXObject *right) {
-    if (!left) return new mxs_runtime::MXError();
+    if (!left || !right) return new mxs_runtime::MXError("TypeError", "Invalid operand");
     return left->op_ne(*right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_lt(mxs_runtime::MXObject *left,
                                          mxs_runtime::MXObject *right) {
-    if (!left) return new mxs_runtime::MXError();
+    if (!left || !right) return new mxs_runtime::MXError("TypeError", "Invalid operand");
     return left->op_lt(*right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_le(mxs_runtime::MXObject *left,
                                          mxs_runtime::MXObject *right) {
-    if (!left) return new mxs_runtime::MXError();
+    if (!left || !right) return new mxs_runtime::MXError("TypeError", "Invalid operand");
     return left->op_le(*right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_gt(mxs_runtime::MXObject *left,
                                          mxs_runtime::MXObject *right) {
-    if (!left) return new mxs_runtime::MXError();
+    if (!left || !right) return new mxs_runtime::MXError("TypeError", "Invalid operand");
     return left->op_gt(*right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_ge(mxs_runtime::MXObject *left,
                                          mxs_runtime::MXObject *right) {
-    if (!left) return new mxs_runtime::MXError();
+    if (!left || !right) return new mxs_runtime::MXError("TypeError", "Invalid operand");
     return left->op_ge(*right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_is(mxs_runtime::MXObject *left,
                                          mxs_runtime::MXObject *right) {
-    if (!left) return new mxs_runtime::MXError();
+    if (!left || !right) return new mxs_runtime::MXError("TypeError", "Invalid operand");
     return left->op_is(*right);
 }
 
 MXS_API mxs_runtime::inner_integer mxs_get_integer_value(mxs_runtime::MXObject *obj) {
+    CHECK_INT(obj);
     auto *i = static_cast<mxs_runtime::MXInteger *>(obj);
     return i->value;
 }
