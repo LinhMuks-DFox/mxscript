@@ -34,21 +34,13 @@ public:
     const inner_integer value;
     explicit MXInteger(inner_integer v);
     auto to_string() const -> std::string override;
-        // ... other methods ...
 
-        // --- Operator Declarations for VTable ---
-        auto add(const MXObject& other) const -> MXObject*;
-        auto sub(const MXObject& other) const -> MXObject*;
-        auto mul(const MXObject& other) const -> MXObject*;
-        auto div(const MXObject& other) const -> MXObject*;
-
-        auto op_eq(const MXObject& other) const -> MXObject*;
-        auto op_ne(const MXObject& other) const -> MXObject*;
-        auto op_lt(const MXObject& other) const -> MXObject*;
-        auto op_le(const MXObject& other) const -> MXObject*;
-        auto op_gt(const MXObject& other) const -> MXObject*;
-        auto op_ge(const MXObject& other) const -> MXObject*;
-    };
+    // --- Operator Overrides ---
+    auto op_add(const MXObject &other) -> MXObject * override;
+    auto op_sub(const MXObject &other) -> MXObject * override;
+    auto op_eq(const MXObject &other) -> MXObject * override;
+    // TODO: other operators not yet implemented
+};
 
     /**
      * @brief Represents a 64-bit float (double).
@@ -58,21 +50,13 @@ public:
     const inner_float value;
     explicit MXFloat(inner_float v);
     auto to_string() const -> std::string override;
-        // ... other methods ...
 
-        // --- Operator Declarations for VTable ---
-        auto add(const MXObject& other) const -> MXObject*;
-        auto sub(const MXObject& other) const -> MXObject*;
-        auto mul(const MXObject& other) const -> MXObject*;
-        auto div(const MXObject& other) const -> MXObject*;
-
-        auto op_eq(const MXObject& other) const -> MXObject*;
-        auto op_ne(const MXObject& other) const -> MXObject*;
-        auto op_lt(const MXObject& other) const -> MXObject*;
-        auto op_le(const MXObject& other) const -> MXObject*;
-        auto op_gt(const MXObject& other) const -> MXObject*;
-        auto op_ge(const MXObject& other) const -> MXObject*;
-    };
+    // --- Operator Overrides ---
+    auto op_add(const MXObject &other) -> MXObject * override;
+    auto op_sub(const MXObject &other) -> MXObject * override;
+    auto op_eq(const MXObject &other) -> MXObject * override;
+    // TODO: other operators not yet implemented
+};
 
 
 } // namespace mxs_runtime

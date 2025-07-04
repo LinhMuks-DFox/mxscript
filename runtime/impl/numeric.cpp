@@ -6,11 +6,9 @@
 namespace mxs_runtime {
 
 
-    static const MXTypeInfo g_integer_type_info{ "Integer", nullptr, integer_add_integer,
-                                                 integer_sub_integer, nullptr };
+    static const MXTypeInfo g_integer_type_info{ "Integer", nullptr };
 
-    static const MXTypeInfo g_float_type_info{ "Float", nullptr, nullptr, nullptr,
-                                               nullptr };
+    static const MXTypeInfo g_float_type_info{ "Float", nullptr };
 
     MXNumeric::MXNumeric(const MXTypeInfo *info, bool is_static)
         : MXObject(info, is_static) { }
@@ -22,6 +20,56 @@ namespace mxs_runtime {
     MXFloat::MXFloat(inner_float v) : MXNumeric(&g_float_type_info, false), value(v) { }
 
     auto MXFloat::to_string() const -> inner_string { return std::format("{}", value); }
+
+    auto MXInteger::op_add(const MXObject &other) -> MXObject * {
+        if (other.type_info == &g_integer_type_info) {
+            auto &r = static_cast<const MXInteger &>(other);
+            return MXCreateInteger(value + r.value);
+        }
+        return MXObject::op_add(other);
+    }
+
+    auto MXInteger::op_sub(const MXObject &other) -> MXObject * {
+        if (other.type_info == &g_integer_type_info) {
+            auto &r = static_cast<const MXInteger &>(other);
+            return MXCreateInteger(value - r.value);
+        }
+        return MXObject::op_sub(other);
+    }
+
+    auto MXInteger::op_eq(const MXObject &other) -> MXObject * {
+        if (other.type_info == &g_integer_type_info) {
+            auto &r = static_cast<const MXInteger &>(other);
+            return r.value == value ? const_cast<MXBoolean *>(&MX_TRUE)
+                                    : const_cast<MXBoolean *>(&MX_FALSE);
+        }
+        return MXObject::op_eq(other);
+    }
+
+    auto MXFloat::op_add(const MXObject &other) -> MXObject * {
+        if (other.type_info == &g_float_type_info) {
+            auto &r = static_cast<const MXFloat &>(other);
+            return MXCreateFloat(value + r.value);
+        }
+        return MXObject::op_add(other);
+    }
+
+    auto MXFloat::op_sub(const MXObject &other) -> MXObject * {
+        if (other.type_info == &g_float_type_info) {
+            auto &r = static_cast<const MXFloat &>(other);
+            return MXCreateFloat(value - r.value);
+        }
+        return MXObject::op_sub(other);
+    }
+
+    auto MXFloat::op_eq(const MXObject &other) -> MXObject * {
+        if (other.type_info == &g_float_type_info) {
+            auto &r = static_cast<const MXFloat &>(other);
+            return r.value == value ? const_cast<MXBoolean *>(&MX_TRUE)
+                                    : const_cast<MXBoolean *>(&MX_FALSE);
+        }
+        return MXObject::op_eq(other);
+    }
 
     MXObject *integer_add_integer(MXObject *left, MXObject *right) {
         auto *l = static_cast<MXInteger *>(left);
@@ -65,12 +113,14 @@ MXS_API mxs_runtime::MXObject *integer_sub_integer(mxs_runtime::MXObject *left,
 
 MXS_API mxs_runtime::MXObject *mxs_op_add(mxs_runtime::MXObject *left,
                                           mxs_runtime::MXObject *right) {
-    return left->get_type_info()->op_add(left, right);
+    if (!left) return new mxs_runtime::MXError();
+    return left->op_add(*right);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_sub(mxs_runtime::MXObject *left,
                                           mxs_runtime::MXObject *right) {
-    return left->get_type_info()->op_sub(left, right);
+    if (!left) return new mxs_runtime::MXError();
+    return left->op_sub(*right);
 }
 
 MXS_API mxs_runtime::inner_integer mxs_get_integer_value(mxs_runtime::MXObject *obj) {

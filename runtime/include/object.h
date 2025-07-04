@@ -9,17 +9,18 @@
 #include <string>
 #include <vector>
 namespace mxs_runtime {
-
+    class MXError;
     class MXObject {
+    public:
+        const MXTypeInfo *type_info;
     private:
         refer_count_type ref_cnt = 0;
-        const MXTypeInfo *type_info;
         bool _is_static = false;
 
     public:
         explicit MXObject(const MXTypeInfo *info, bool is_static = false);
         MXObject(const MXObject &other);
-        virtual ~MXObject();
+        virtual ~MXObject() = default;
 
         auto increase_ref() -> refer_count_type;
         auto decrease_ref() -> refer_count_type;
@@ -28,6 +29,11 @@ namespace mxs_runtime {
         virtual auto equals(const MXObject *other) -> inner_boolean;
         virtual auto hash_code() -> hash_code_type;
         virtual auto repr() const -> inner_string;// representation
+
+        // --- VTable Operations via virtual functions ---
+        virtual auto op_add(const MXObject &other) -> MXObject *;
+        virtual auto op_sub(const MXObject &other) -> MXObject *;
+        virtual auto op_eq(const MXObject &other) -> MXObject *;
 
         const MXTypeInfo *get_type_info() const { return type_info; }
     };

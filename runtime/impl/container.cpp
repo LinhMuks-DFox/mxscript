@@ -15,8 +15,7 @@ namespace mxs_runtime {
     //============================
     // Type Info
     //============================
-    static const MXTypeInfo g_list_type_info{ "List", nullptr, nullptr, nullptr,
-                                              nullptr };
+    static const MXTypeInfo g_list_type_info{ "List", nullptr };
 
     //============================
     // MXList Implementation
@@ -70,7 +69,7 @@ namespace mxs_runtime {
 #ifdef __cplusplus
 extern "C" {
 #endif
-MXS_API mxs_runtime::MXList *mxs_runtime::MXCreateList() {
+MXS_API mxs_runtime::MXList *MXCreateList() {
     auto *obj = new mxs_runtime::MXList(false);
     mxs_runtime::MX_ALLOCATOR.registerObject(obj);
     obj->increase_ref();
