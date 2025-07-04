@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <iostream>
 #include <ostream>
+#include <string>
 #if __has_include(<print>)
 #include <print>
 #else
@@ -30,8 +31,14 @@ namespace mxs_runtime {
 extern "C" auto mxs_print_object_ext(mxs_runtime::MXObject *obj,
                                      mxs_runtime::MXObject *end)
         -> mxs_runtime::MXObject * {
+    if (!obj) {
+        return new mxs_runtime::MXError("TypeError", "Object argument is null.");
+    }
+    if (end && std::string(end->get_type_name()) != "String") {
+        return new mxs_runtime::MXError("TypeError", "end must be a String.");
+    }
     auto text = obj->repr();
-    auto *end_str = dynamic_cast<mxs_runtime::MXString *>(end);
+    auto *end_str = end ? static_cast<mxs_runtime::MXString *>(end) : nullptr;
     auto suffix = end_str ? end_str->value : mxs_runtime::inner_string{};
     std::print("{}{}", text, suffix);
     return const_cast<mxs_runtime::MXObject *>(

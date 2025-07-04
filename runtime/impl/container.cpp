@@ -3,6 +3,17 @@
 #include "numeric.hpp"
 #include "typeinfo.h"
 #include <stdexcept>
+#include <string>
+
+#define CHECK_LIST(obj)                                                                  \
+    if (!(obj) || std::string((obj)->get_type_name()) != "List") {                       \
+        return new mxs_runtime::MXError("TypeError", "Argument must be a List.");        \
+    }
+
+#define CHECK_INT(obj)                                                                   \
+    if (!(obj) || std::string((obj)->get_type_name()) != "Integer") {                    \
+        return new mxs_runtime::MXError("TypeError", "Argument must be an Integer.");    \
+    }
 
 namespace mxs_runtime {
 
@@ -78,38 +89,40 @@ MXS_API mxs_runtime::MXList *MXCreateList() {
 
 MXS_API mxs_runtime::MXObject *list_getitem(mxs_runtime::MXObject *list,
                                             mxs_runtime::MXObject *index) {
-    if (!list) return new mxs_runtime::MXError();
-    auto *l = dynamic_cast<mxs_runtime::MXList *>(list);
-    if (!l) return new mxs_runtime::MXError();
+    CHECK_LIST(list);
+    CHECK_INT(index);
+    auto *l = static_cast<mxs_runtime::MXList *>(list);
     return l->op_getitem(*index);
 }
 
 MXS_API void list_setitem(mxs_runtime::MXObject *list, mxs_runtime::MXObject *index,
                           mxs_runtime::MXObject *value) {
-    if (!list) return;
-    auto *l = dynamic_cast<mxs_runtime::MXList *>(list);
-    if (!l) return;
+    CHECK_LIST(list);
+    CHECK_INT(index);
+    auto *l = static_cast<mxs_runtime::MXList *>(list);
     l->op_setitem(*index, *value);
 }
 
 MXS_API void list_append(mxs_runtime::MXObject *list, mxs_runtime::MXObject *value) {
-    if (!list) return;
-    auto *l = dynamic_cast<mxs_runtime::MXList *>(list);
-    if (!l) return;
+    CHECK_LIST(list);
+    auto *l = static_cast<mxs_runtime::MXList *>(list);
     l->op_append(*value);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_getitem(mxs_runtime::MXObject *container,
                                               mxs_runtime::MXObject *key) {
-    auto *l = dynamic_cast<mxs_runtime::MXList *>(container);
-    if (l) return l->op_getitem(*key);
-    return new mxs_runtime::MXError();
+    CHECK_LIST(container);
+    CHECK_INT(key);
+    auto *l = static_cast<mxs_runtime::MXList *>(container);
+    return l->op_getitem(*key);
 }
 
 MXS_API void mxs_op_setitem(mxs_runtime::MXObject *container, mxs_runtime::MXObject *key,
                             mxs_runtime::MXObject *value) {
-    auto *l = dynamic_cast<mxs_runtime::MXList *>(container);
-    if (l) l->op_setitem(*key, *value);
+    CHECK_LIST(container);
+    CHECK_INT(key);
+    auto *l = static_cast<mxs_runtime::MXList *>(container);
+    l->op_setitem(*key, *value);
 }
 #ifdef __cplusplus
 }// extern "C"
