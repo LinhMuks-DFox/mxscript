@@ -1,19 +1,28 @@
 #include "container.hpp"
 #include "allocator.hpp"
+#include "nil.hpp"
 #include "numeric.hpp"
 #include "typeinfo.h"
 #include <stdexcept>
 #include <string>
 
-#define CHECK_LIST(obj)                                                                  \
-    if (!(obj) || std::string((obj)->get_type_name()) != "List") {                       \
-        return new mxs_runtime::MXError("TypeError", "Argument must be a List.");        \
+
+namespace {
+    inline mxs_runtime::MXError *check_list(mxs_runtime::MXObject *obj) {
+        if (!(obj) || std::string(obj->get_type_name()) != "List") {
+            return new mxs_runtime::MXError("TypeError", "Argument must be a List.");
+        }
+        return nullptr;
     }
 
-#define CHECK_INT(obj)                                                                   \
-    if (!(obj) || std::string((obj)->get_type_name()) != "Integer") {                    \
-        return new mxs_runtime::MXError("TypeError", "Argument must be an Integer.");    \
+    inline mxs_runtime::MXError *check_int(mxs_runtime::MXObject *obj) {
+        if (!(obj) || std::string(obj->get_type_name()) != "Integer") {
+            return new mxs_runtime::MXError("TypeError", "Argument must be an Integer.");
+        }
+        return nullptr;
     }
+}// namespace
+
 
 namespace mxs_runtime {
 
@@ -56,20 +65,24 @@ namespace mxs_runtime {
         return elements[static_cast<std::size_t>(idx)];
     }
 
-    auto MXList::op_setitem(const MXObject &key, MXObject &value) -> void {
-        if (std::string(key.get_type_name()) != "Integer") { return; }
+    auto MXList::op_setitem(const MXObject &key, MXObject &value) -> MXObject * {
+        if (std::string(key.get_type_name()) != "Integer") { return new MXError(); }
         auto idx = static_cast<const MXInteger &>(key).value;
-        if (idx < 0 || static_cast<std::size_t>(idx) >= elements.size()) { return; }
+        if (idx < 0 || static_cast<std::size_t>(idx) >= elements.size()) {
+            return new MXError();
+        }
         std::size_t i = static_cast<std::size_t>(idx);
         MXObject *old = elements[i];
         ::increase_ref(&value);
         elements[i] = &value;
         ::decrease_ref(old);
+        return const_cast<MXObject *>(reinterpret_cast<const MXObject *>(mxs_get_nil()));
     }
 
-    auto MXList::op_append(MXObject &value) -> void {
+    auto MXList::op_append(MXObject &value) -> MXObject * {
         ::increase_ref(&value);
         elements.push_back(&value);
+        return const_cast<MXObject *>(reinterpret_cast<const MXObject *>(mxs_get_nil()));
     }
 
 
@@ -89,40 +102,43 @@ MXS_API mxs_runtime::MXList *MXCreateList() {
 
 MXS_API mxs_runtime::MXObject *list_getitem(mxs_runtime::MXObject *list,
                                             mxs_runtime::MXObject *index) {
-    CHECK_LIST(list);
-    CHECK_INT(index);
+    if (auto *err = check_list(list)) return err;
+    if (auto *err = check_int(index)) return err;
     auto *l = static_cast<mxs_runtime::MXList *>(list);
     return l->op_getitem(*index);
 }
 
-MXS_API void list_setitem(mxs_runtime::MXObject *list, mxs_runtime::MXObject *index,
-                          mxs_runtime::MXObject *value) {
-    CHECK_LIST(list);
-    CHECK_INT(index);
+MXS_API mxs_runtime::MXObject *list_setitem(mxs_runtime::MXObject *list,
+                                            mxs_runtime::MXObject *index,
+                                            mxs_runtime::MXObject *value) {
+    if (auto *err = check_list(list)) return err;
+    if (auto *err = check_int(index)) return err;
     auto *l = static_cast<mxs_runtime::MXList *>(list);
-    l->op_setitem(*index, *value);
+    return l->op_setitem(*index, *value);
 }
 
-MXS_API void list_append(mxs_runtime::MXObject *list, mxs_runtime::MXObject *value) {
-    CHECK_LIST(list);
+MXS_API mxs_runtime::MXObject *list_append(mxs_runtime::MXObject *list,
+                                           mxs_runtime::MXObject *value) {
+    if (auto *err = check_list(list)) return err;
     auto *l = static_cast<mxs_runtime::MXList *>(list);
-    l->op_append(*value);
+    return l->op_append(*value);
 }
 
 MXS_API mxs_runtime::MXObject *mxs_op_getitem(mxs_runtime::MXObject *container,
                                               mxs_runtime::MXObject *key) {
-    CHECK_LIST(container);
-    CHECK_INT(key);
+    if (auto *err = check_list(container)) return err;
+    if (auto *err = check_int(key)) return err;
     auto *l = static_cast<mxs_runtime::MXList *>(container);
     return l->op_getitem(*key);
 }
 
-MXS_API void mxs_op_setitem(mxs_runtime::MXObject *container, mxs_runtime::MXObject *key,
-                            mxs_runtime::MXObject *value) {
-    CHECK_LIST(container);
-    CHECK_INT(key);
+MXS_API mxs_runtime::MXObject *mxs_op_setitem(mxs_runtime::MXObject *container,
+                                              mxs_runtime::MXObject *key,
+                                              mxs_runtime::MXObject *value) {
+    if (auto *err = check_list(container)) return err;
+    if (auto *err = check_int(key)) return err;
     auto *l = static_cast<mxs_runtime::MXList *>(container);
-    l->op_setitem(*key, *value);
+    return l->op_setitem(*key, *value);
 }
 #ifdef __cplusplus
 }// extern "C"
