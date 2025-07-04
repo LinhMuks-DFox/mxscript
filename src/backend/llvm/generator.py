@@ -317,48 +317,34 @@ class LLVMGenerator:
                 b = stack.pop()
                 a = stack.pop()
                 op = instr.op
-                key = (instr.left_type, op, instr.right_type)
-                create_int = self.ffi.get_or_declare_function("MXCreateInteger")
-                a_obj = self.ctx.builder.call(create_int, [a])
-                b_obj = self.ctx.builder.call(create_int, [b])
-                self.ctx.builder.comment("FFI dispatch")
-                symbol = None
-                if instr.left_type == "int" and instr.right_type == "int":
-                    if op == "+":
-                        symbol = "mxs_integer_add_integer"
-                    elif op == "-":
-                        symbol = "mxs_integer_sub_integer"
-                if symbol is None:
-                    callee_name = DYNAMIC_DISPATCH_MAP.get(op)
-                    if callee_name is None:
-                        raise RuntimeError(f"Unsupported op {op}")
-                    symbol = callee_name
+                callee_name = DYNAMIC_DISPATCH_MAP.get(op)
+                if callee_name is None:
+                    raise RuntimeError(f"Unsupported op {op}")
                 create_str = self.ffi.get_or_declare_function("MXCreateString")
                 lib_ptr = self._create_global_string("runtime.so")
                 lib_obj = self.ctx.builder.call(create_str, [lib_ptr])
-                sym_ptr = self._create_global_string(symbol)
+                sym_ptr = self._create_global_string(callee_name)
                 sym_obj = self.ctx.builder.call(create_str, [sym_ptr])
                 arr = self.ctx.builder.alloca(
                     self.ctx.obj_ptr_t,
-                    ir.Constant(self.ctx.int_t, 2),
+                    ir.Constant(ir.IntType(32), 2),
                 )
-                for idx, obj in enumerate([a_obj, b_obj]):
+                for idx, val in enumerate([a, b]):
+                    obj = self._to_obj(val)
                     ptr = self.ctx.builder.gep(
-                        arr, [ir.Constant(self.ctx.int_t, idx)]
+                        arr, [ir.Constant(ir.IntType(32), idx)]
                     )
                     self.ctx.builder.store(obj, ptr)
                 ffi_fn = self.functions["mxs_ffi_call"]
-                obj_res = self.ctx.builder.call(
+                result = self.ctx.builder.call(
                     ffi_fn,
                     [
                         lib_obj,
                         sym_obj,
-                        ir.Constant(self.ctx.int_t, 2),
+                        ir.Constant(ir.IntType(32), 2),
                         arr,
                     ],
                 )
-                get_val = self.ffi.get_or_declare_function("mxs_get_integer_value")
-                result = self.ctx.builder.call(get_val, [obj_res])
                 stack.append(result)
             elif isinstance(instr, Call):
                 args = [stack.pop() for _ in range(instr.argc)][::-1]
@@ -373,12 +359,12 @@ class LLVMGenerator:
                     sym_obj = self.ctx.builder.call(create_str, [sym_ptr])
                     arr = self.ctx.builder.alloca(
                         self.ctx.obj_ptr_t,
-                        ir.Constant(self.ctx.int_t, max(len(args), 1)),
+                        ir.Constant(ir.IntType(32), max(len(args), 1)),
                     )
                     for idx, a in enumerate(args):
                         obj = self._to_obj(a)
                         ptr = self.ctx.builder.gep(
-                            arr, [ir.Constant(self.ctx.int_t, idx)]
+                            arr, [ir.Constant(ir.IntType(32), idx)]
                         )
                         self.ctx.builder.store(obj, ptr)
                     ffi_fn = self.functions["mxs_ffi_call"]
@@ -387,7 +373,7 @@ class LLVMGenerator:
                         [
                             lib_obj,
                             sym_obj,
-                            ir.Constant(self.ctx.int_t, len(args)),
+                            ir.Constant(ir.IntType(32), len(args)),
                             arr,
                         ],
                     )
