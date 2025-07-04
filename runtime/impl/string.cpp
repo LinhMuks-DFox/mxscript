@@ -1,5 +1,6 @@
 #include "string.hpp"
 #include "allocator.hpp"
+#include "numeric.hpp"
 #include "typeinfo.h"
 
 namespace mxs_runtime {
@@ -19,4 +20,15 @@ extern "C" MXS_API auto MXCreateString(const char *c_str) -> mxs_runtime::MXStri
     mxs_runtime::MX_ALLOCATOR.registerObject(obj);
     obj->increase_ref();
     return obj;
+}
+
+extern "C" MXS_API auto mxs_string_from_integer(mxs_runtime::MXObject *integer_obj)
+        -> mxs_runtime::MXObject * {
+    using namespace mxs_runtime;
+    if (!integer_obj || integer_obj->type_info != &g_integer_type_info) {
+        return new MXError("TypeError", "Argument must be an Integer.");
+    }
+    auto val = static_cast<MXInteger *>(integer_obj)->value;
+    auto str = std::to_string(val);
+    return mxs_runtime::MXCreateString(str.c_str());
 }

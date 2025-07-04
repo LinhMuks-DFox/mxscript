@@ -7,7 +7,7 @@ namespace mxs_runtime {
 
 
     static const MXTypeInfo g_numeric_type_info{ "Numeric", nullptr };
-    static const MXTypeInfo g_integer_type_info{ "Integer", &g_numeric_type_info };
+    MXS_API const MXTypeInfo g_integer_type_info{ "Integer", &g_numeric_type_info };
     static const MXTypeInfo g_float_type_info{ "Float", &g_numeric_type_info };
 
     MXNumeric::MXNumeric(const MXTypeInfo *info, bool is_static)
@@ -850,6 +850,16 @@ MXS_API mxs_runtime::MXObject *mxs_op_is(mxs_runtime::MXObject *left,
 MXS_API mxs_runtime::inner_integer mxs_get_integer_value(mxs_runtime::MXObject *obj) {
     auto *i = static_cast<mxs_runtime::MXInteger *>(obj);
     return i->value;
+}
+
+MXS_API mxs_runtime::MXObject *mxs_int_absolute(mxs_runtime::MXObject *integer_obj) {
+    using namespace mxs_runtime;
+    if (!integer_obj || integer_obj->type_info != &g_integer_type_info) {
+        return new MXError("TypeError", "Argument must be an Integer.");
+    }
+    auto val = static_cast<MXInteger *>(integer_obj)->value;
+    if (val < 0) val = -val;
+    return MXCreateInteger(val);
 }
 
 auto MXCreateInteger(mxs_runtime::inner_integer value) -> mxs_runtime::MXInteger * {

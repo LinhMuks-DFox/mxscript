@@ -16,6 +16,8 @@ namespace mxs_runtime {
     class MXFloat;
     class MXBoolean;
 
+    extern MXS_API const MXTypeInfo g_integer_type_info;
+
     /**
      * @brief Base class for all numeric types.
      */
@@ -230,6 +232,8 @@ MXS_API mxs_runtime::MXObject *mxs_op_or(mxs_runtime::MXObject *left,
                                          mxs_runtime::MXObject *right);
 MXS_API mxs_runtime::MXObject *
 mxs_op_not(mxs_runtime::MXObject *operand);// Unary operator
+
+MXS_API mxs_runtime::MXObject *mxs_int_absolute(mxs_runtime::MXObject *integer_obj);
 #ifdef __cplusplus
 }
 #endif
