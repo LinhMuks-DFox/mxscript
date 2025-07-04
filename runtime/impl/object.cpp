@@ -1,6 +1,7 @@
 #include "include/object.h"
 #include "_typedef.hpp"
 #include "allocator.hpp"
+#include "boolean.hpp"
 #include "typeinfo.h"
 #include <cstddef>
 #include <cstring>
@@ -53,8 +54,41 @@ namespace mxs_runtime {
         return new MXError("TypeError: Operator '-' not supported.");
     }
 
+    auto MXObject::op_mul(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '*' not supported.");
+    }
+
+    auto MXObject::op_div(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '/' not supported.");
+    }
+
     auto MXObject::op_eq(const MXObject &other) -> MXObject * {
         return new MXError("TypeError: Operator '==' not supported.");
+    }
+
+    auto MXObject::op_ne(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '!=' not supported.");
+    }
+
+    auto MXObject::op_lt(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '<' not supported.");
+    }
+
+    auto MXObject::op_le(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '<=' not supported.");
+    }
+
+    auto MXObject::op_gt(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '>' not supported.");
+    }
+
+    auto MXObject::op_ge(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '>=' not supported.");
+    }
+
+    auto MXObject::op_is(const MXObject &other) -> MXObject * {
+        return this == &other ? const_cast<MXBoolean *>(&MX_TRUE)
+                              : const_cast<MXBoolean *>(&MX_FALSE);
     }
 }// namespace mxs_runtime
 

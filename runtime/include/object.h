@@ -13,6 +13,7 @@ namespace mxs_runtime {
     class MXObject {
     public:
         const MXTypeInfo *type_info;
+
     private:
         refer_count_type ref_cnt = 0;
         bool _is_static = false;
@@ -33,7 +34,16 @@ namespace mxs_runtime {
         // --- VTable Operations via virtual functions ---
         virtual auto op_add(const MXObject &other) -> MXObject *;
         virtual auto op_sub(const MXObject &other) -> MXObject *;
+        virtual auto op_mul(const MXObject &other) -> MXObject *;
+        virtual auto op_div(const MXObject &other) -> MXObject *;
+
         virtual auto op_eq(const MXObject &other) -> MXObject *;
+        virtual auto op_ne(const MXObject &other) -> MXObject *;
+        virtual auto op_lt(const MXObject &other) -> MXObject *;
+        virtual auto op_le(const MXObject &other) -> MXObject *;
+        virtual auto op_gt(const MXObject &other) -> MXObject *;
+        virtual auto op_ge(const MXObject &other) -> MXObject *;
+        virtual auto op_is(const MXObject &other) -> MXObject *;
 
         const MXTypeInfo *get_type_info() const { return type_info; }
     };
