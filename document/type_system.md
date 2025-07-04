@@ -62,9 +62,29 @@ The `Object` class defines the following core methods that can be overridden by 
 
 #### 3.3. Container Types
 
-* **`List<T>`**
-    * **Description**: A dynamic, ordered collection of elements of type `T`.
-    * **Syntax**: Can be instantiated via `List<T>()` or with the literal syntax `[element1, element2, ...]`.
+* List<T>
+    **Description:**
+    A dynamic, ordered collection of elements of type `T`. It is the primary general-purpose sequence container.
+
+    **Syntax:**
+
+    * Can be instantiated with `List<T>()` for an empty list.
+    * Or with literal syntax: `[element1, element2, ...]`.
+
+    **Methods and Operators:**
+
+    * `append(value: T)`: Adds an element to the end of the list.
+    * `pop() -> T | Error`: Removes and returns the last element. Returns an `Error` if the list is empty.
+    * `extend(other: List<T>)`: Appends all elements from another list.
+    * `index_of(value: T) -> int | Nil`: Returns the index of the first occurrence of a value, or `nil` if not found.
+    * `length() -> int`: Returns the number of elements in the list.
+    * `insert(index: int, value: T)`: Inserts an element at a specific index.
+    * `remove(value: T) | Error`: Removes the first occurrence of a value. Returns an `Error` if the value is not found.
+    * `operator+(other: List<T>) -> List<T>`: Concatenates two lists, returning a new list. Example: `[1] + [2, 3]` results in `[1, 2, 3]`.
+    * `operator*(count: int) -> List<T>`: Repeats the list's contents, returning a new list. Example: `[1, 2] * 2` results in `[1, 2, 1, 2]`.
+    * `operator[](index: int) -> T | Error`: Gets the element at a specific index (getitem).
+    * `operator[]=(index: int, value: T)`: Sets the element at a specific index (setitem).
+
 
 * **`Array<T>`**
     * **Description**: A fixed-size, contiguous array of elements of type `T`. The compiler employs an intelligent storage strategy to optimize for performance and memory layout based on the element type `T`.
@@ -256,11 +276,11 @@ The primary benefit of the POD system is its impact on the `Array<T>` storage st
 
 Core functions for runtime type introspection and conversion are provided as built-ins.
 
-| Function Name | Signature | Description |
-| :--- | :--- | :--- |
-| `type_of` | `@@template(T) func type_of(instance: T) -> RTTIObject` | Gets an object representing the runtime type information. |
-| `is_instance` | `@@template(T) func is_instance(instance: Object, target_type: RTTIObject) -> bool` | Checks if an object is an instance of a given type. |
-| `cast` | `@@template(Target, Origin) func cast(target_type: RTTIObject, value: Origin) -> Target | Error` | Attempts to convert a value to a target type. |
+| Function Name | Signature                                                                               | Description                                               |
+| :------------ | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------- |
+| `type_of`     | `@@template(T) func type_of(instance: T) -> RTTIObject`                                 | Gets an object representing the runtime type information. |
+| `is_instance` | `@@template(T) func is_instance(instance: Object, target_type: RTTIObject) -> bool`     | Checks if an object is an instance of a given type.       |
+| `cast`        | `@@template(Target, Origin) func cast(target_type: RTTIObject, value: Origin) -> Target | Error`                                                    | Attempts to convert a value to a target type. |
 
 ### 7.1. `type_of` and `is_instance`
 
