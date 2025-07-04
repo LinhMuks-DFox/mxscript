@@ -48,7 +48,11 @@ def _load_runtime() -> None:
     base_dir = Path(__file__).resolve().parents[2]
     runtime_dir = base_dir / "runtime"
     build_dir = runtime_dir / "build"
-    so_path = base_dir / "bin" / "libruntime.so"
+    if "darwin" in sys.platform:
+        so_path = base_dir/"bin"/"libruntime.dylib"
+    else:
+        so_path = base_dir / "bin" / "libruntime.so"
+    
     extra = os.environ.get("MXSCRIPT_EXTRA_RUNTIMES", "")
     extra_libs = [Path(p) for p in extra.split(os.pathsep) if p]
 

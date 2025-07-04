@@ -2,6 +2,7 @@
 #include "_typedef.hpp"
 #include "allocator.hpp"
 #include "typeinfo.h"
+#include <cstddef>
 #include <cstring>
 
 namespace mxs_runtime {
@@ -43,7 +44,13 @@ namespace mxs_runtime {
     }
 
     auto MXObject::repr() const -> inner_string { return type_info->name; }
+    static const MXTypeInfo g_mxerror_type_info{ "Error", nullptr, nullptr, nullptr,
+                                                 nullptr };
+    MXError::MXError() : MXObject(&g_mxerror_type_info, false) { }
 
+    auto MXError::repr() const -> inner_string {
+        return inner_string("An MXError occurred.");
+    }
 }// namespace mxs_runtime
 
 extern "C" {
