@@ -19,20 +19,29 @@ _TYPE_MAP = {
 }
 
 _PATH = Path(__file__).with_name("ffi_map.json")
-_RAW_MAP: Dict[str, dict] = json.loads(_PATH.read_text())
+_RAW_MAP = json.loads(_PATH.read_text())
 _TYPED_MAP: Dict[str, dict] = {}
-for name, info in _RAW_MAP.items():
-    entry = {
-        "ret": _TYPE_MAP[info["ret"]],
-        "args": [_TYPE_MAP[a] for a in info["args"]],
-    }
-    if "name" in info:
-        entry["name"] = info["name"]
-    if "wrapper_args" in info:
-        entry["wrapper_args"] = [_TYPE_MAP[a] for a in info["wrapper_args"]]
-    if "var_arg" in info:
-        entry["var_arg"] = info["var_arg"]
-    _TYPED_MAP[name] = entry
+
+if "ffi_functions" in _RAW_MAP:
+    # Minimal map containing only names of FFI-exposed functions
+    if "mxs_ffi_call" in _RAW_MAP["ffi_functions"]:
+        _TYPED_MAP["mxs_ffi_call"] = {
+            "ret": char_ptr,
+            "args": [char_ptr, char_ptr, int32, char_ptr.as_pointer()],
+        }
+else:
+    for name, info in _RAW_MAP.items():
+        entry = {
+            "ret": _TYPE_MAP[info["ret"]],
+            "args": [_TYPE_MAP[a] for a in info["args"]],
+        }
+        if "name" in info:
+            entry["name"] = info["name"]
+        if "wrapper_args" in info:
+            entry["wrapper_args"] = [_TYPE_MAP[a] for a in info["wrapper_args"]]
+        if "var_arg" in info:
+            entry["var_arg"] = info["var_arg"]
+        _TYPED_MAP[name] = entry
 
 
 def get_function_signature(name: str) -> Tuple[ir.Type, List[ir.Type]]:
