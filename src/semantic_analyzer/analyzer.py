@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Any
 
 from ..backend.llir import load_module_ast
 from .types import TypeInfo
@@ -71,6 +71,7 @@ class SemanticAnalyzer:
     functions: Set[str] | None = None
     function_signatures: Dict[str, FuncSig | None] | None = None
     type_registry: Dict[str, TypeInfo] | None = None
+    ffi_infos: Dict[str, Dict[str, Any]] | None = None
     filename: str = "<stdin>"
     source_lines: List[str] = field(default_factory=list)
     loop_depth: int = 0
@@ -82,6 +83,7 @@ class SemanticAnalyzer:
         self.filename = "<stdin>"
         self.source_lines = []
         self.loop_depth = 0
+        self.ffi_infos = None
         self.builtin_functions: Set[str] = {"print"}
         self.builtin_signatures: Dict[str, FuncSig] = {
             "print": FuncSig(
@@ -101,6 +103,7 @@ class SemanticAnalyzer:
         self.source_lines = source.splitlines()
         self.functions = set()
         self.function_signatures = {}
+        self.ffi_infos = {}
         self._collect_functions(program)
         self.type_registry = {}
         self.variables_stack = [{}]
@@ -112,6 +115,8 @@ class SemanticAnalyzer:
                 self.functions.add(stmt.name)
                 if self.function_signatures is not None:
                     self.function_signatures[stmt.name] = stmt.signature
+                if stmt.ffi_info is not None and self.ffi_infos is not None:
+                    self.ffi_infos[stmt.name] = stmt.ffi_info
             elif isinstance(stmt, FunctionDecl):
                 self.functions.add(stmt.name)
                 if self.function_signatures is not None:
@@ -559,6 +564,20 @@ class SemanticAnalyzer:
             else:
                 for _, val in expr.kwargs or []:
                     self._visit_expression(val)
+
+            if (
+                self.ffi_infos is not None
+                and expr.name in self.ffi_infos
+                and "argc" in self.ffi_infos[expr.name]
+                and "pack_args_from" not in self.ffi_infos[expr.name]
+            ):
+                expected = int(self.ffi_infos[expr.name]["argc"])
+                if expected != len(final_args):
+                    raise SemanticError(
+                        f"FFI function '{expr.name}' expects {expected} argument(s) but received {len(final_args)}.",
+                        self._get_location(expr.loc),
+                    )
+
             for arg in final_args:
                 self._visit_expression(arg)
         else:

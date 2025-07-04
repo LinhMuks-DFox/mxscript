@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Any
 
 from .expression_parser import ExpressionParserMixin, BINARY_PRECEDENCE
 from .definition_parser import DefinitionParserMixin
@@ -141,14 +141,18 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
                 raise SyntaxError("@@template must be followed by parentheses", loc)
             params = self.parse_template_params(allow_angles=False)
             return {"name": name, "params": params}
-        args: Dict[str, str] = {}
+        args: Dict[str, Any] = {}
         if self.stream.peek().type == TokenType.LPAREN:
             self.stream.next()
             while True:
                 key = self._expect(TokenType.IDENTIFIER).value
                 self._expect(TokenType.ASSIGN)
-                val_tok = self._expect(TokenType.STRING)
-                args[key] = val_tok.value
+                if key == "argc":
+                    val_tok = self._expect(TokenType.INTEGER)
+                    args[key] = int(val_tok.value)
+                else:
+                    val_tok = self._expect(TokenType.STRING)
+                    args[key] = val_tok.value
                 if self.stream.peek().type == TokenType.COMMA:
                     self.stream.next()
                     continue

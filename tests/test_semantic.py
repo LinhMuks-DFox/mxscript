@@ -142,3 +142,13 @@ def test_semantic_foreign_function():
     )
     analyze(src)
 
+
+def test_ffi_argc_mismatch():
+    src = (
+        '@@foreign(c_name="noop", argc=0)\n'
+        'func noop(...);\n'
+        'func main() { noop(1); }'
+    )
+    with pytest.raises(SemanticError):
+        analyze(src)
+
