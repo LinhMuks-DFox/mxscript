@@ -939,7 +939,7 @@ MXS_API mxs_runtime::MXObject *mxs_op_is(mxs_runtime::MXObject *left,
 }
 
 MXS_API mxs_runtime::inner_integer mxs_get_integer_value(mxs_runtime::MXObject *obj) {
-    CHECK_INT(obj);
+    if (!obj || obj->type_info != &mxs_runtime::g_integer_type_info) { return 0; }
     auto *i = static_cast<mxs_runtime::MXInteger *>(obj);
     return i->value;
 }
