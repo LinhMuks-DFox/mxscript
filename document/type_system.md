@@ -153,6 +153,45 @@ class MyReport : Printable {
 * **Implementation**: A class implements an interface by listing it in its inheritance clause and providing implementations for its methods.
 * **Default Implementations**: Interfaces can provide default implementations for their methods, which can be used or overridden by conforming types.
 
+#### 4.3 Class Methods and Operator Overloading
+
+##### 4.3.1 Operator Overloading
+
+Users can define custom behavior for standard operators in their classes by defining methods with a special name using the `operator` keyword. For example, an expression like `a + b` is translated by the compiler into `a.operator+(b)`.
+
+**Syntax:**
+
+```mxscript
+class MyVector {
+    func operator+(other: MyVector) -> MyVector {
+        // Implementation for vector addition
+    }
+}
+```
+
+**Overloadable Operators:**
+
+| Category          | Operators                                 |             |
+| ----------------- | ----------------------------------------- | ----------- |
+| Binary Arithmetic | +, -, \*, /, %, \*\*                      |             |
+| Binary Bitwise    | &,                                        | , ^, <<, >> |
+| Comparison        | ==, !=, <, <=, >, >=                      |             |
+| Unary             | - (negation), + (unary plus), \~ (invert) |             |
+| Container/Access  | \[] (getitem), \[]= (setitem)             |             |
+
+> Operators not on this list (e.g., `.`, `is`, `and`, `or`, `not`, assignment operators like `+=`) are reserved and cannot be overloaded.
+
+---
+
+##### 4.3.2 Default Virtual Methods
+
+The base `Object` class provides several virtual methods that can be overridden to customize a type's core behavior:
+
+* `func hash() -> int:` Returns a hash code for the object. Used for dictionary keys and set elements.
+* `func repr() -> String:` Returns a developer-facing string representation of the object. Used by `print()` by default.
+* `static func from(source: Object) -> Self | Error:` A static-like conversion constructor used by the `cast` mechanism's dynamic path.
+
+
 ### 5. Generics (Templates)
 
 Generics allow for writing flexible, reusable functions and types that can work with any type that satisfies the necessary constraints.
