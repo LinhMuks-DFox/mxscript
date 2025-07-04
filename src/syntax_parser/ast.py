@@ -152,7 +152,7 @@ class Parameter(Node):
 @dataclass
 class FuncSig(Node):
     params: List[Parameter]
-    return_type: str | None
+    return_type: List[str] | None
     var_arg: bool = False
 
 

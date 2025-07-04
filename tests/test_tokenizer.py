@@ -82,3 +82,11 @@ def test_type_keywords_tokenization():
     assert "interface" in words
     assert "override" in words
     assert "static" in words
+
+
+def test_pipe_tokenization():
+    tokens = tokenize("func foo() -> int | Error {}")
+    values = [t.value for t in tokens if t.type != TokenType.COMMENT]
+    assert "|" in values
+    pipe_token = next(t for t in tokens if t.value == "|")
+    assert pipe_token.type == TokenType.PIPE
