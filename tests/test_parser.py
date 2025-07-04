@@ -1,5 +1,6 @@
 import os
 import sys
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -30,6 +31,7 @@ from src.syntax_parser import (
     Parser,
     MethodDef,
 )
+from src.errors import SyntaxError
 
 
 def parse(src: str):
@@ -473,6 +475,14 @@ def test_parse_template_function():
     func = program.statements[0]
     assert isinstance(func, FuncDef)
     assert func.template_params == ["T"]
+
+
+def test_template_annotation_requires_parens():
+    src = "@@template\nfunc id(x: int) {}"
+    tokens = tokenize(src)
+    stream = TokenStream(tokens)
+    with pytest.raises(SyntaxError):
+        Parser(stream).parse()
 
 
 def test_parse_pod_class():
