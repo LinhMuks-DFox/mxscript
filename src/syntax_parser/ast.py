@@ -162,7 +162,7 @@ class FuncDef(Statement):
     signature: FuncSig
     body: Block
     template_params: list[str] | None = None
-    ffi_info: Dict[str, str] | None = None
+    ffi_info: Dict[str, object] | None = None
 
 
 @dataclass
@@ -174,7 +174,7 @@ class MethodDef(Statement):
     body: Block
     is_override: bool = False
     template_params: list[str] | None = None
-    ffi_info: Dict[str, str] | None = None
+    ffi_info: Dict[str, object] | None = None
 
 
 @dataclass

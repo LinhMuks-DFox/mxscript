@@ -357,23 +357,39 @@ class LLVMGenerator:
                     lib_obj = self.ctx.builder.call(create_str, [lib_ptr])
                     sym_ptr = self._create_global_string(sym_name)
                     sym_obj = self.ctx.builder.call(create_str, [sym_ptr])
+
+                    packed_from = info.get("pack_args_from")
+                    final_args: List[ir.Value] = []
+                    if packed_from is not None:
+                        prefix = args[:packed_from]
+                        rest = args[packed_from:]
+                        list_create = self.ffi.get_or_declare_function("MXCreateList")
+                        list_obj = self.ctx.builder.call(list_create, [])
+                        append_fn = self.ffi.get_or_declare_function("list_append")
+                        for val in rest:
+                            obj = self._to_obj(val)
+                            self.ctx.builder.call(append_fn, [list_obj, obj])
+                        final_args.extend(self._to_obj(v) for v in prefix)
+                        final_args.append(list_obj)
+                    else:
+                        final_args.extend(self._to_obj(v) for v in args)
+
                     arr = self.ctx.builder.alloca(
                         self.ctx.obj_ptr_t,
-                        ir.Constant(ir.IntType(32), max(len(args), 1)),
+                        ir.Constant(ir.IntType(32), max(len(final_args), 1)),
                     )
-                    for idx, a in enumerate(args):
-                        obj = self._to_obj(a)
+                    for idx, a in enumerate(final_args):
                         ptr = self.ctx.builder.gep(
                             arr, [ir.Constant(ir.IntType(32), idx)]
                         )
-                        self.ctx.builder.store(obj, ptr)
+                        self.ctx.builder.store(a, ptr)
                     ffi_fn = self.functions["mxs_ffi_call"]
                     result = self.ctx.builder.call(
                         ffi_fn,
                         [
                             lib_obj,
                             sym_obj,
-                            ir.Constant(ir.IntType(32), len(args)),
+                            ir.Constant(ir.IntType(32), len(final_args)),
                             arr,
                         ],
                     )
