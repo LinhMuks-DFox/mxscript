@@ -43,10 +43,20 @@ namespace mxs_runtime {
         auto length() const -> std::size_t override;
         auto contains(const MXObject &obj) const -> bool override;
 
+        // --- List Methods ---
+        auto append(MXObject &value) -> MXObject *;
+        auto pop() -> MXObject *;
+        auto extend(const MXList &other) -> MXObject *;
+        auto index_of(const MXObject &value) const -> MXObject *;
+        auto insert(inner_integer index, MXObject &value) -> MXObject *;
+        auto remove(const MXObject &value) -> MXObject *;
+
         // --- VTable Operations ---
         auto op_getitem(const MXObject &key) const -> MXObject *;
         auto op_setitem(const MXObject &key, MXObject &value) -> MXObject *;
         auto op_append(MXObject &value) -> MXObject *;
+        auto op_add(const MXObject &other) -> MXObject * override;
+        auto op_mul(const MXObject &other) -> MXObject * override;
     };
 
     /**
