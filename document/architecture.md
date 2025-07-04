@@ -76,20 +76,50 @@ The backend is responsible for converting the high-level AST into low-level, mac
 
 ---
 
-## 3. Runtime Environment (`runtime/`)
+
+## 3. Runtime Environment (runtime/)
 
 The C++ runtime provides the essential services that MxScript programs need to execute.
 
-* **Object Model (`runtime/include/object.h`)**:
-    * `MXObject`: The base class containing `ref_count` and `const MXObjectVTable* vtable`.
-    * Concrete classes (`MXInteger`, `MXString`, etc.) inherit from `MXObject`. Each has its own static vtable instance.
+### 3.1. Core Object Model
 
-* **VTable Dispatch (`runtime/src/dispatch.cpp`)**:
-    * Contains the top-level `extern "C"` functions (e.g., `mxs_op_add`) that are exposed to the compiler.
-    * Each function's sole purpose is to look up the correct method in the object's `vtable` and call it: `return left->vtable->op_add(left, right);`.
+* MXObject (runtime/include/object.h): This is the polymorphic base class for all objects in the language.
 
-* **Build System (`runtime/CMakeLists.txt`)**:
-    * Compiles the C++ source into a shared library (`libruntime.so`) that the Python host process can dynamically load.
+* const MXTypeInfo* type_info: A pointer to a static struct containing Runtime Type Information (RTTI).
+
+* virtual ~MXObject() = default;: A virtual destructor to ensure correct cleanup of derived objects.
+
+* virtual auto op_add(...) -> MXObject*: A virtual function for the + operation. The base implementation returns a "TypeError". All standard operations (op_sub, op_eq, op_getitem, etc.) are declared as virtual functions in this base class.
+
+* Concrete Classes (MXInteger, MXString, etc.):
+
+* Each concrete type inherits from MXObject.
+
+* It overrides the virtual functions for the operations it supports (e.g., MXInteger overrides op_add).
+
+* Its constructor sets the type_info pointer to its unique, static MXTypeInfo instance.
+
+### 3.2. Runtime Type Information (RTTI)
+
+* MXTypeInfo (runtime/include/typeinfo.h): This is a simple, non-polymorphic struct responsible for managing type identity and inheritance.
+
+* const char* name: The public name of the type (e.g., "Integer").
+
+* const MXTypeInfo* parent: A pointer to the parent type's MXTypeInfo struct. This forms a linked list that represents the class hierarchy, enabling runtime isinstance checks.
+
+### 3.3. Operation Dispatch
+
+* VTable (Implicit): The VTable mechanism is now managed entirely by the C++ compiler. Declaring functions as virtual in MXObject automatically creates a VTable for each class, which is used for efficient dynamic dispatch.
+
+* Top-Level C API (runtime/src/dispatch.cpp):
+
+* The runtime still exposes simple, extern "C" functions to the compiler via ffi_map.json (e.g., mxs_op_add).
+
+* The implementation of these functions is now a direct virtual call, delegating the work to the object itself.
+
+* Example: return left->op_add(*right);.
+
+
 
 ---
 ## 4. Execution and Testing
