@@ -136,7 +136,11 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
         start_tok = self._expect(TokenType.ANNOTATION, '@@')
         name = self._expect(TokenType.IDENTIFIER).value
         if name == "template":
-            params = self.parse_template_params()
+            next_tok = self.stream.peek()
+            if not next_tok or next_tok.type != TokenType.LPAREN:
+                loc = self._get_location(next_tok or start_tok)
+                raise SyntaxError("@@template must be followed by parentheses", loc)
+            params = self.parse_template_params(allow_angles=False)
             return {"name": name, "params": params}
         args = {}
         if self.stream.peek().type == TokenType.LPAREN:
@@ -148,10 +152,13 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
             self._expect(TokenType.RPAREN)
         return {"name": name, **args}
 
-    def parse_template_params(self) -> list[str]:
+    def parse_template_params(self, *, allow_angles: bool = True) -> list[str]:
         params: list[str] = []
         if self.stream.peek().type in (TokenType.LPAREN, TokenType.LESS):
             start = self.stream.next()
+            if start.type == TokenType.LESS and not allow_angles:
+                loc = self._get_location(start)
+                raise SyntaxError("Template parameters must use parentheses", loc)
             end = TokenType.RPAREN if start.type == TokenType.LPAREN else TokenType.GREATER
             while True:
                 name = self._expect(TokenType.IDENTIFIER).value
