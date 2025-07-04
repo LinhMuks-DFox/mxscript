@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Any
 
 from .expression_parser import ExpressionParserMixin, BINARY_PRECEDENCE
 from .definition_parser import DefinitionParserMixin
@@ -141,13 +141,16 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
                 raise SyntaxError("@@template must be followed by parentheses", loc)
             params = self.parse_template_params(allow_angles=False)
             return {"name": name, "params": params}
-        args: Dict[str, object] = {}
+        args: Dict[str, Any] = {}
         if self.stream.peek().type == TokenType.LPAREN:
             self.stream.next()
             while True:
                 key = self._expect(TokenType.IDENTIFIER).value
                 self._expect(TokenType.ASSIGN)
-                if key == "argv":
+                if key == "argc":
+                    val_tok = self._expect(TokenType.INTEGER)
+                    args[key] = int(val_tok.value)
+                elif key == "argv":  # Changed from if to elif
                     self._expect(TokenType.LBRACKET)
                     start_tok = self._expect(TokenType.INTEGER)
                     start_idx = int(start_tok.value)
@@ -155,15 +158,18 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
                         self.stream.next()
                         self._expect(TokenType.ELLIPSIS)
                     self._expect(TokenType.RBRACKET)
-                    args[key] = {"pack_args_from": start_idx}
+                    args["pack_args_from"] = start_idx 
                 else:
                     val_tok = self._expect(TokenType.STRING)
                     args[key] = val_tok.value
+
+
                 if self.stream.peek().type == TokenType.COMMA:
                     self.stream.next()
                     continue
                 break
             self._expect(TokenType.RPAREN)
+
         return {"name": name, **args}
 
     def parse_template_params(self, *, allow_angles: bool = True) -> list[str]:
