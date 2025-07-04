@@ -21,7 +21,7 @@
 
 ### 2.1. Code Formatting
 
-* **Mandatory Tool**: All C++ code (`.cpp`, `.h`) **must** be formatted using `clang-format`.
+* **Mandatory Tool**: All C++ code (`.cpp`, `.hpp`, `.h`) **must** be formatted using `clang-format`.
 * **Configuration**: A `.clang-format` file, preferably based on a standard style like "Google" or "LLVM", should be present in the project root. All contributors must use it before committing code.
 
 ### 2.2. Language Standard
@@ -31,7 +31,8 @@
 
 ### 2.3. Function Definitions
 
-* **Style**: Prefer `auto`-based, trailing-return-type function definitions, especially for non-trivial functions. This improves readability, particularly with templates and complex types.
+#### Style:
+* Prefer `auto`-based, trailing-return-type function definitions, especially for non-trivial functions.This improves readability, particularly with templates and complex types.
 
     ```cpp
     // Preferred style
@@ -39,4 +40,19 @@
         // ... implementation
     }
 
-    // Acceptable for very simple, legacy, or C-interop-heavy functions
+* All C API should be placed in extern "C" {}, and use __cplusplus to control such behavior:
+
+    ```cpp
+    // Preferred style
+    #ifdef __cplusplus
+    extern "C" { 
+    #endif
+        auto mxs_print_object(mxs_runtime::MXObject* obj) -> std::size_t {
+        // ... implementation
+        }
+    #ifdef __cplusplus
+    }
+    #endif
+    ```
+* All C API should be placed in mxs_runtime::
+    * This is a new rule; When a C API were placed outside this namespace, it should be refactored. 
