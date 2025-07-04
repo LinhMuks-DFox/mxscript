@@ -6,6 +6,7 @@ from pathlib import Path
 
 from src.frontend import TokenStream, tokenize
 from src.syntax_parser import Parser, dump_ast
+from src.syntax_parser.ast import Program
 from src.semantic_analyzer import SemanticAnalyzer
 from src.errors import CompilerError, SourceLocation
 from src.backend import (
@@ -50,7 +51,17 @@ def main(argv: list[str] | None = None) -> int:
     path = Path(args.source)
     source = path.read_text()
 
+    builtin_path = Path(__file__).resolve().parent / "stdlib" / "_builtin.mxs"
+    builtin_source = builtin_path.read_text()
+
     try:
+        builtin_tokens = tokenize(builtin_source)
+        builtin_stream = TokenStream(builtin_tokens)
+        builtin_parser = Parser(
+            builtin_stream, source=builtin_source, filename=str(builtin_path)
+        )
+        builtin_ast = builtin_parser.parse()
+
         tokens = tokenize(source)
         if args.dump_tokens:
             print(tokens)
@@ -58,14 +69,18 @@ def main(argv: list[str] | None = None) -> int:
 
         stream = TokenStream(tokens)
         parser_obj = Parser(stream, source=source, filename=str(path))
-        ast = parser_obj.parse()
+        user_ast = parser_obj.parse()
+
+        ast = Program(builtin_ast.statements + user_ast.statements)
 
         if args.dump_ast:
             print(dump_ast(ast))
             return 0
 
+        combined_source = builtin_source + "\n" + source
+
         sema = SemanticAnalyzer()
-        sema.analyze(ast, source=source, filename=str(path))
+        sema.analyze(ast, source=combined_source, filename=str(path))
 
         search_paths = build_search_paths(args.search_paths)
         ir_prog = compile_program(ast, search_paths=search_paths)
