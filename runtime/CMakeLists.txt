@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 project(mx_runtime CXX C)
 
 # ----------- C++23 ----------
@@ -31,4 +32,5 @@ target_include_directories(runtime PUBLIC
 set_target_properties(runtime PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # ----------- clangd ----------
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+# set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+message(STATUS "CMAKE_EXPORT_COMPILE_COMMANDS value after set: ${CMAKE_EXPORT_COMPILE_COMMANDS}")
