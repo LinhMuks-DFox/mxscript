@@ -343,11 +343,17 @@ class SemanticAnalyzer:
                 self._visit_statement(s)
             self.variables_stack.pop()
         elif isinstance(stmt, (FunctionDecl, FuncDef)):
+            if isinstance(stmt, FuncDef) and stmt.ffi_info is not None:
+                # Register FFI stubs in the current scope so later calls see them
+                self._current_scope()[stmt.name] = VarInfo(
+                    stmt.name, None, False, True
+                )
+                return
+
             # Enter a new scope for parameters and locals
             if isinstance(stmt, FunctionDecl):
                 params = {name: VarInfo(name) for name in stmt.params}
                 body = stmt.body
-                skip_body = False
             else:
                 params = {
                     n: VarInfo(n, p.type_name)
@@ -358,15 +364,10 @@ class SemanticAnalyzer:
                     if p.default is not None:
                         self._visit_expression(p.default)
                 body = stmt.body.statements
-                skip_body = stmt.ffi_info is not None
-            if isinstance(stmt, FuncDef) and stmt.ffi_info is not None:
-                self._current_scope()[stmt.name] = VarInfo(
-                    stmt.name, None, False, True
-                )
+
             self.variables_stack.append(params)
-            if not skip_body:
-                for s in body:
-                    self._visit_statement(s)
+            for s in body:
+                self._visit_statement(s)
             self.variables_stack.pop()
         elif isinstance(stmt, ClassDef):
             self._visit_class_def(stmt)
