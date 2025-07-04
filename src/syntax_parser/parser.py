@@ -150,14 +150,26 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
                 if key == "argc":
                     val_tok = self._expect(TokenType.INTEGER)
                     args[key] = int(val_tok.value)
+                elif key == "argv":  # Changed from if to elif
+                    self._expect(TokenType.LBRACKET)
+                    start_tok = self._expect(TokenType.INTEGER)
+                    start_idx = int(start_tok.value)
+                    if self.stream.peek().type == TokenType.COMMA:
+                        self.stream.next()
+                        self._expect(TokenType.ELLIPSIS)
+                    self._expect(TokenType.RBRACKET)
+                    args["pack_args_from"] = start_idx 
                 else:
                     val_tok = self._expect(TokenType.STRING)
                     args[key] = val_tok.value
+
+
                 if self.stream.peek().type == TokenType.COMMA:
                     self.stream.next()
                     continue
                 break
             self._expect(TokenType.RPAREN)
+
         return {"name": name, **args}
 
     def parse_template_params(self, *, allow_angles: bool = True) -> list[str]:

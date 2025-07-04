@@ -176,11 +176,16 @@ def compile_program(
                     )
                     functions[ctor_ir.name] = ctor_ir
         elif isinstance(stmt, FuncDef) and stmt.ffi_info is not None:
-            foreign_functions[stmt.name] = {
+            info = {
                 "lib": stmt.ffi_info.get("lib", "runtime.so"),
                 "symbol_name": stmt.ffi_info.get("c_name")
                 or stmt.ffi_info.get("symbol_name", stmt.name),
             }
+            if "argv" in stmt.ffi_info:
+                pack = stmt.ffi_info["argv"].get("pack_args_from")
+                if pack is not None:
+                    info["pack_args_from"] = pack
+            foreign_functions[stmt.name] = info
         elif isinstance(stmt, ImportStmt):
             mod_name = stmt.module
             try:
