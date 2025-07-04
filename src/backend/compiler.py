@@ -140,7 +140,7 @@ def compile_program(
 ) -> ProgramIR:
     code: List[Instr] = []
     functions: Dict[str, Function] = {}
-    foreign_functions: Dict[str, str] = dict(BUILTIN_FUNCTIONS)
+    foreign_functions: Dict[str, Dict[str, str]] = {}
     alias_map: Dict[str, str] = {}
     symtab = ScopedSymbolTable()
     if module_cache is None:
@@ -176,8 +176,11 @@ def compile_program(
                     )
                     functions[ctor_ir.name] = ctor_ir
         elif isinstance(stmt, FuncDef) and stmt.ffi_info is not None:
-            symbol = stmt.ffi_info.get("c_name") or stmt.ffi_info.get("symbol_name", stmt.name)
-            foreign_functions[stmt.name] = symbol
+            foreign_functions[stmt.name] = {
+                "lib": stmt.ffi_info.get("lib", "runtime.so"),
+                "symbol_name": stmt.ffi_info.get("c_name")
+                or stmt.ffi_info.get("symbol_name", stmt.name),
+            }
         elif isinstance(stmt, ImportStmt):
             mod_name = stmt.module
             try:
@@ -203,8 +206,8 @@ def compile_program(
                     else:
                         new_code.append(instr)
                 functions[new_name] = Function(new_name, func.params, new_code)
-            for name, c_name in mod_ir.foreign_functions.items():
-                foreign_functions[prefix + name] = c_name
+            for name, info in mod_ir.foreign_functions.items():
+                foreign_functions[prefix + name] = info
             for instr in mod_ir.code:
                 if isinstance(instr, Call) and instr.name in rename_map:
                     code.append(Call(rename_map[instr.name], instr.argc))

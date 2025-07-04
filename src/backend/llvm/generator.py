@@ -49,6 +49,7 @@ class LLVMGenerator:
         self.var_info_stack: List[Dict[str, Dict[str, ir.Value | str | None]]] = []
         # Mapping of label names to LLVM basic blocks for the current function
         self.blocks: Dict[str, ir.Block] = {}
+        self.foreign_functions: Dict[str, Dict[str, str]] = {}
 
     # ------------------------------------------------------------------
     def _create_global_string(self, value: str) -> ir.Value:
@@ -79,16 +80,25 @@ class LLVMGenerator:
                 )
             ty = ir.FunctionType(self.ctx.obj_ptr_t, arg_types)
             self.functions[func.name] = ir.Function(self.ctx.module, ty, name=func.name)
-        for alias, c_name in program.foreign_functions.items():
-            try:
-                func = self.ffi.get_or_declare_function(c_name)
-            except KeyError:
-                func = ir.Function(
-                    self.ctx.module,
-                    ir.FunctionType(self.ctx.int_t, [], var_arg=True),
-                    name=c_name,
-                )
-            self.functions[alias] = func
+        self.foreign_functions = program.foreign_functions
+        try:
+            self.functions["mxs_ffi_call"] = self.ffi.get_or_declare_function(
+                "mxs_ffi_call"
+            )
+        except KeyError:
+            self.functions["mxs_ffi_call"] = ir.Function(
+                self.ctx.module,
+                ir.FunctionType(
+                    self.ctx.obj_ptr_t,
+                    [
+                        self.ctx.obj_ptr_t,
+                        self.ctx.obj_ptr_t,
+                        self.ctx.int_t,
+                        self.ctx.obj_ptr_t.as_pointer(),
+                    ],
+                ),
+                name="mxs_ffi_call",
+            )
 
     # Symbol table helpers ---------------------------------------------
     def _get_or_alloc_mut(self, name: str, ty: ir.Type) -> ir.Value:
@@ -143,6 +153,31 @@ class LLVMGenerator:
                 del scope[instr.name]
                 break
 
+    def _to_obj(self, val: ir.Value) -> ir.Value:
+        if val.type == self.ctx.obj_ptr_t:
+            return val
+        if isinstance(val.type, ir.IntType):
+            if val.type.width == 1:
+                true_fn = self.ffi.get_or_declare_function("mxs_get_true")
+                false_fn = self.ffi.get_or_declare_function("mxs_get_false")
+                obj_true = self.ctx.builder.call(true_fn, [])
+                obj_false = self.ctx.builder.call(false_fn, [])
+                return self.ctx.builder.select(val, obj_true, obj_false)
+            if val.type.width < self.ctx.int_t.width:
+                val = self.ctx.builder.sext(val, self.ctx.int_t)
+            elif val.type.width > self.ctx.int_t.width:
+                val = self.ctx.builder.trunc(val, self.ctx.int_t)
+            create_int = self.ffi.get_or_declare_function("MXCreateInteger")
+            return self.ctx.builder.call(create_int, [val])
+        if isinstance(val.type, ir.DoubleType) or isinstance(val.type, ir.FloatType):
+            if isinstance(val.type, ir.FloatType):
+                val = self.ctx.builder.fpext(val, ir.DoubleType())
+            create_float = self.ffi.get_or_declare_function("MXCreateFloat")
+            return self.ctx.builder.call(create_float, [val])
+        if isinstance(val.type, ir.PointerType):
+            return self.ctx.builder.bitcast(val, self.ctx.obj_ptr_t)
+        return self.ctx.builder.bitcast(val, self.ctx.obj_ptr_t)
+
     # IR emission ------------------------------------------------------
     def _emit_code(self, code: List[Instr]) -> ir.Value | None:
         assert self.ctx.builder is not None
@@ -175,7 +210,10 @@ class LLVMGenerator:
                     stack.append(ir.Constant(self.ctx.obj_ptr_t, None))
             elif isinstance(instr, Load):
                 val = self.ctx.get_var(instr.name)
-                if isinstance(val.type, ir.PointerType) and val.type != self.ctx.obj_ptr_t:
+                if (
+                    isinstance(val.type, ir.PointerType)
+                    and val.type != self.ctx.obj_ptr_t
+                ):
                     stack.append(self.ctx.builder.load(val))
                 else:
                     stack.append(val)
@@ -304,6 +342,37 @@ class LLVMGenerator:
                 stack.append(result)
             elif isinstance(instr, Call):
                 args = [stack.pop() for _ in range(instr.argc)][::-1]
+                if instr.name in self.foreign_functions:
+                    info = self.foreign_functions[instr.name]
+                    lib_name = info.get("lib", "runtime.so")
+                    sym_name = info.get("symbol_name", instr.name)
+                    create_str = self.ffi.get_or_declare_function("MXCreateString")
+                    lib_ptr = self._create_global_string(lib_name)
+                    lib_obj = self.ctx.builder.call(create_str, [lib_ptr])
+                    sym_ptr = self._create_global_string(sym_name)
+                    sym_obj = self.ctx.builder.call(create_str, [sym_ptr])
+                    arr = self.ctx.builder.alloca(
+                        self.ctx.obj_ptr_t,
+                        ir.Constant(self.ctx.int_t, max(len(args), 1)),
+                    )
+                    for idx, a in enumerate(args):
+                        obj = self._to_obj(a)
+                        ptr = self.ctx.builder.gep(
+                            arr, [ir.Constant(self.ctx.int_t, idx)]
+                        )
+                        self.ctx.builder.store(obj, ptr)
+                    ffi_fn = self.functions["mxs_ffi_call"]
+                    result = self.ctx.builder.call(
+                        ffi_fn,
+                        [
+                            lib_obj,
+                            sym_obj,
+                            ir.Constant(self.ctx.int_t, len(args)),
+                            arr,
+                        ],
+                    )
+                    stack.append(result)
+                    continue
                 callee = self.functions.get(instr.name)
                 if callee is None:
                     try:
@@ -323,15 +392,23 @@ class LLVMGenerator:
                             false_fn = self.ffi.get_or_declare_function("mxs_get_false")
                             obj_true = self.ctx.builder.call(true_fn, [])
                             obj_false = self.ctx.builder.call(false_fn, [])
-                            args[0] = self.ctx.builder.select(obj_arg, obj_true, obj_false)
+                            args[0] = self.ctx.builder.select(
+                                obj_arg, obj_true, obj_false
+                            )
                         else:
                             if obj_arg.type.width < self.ctx.int_t.width:
                                 obj_arg = self.ctx.builder.sext(obj_arg, self.ctx.int_t)
                             elif obj_arg.type.width > self.ctx.int_t.width:
-                                obj_arg = self.ctx.builder.trunc(obj_arg, self.ctx.int_t)
-                            create_int = self.ffi.get_or_declare_function("MXCreateInteger")
+                                obj_arg = self.ctx.builder.trunc(
+                                    obj_arg, self.ctx.int_t
+                                )
+                            create_int = self.ffi.get_or_declare_function(
+                                "MXCreateInteger"
+                            )
                             args[0] = self.ctx.builder.call(create_int, [obj_arg])
-                    elif isinstance(obj_arg.type, ir.DoubleType) or isinstance(obj_arg.type, ir.FloatType):
+                    elif isinstance(obj_arg.type, ir.DoubleType) or isinstance(
+                        obj_arg.type, ir.FloatType
+                    ):
                         if isinstance(obj_arg.type, ir.FloatType):
                             obj_arg = self.ctx.builder.fpext(obj_arg, ir.DoubleType())
                         create_float = self.ffi.get_or_declare_function("MXCreateFloat")
@@ -344,22 +421,36 @@ class LLVMGenerator:
                         if target_ty is self.ctx.obj_ptr_t:
                             if isinstance(arg.type, ir.IntType):
                                 if arg.type.width == 1:
-                                    true_fn = self.ffi.get_or_declare_function("mxs_get_true")
-                                    false_fn = self.ffi.get_or_declare_function("mxs_get_false")
+                                    true_fn = self.ffi.get_or_declare_function(
+                                        "mxs_get_true"
+                                    )
+                                    false_fn = self.ffi.get_or_declare_function(
+                                        "mxs_get_false"
+                                    )
                                     obj_true = self.ctx.builder.call(true_fn, [])
                                     obj_false = self.ctx.builder.call(false_fn, [])
-                                    arg = self.ctx.builder.select(arg, obj_true, obj_false)
+                                    arg = self.ctx.builder.select(
+                                        arg, obj_true, obj_false
+                                    )
                                 else:
                                     if arg.type.width < self.ctx.int_t.width:
                                         arg = self.ctx.builder.sext(arg, self.ctx.int_t)
                                     elif arg.type.width > self.ctx.int_t.width:
-                                        arg = self.ctx.builder.trunc(arg, self.ctx.int_t)
-                                    create_int = self.ffi.get_or_declare_function("MXCreateInteger")
+                                        arg = self.ctx.builder.trunc(
+                                            arg, self.ctx.int_t
+                                        )
+                                    create_int = self.ffi.get_or_declare_function(
+                                        "MXCreateInteger"
+                                    )
                                     arg = self.ctx.builder.call(create_int, [arg])
-                            elif isinstance(arg.type, ir.DoubleType) or isinstance(arg.type, ir.FloatType):
+                            elif isinstance(arg.type, ir.DoubleType) or isinstance(
+                                arg.type, ir.FloatType
+                            ):
                                 if isinstance(arg.type, ir.FloatType):
                                     arg = self.ctx.builder.fpext(arg, ir.DoubleType())
-                                create_float = self.ffi.get_or_declare_function("MXCreateFloat")
+                                create_float = self.ffi.get_or_declare_function(
+                                    "MXCreateFloat"
+                                )
                                 arg = self.ctx.builder.call(create_float, [arg])
                         if arg.type != target_ty:
                             if isinstance(target_ty, ir.PointerType) and isinstance(

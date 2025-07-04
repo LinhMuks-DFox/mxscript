@@ -89,7 +89,7 @@ class ScopeExit(Instr):
 class ProgramIR:
     code: List[Instr]
     functions: Dict[str, Function]
-    foreign_functions: Dict[str, str]
+    foreign_functions: Dict[str, Dict[str, str]]
 
 
 @dataclass
