@@ -37,6 +37,10 @@ namespace mxs_runtime {
         MXError();
         virtual ~MXError() = default;
         auto repr() const -> inner_string override;
+        explicit MXError(inner_string msg);
+        explicit MXError(inner_string error_type, inner_string msg);
+        explicit MXError(inner_string error_type, inner_string msg, MXObject *olter);
+        explicit MXError(inner_string error_type, inner_string msg, inner_boolean panic);
 
     private:
         inner_string msg;
