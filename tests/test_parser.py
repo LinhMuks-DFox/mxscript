@@ -505,3 +505,34 @@ def test_parse_foreign_function():
     assert func.body.statements == []
 
 
+def test_parse_foreign_method_in_class():
+    src = (
+        "class String {\n"
+        "    @@foreign(lib=\"runtime.so\", symbol_name=\"mxs_string_from_integer\")\n"
+        "    static func from(value: Integer) -> String;\n"
+        "}"
+    )
+    program = parse(src)
+    cls = program.statements[0]
+    assert isinstance(cls, ClassDef)
+    method = next(m for m in cls.body.statements if isinstance(m, MethodDef))
+    assert method.ffi_info == {
+        "lib": "runtime.so",
+        "symbol_name": "mxs_string_from_integer",
+    }
+    assert method.body.statements == []
+
+
+def test_annotation_not_allowed_on_field():
+    src = (
+        "class MyClass {\n"
+        "    @@foreign(lib=\"runtime.so\")\n"
+        "    let value: int;\n"
+        "}"
+    )
+    tokens = tokenize(src)
+    stream = TokenStream(tokens)
+    with pytest.raises(SyntaxError):
+        Parser(stream).parse()
+
+

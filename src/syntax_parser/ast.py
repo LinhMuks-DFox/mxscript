@@ -173,6 +173,8 @@ class MethodDef(Statement):
     signature: FuncSig
     body: Block
     is_override: bool = False
+    template_params: list[str] | None = None
+    ffi_info: Dict[str, str] | None = None
 
 
 @dataclass
