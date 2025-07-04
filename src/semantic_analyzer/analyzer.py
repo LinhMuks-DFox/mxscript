@@ -404,6 +404,7 @@ class SemanticAnalyzer:
         type_info = TypeInfo(name=cls.name)
         self.type_registry[cls.name] = type_info
 
+        self.variables_stack.append({})
         for member in cls.body.statements:
             if isinstance(member, DestructorDef):
                 type_info.has_destructor = True
@@ -419,6 +420,12 @@ class SemanticAnalyzer:
                     self._visit_statement(stmt)
                 self.variables_stack.pop()
             elif isinstance(member, (MethodDef, OperatorDef)):
+                if member.ffi_info is not None:
+                    # Register FFI stubs so other methods can call them
+                    self._current_scope()[member.name] = VarInfo(
+                        member.name, None, False, True
+                    )
+                    continue
                 param_names = {
                     n: VarInfo(n) for p in member.signature.params for n in p.names
                 }
@@ -437,6 +444,7 @@ class SemanticAnalyzer:
             else:
                 # For now, simply visit any nested statements
                 self._visit_statement(member)
+        self.variables_stack.pop()
 
     def _visit_expression(self, expr: Expression) -> None:
         if isinstance(expr, Identifier):
