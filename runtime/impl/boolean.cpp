@@ -4,9 +4,7 @@
 
 namespace mxs_runtime {
 
-    static MXObject *bool_add_stub(MXObject *, MXObject *) { return nullptr; }
-    static const MXTypeInfo BOOLEAN_TYPE_INFO{ "Boolean", nullptr, bool_add_stub, nullptr,
-                                               nullptr };
+    static const MXTypeInfo BOOLEAN_TYPE_INFO{ "Boolean", nullptr };
     static MXBoolean true_instance{ true };
     static MXBoolean false_instance{ false };
 

@@ -1,23 +1,18 @@
 #include "include/object.h"
 #include "_typedef.hpp"
 #include "allocator.hpp"
+#include "boolean.hpp"
 #include "typeinfo.h"
 #include <cstddef>
 #include <cstring>
 
 namespace mxs_runtime {
 
-    static MXObject *object_add_stub(MXObject *, MXObject *) { return nullptr; }
-
-    static const MXTypeInfo OBJECT_TYPE_INFO{ "object", nullptr, object_add_stub, nullptr,
-                                              nullptr };
+    static const MXTypeInfo OBJECT_TYPE_INFO{ "object", nullptr };
 
     MXObject::MXObject(const MXTypeInfo *info, bool is_static)
         : type_info(info), _is_static(is_static) { }
 
-    MXObject::~MXObject() {
-        if (!_is_static) { MX_ALLOCATOR.unregisterObject(this); }
-    }
 
     MXObject::MXObject(const MXObject &other)
         : type_info(other.type_info), _is_static(other._is_static) { }
@@ -44,12 +39,56 @@ namespace mxs_runtime {
     }
 
     auto MXObject::repr() const -> inner_string { return type_info->name; }
-    static const MXTypeInfo g_mxerror_type_info{ "Error", nullptr, nullptr, nullptr,
-                                                 nullptr };
+    static const MXTypeInfo g_mxerror_type_info{ "Error", nullptr };
     MXError::MXError() : MXObject(&g_mxerror_type_info, false) { }
 
     auto MXError::repr() const -> inner_string {
         return inner_string("An MXError occurred.");
+    }
+
+    auto MXObject::op_add(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '+' not supported.");
+    }
+
+    auto MXObject::op_sub(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '-' not supported.");
+    }
+
+    auto MXObject::op_mul(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '*' not supported.");
+    }
+
+    auto MXObject::op_div(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '/' not supported.");
+    }
+
+    auto MXObject::op_eq(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '==' not supported.");
+    }
+
+    auto MXObject::op_ne(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '!=' not supported.");
+    }
+
+    auto MXObject::op_lt(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '<' not supported.");
+    }
+
+    auto MXObject::op_le(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '<=' not supported.");
+    }
+
+    auto MXObject::op_gt(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '>' not supported.");
+    }
+
+    auto MXObject::op_ge(const MXObject &other) -> MXObject * {
+        return new MXError("TypeError: Operator '>=' not supported.");
+    }
+
+    auto MXObject::op_is(const MXObject &other) -> MXObject * {
+        return this == &other ? const_cast<MXBoolean *>(&MX_TRUE)
+                              : const_cast<MXBoolean *>(&MX_FALSE);
     }
 }// namespace mxs_runtime
 
@@ -88,6 +127,17 @@ void mx_object_repr(mxs_runtime::MXObject *obj, char *buffer, std::size_t buffer
     std::string repr = obj->repr();
     std::strncpy(buffer, repr.c_str(), buffer_size - 1);
     buffer[buffer_size - 1] = '\0';
+}
+
+MXS_API bool mxs_is_instance(mxs_runtime::MXObject *obj,
+                             const mxs_runtime::MXTypeInfo *target_type_info) {
+    if (!obj || !target_type_info) return false;
+    const mxs_runtime::MXTypeInfo *cur = obj->get_type_info();
+    while (cur) {
+        if (cur == target_type_info) return true;
+        cur = cur->parent;
+    }
+    return false;
 }
 
 }// extern "C"
