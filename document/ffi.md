@@ -51,9 +51,9 @@ This special mode is triggered when the `argv` parameter **is** present in the `
 
   * **MxScript Declaration**:
     ```mxscript
-    // The "..." in the MxScript signature indicates it's variadic.
-    // The `argv` parameter tells the compiler to pack all arguments
-    // starting from the first one into a List.
+    # The "..." in the MxScript signature indicates it's variadic.
+    # The `argv` parameter tells the compiler to pack all arguments
+    # starting from the first one into a List.
     @@foreign(lib="libc.so.6", symbol_name="printf", argv=[1,...])
     func c_printf(format: String, ...) -> int;
     ```
