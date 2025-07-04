@@ -1,6 +1,6 @@
-// MxScript builtin library
+# MxScript builtin library
 
-// --- Global Functions ---
+# --- Global Functions ---
 @@foreign(lib="runtime.so", symbol_name="mxs_print_object_ext")
 func print(obj: Object, end: String = "\n") -> Nil;
 
@@ -15,7 +15,7 @@ func cast(target_type: Target, value: Origin) -> Target | Error {
     return target_type.from(value);
 }
 
-// --- Class Definitions ---
+# --- Class Definitions ---
 class Integer {
     @@foreign(lib="runtime.so", symbol_name="mxs_integer_add_integer")
     func +(other: Integer) -> Integer;
