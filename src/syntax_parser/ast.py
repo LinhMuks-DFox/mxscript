@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from ..frontend.tokens import Token
 
@@ -162,6 +162,7 @@ class FuncDef(Statement):
     signature: FuncSig
     body: Block
     template_params: list[str] | None = None
+    ffi_info: Dict[str, str] | None = None
 
 
 @dataclass
@@ -227,13 +228,6 @@ class FieldDef(Statement):
 @dataclass
 class AccessSpec(Statement):
     level: str
-
-
-@dataclass
-class ForeignFuncDecl(Statement):
-    name: str
-    signature: FuncSig
-    c_name: str
 
 
 @dataclass

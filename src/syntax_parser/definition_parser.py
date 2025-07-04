@@ -4,7 +4,6 @@ from .ast import (
     Parameter,
     FuncSig,
     FuncDef,
-    ForeignFuncDecl,
     ClassDef,
     InterfaceDef,
     FieldDef,
@@ -25,14 +24,30 @@ class DefinitionParserMixin:
         name = self._expect(TokenType.IDENTIFIER).value
         sig = self.parse_func_sig()
         template_params = None
+        ffi_info = None
         if annotation and annotation.get("name") == "foreign":
             self._expect(TokenType.SEMICOLON)
-            c_name = annotation.get("c_name")
-            return ForeignFuncDecl(name, sig, c_name, loc=start)
+            ffi_info = {k: v for k, v in annotation.items() if k != "name"}
+            body = Block([], loc=start)
+            return FuncDef(
+                name,
+                sig,
+                body,
+                template_params=None,
+                ffi_info=ffi_info,
+                loc=start,
+            )
         if annotation and annotation.get("name") == "template":
             template_params = annotation.get("params")
         body = self.parse_block()
-        return FuncDef(name, sig, body, template_params=template_params, loc=start)
+        return FuncDef(
+            name,
+            sig,
+            body,
+            template_params=template_params,
+            ffi_info=ffi_info,
+            loc=start,
+        )
 
     def parse_class_def(self, annotation=None):
         start = self._expect(TokenType.CLASS)

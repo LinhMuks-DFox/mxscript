@@ -24,7 +24,6 @@ from .ast import (
     FuncDef,
     ClassDef,
     DestructorDef,
-    ForeignFuncDecl,
     UnaryOp,
     MemberAccess,
     MemberAssign,
@@ -142,13 +141,18 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
                 raise SyntaxError("@@template must be followed by parentheses", loc)
             params = self.parse_template_params(allow_angles=False)
             return {"name": name, "params": params}
-        args = {}
+        args: Dict[str, str] = {}
         if self.stream.peek().type == TokenType.LPAREN:
             self.stream.next()
-            key = self._expect(TokenType.IDENTIFIER).value
-            self._expect(TokenType.ASSIGN)
-            val_tok = self._expect(TokenType.STRING)
-            args[key] = val_tok.value
+            while True:
+                key = self._expect(TokenType.IDENTIFIER).value
+                self._expect(TokenType.ASSIGN)
+                val_tok = self._expect(TokenType.STRING)
+                args[key] = val_tok.value
+                if self.stream.peek().type == TokenType.COMMA:
+                    self.stream.next()
+                    continue
+                break
             self._expect(TokenType.RPAREN)
         return {"name": name, **args}
 

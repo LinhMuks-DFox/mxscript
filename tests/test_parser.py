@@ -493,3 +493,15 @@ def test_parse_pod_class():
     assert cls.is_pod
 
 
+def test_parse_foreign_function():
+    src = (
+        '@@foreign(lib="runtime.so", symbol_name="mxs_add")\n'
+        'func add(a: int, b: int) -> int;'
+    )
+    program = parse(src)
+    func = program.statements[0]
+    assert isinstance(func, FuncDef)
+    assert func.ffi_info == {"lib": "runtime.so", "symbol_name": "mxs_add"}
+    assert func.body.statements == []
+
+

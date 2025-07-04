@@ -133,3 +133,12 @@ def test_shadowing_ok():
     src = "let x = 1; { let x = 2; }"
     analyze(src)
 
+
+def test_semantic_foreign_function():
+    src = (
+        '@@foreign(c_name="noop")\n'
+        'func noop(x: int) -> int;\n'
+        'func main() { noop(1); }'
+    )
+    analyze(src)
+

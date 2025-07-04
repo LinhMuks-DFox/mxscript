@@ -14,7 +14,6 @@ from ..syntax_parser.ast import (
     FuncDef,
     MethodDef,
     OperatorDef,
-    ForeignFuncDecl,
     ExprStmt,
     ForInStmt,
     LoopStmt,
@@ -116,10 +115,6 @@ class SemanticAnalyzer:
                 self.functions.add(stmt.name)
                 if self.function_signatures is not None:
                     self.function_signatures[stmt.name] = None
-            elif isinstance(stmt, ForeignFuncDecl):
-                self.functions.add(stmt.name)
-                if self.function_signatures is not None:
-                    self.function_signatures[stmt.name] = stmt.signature
             elif isinstance(stmt, ImportStmt):
                 try:
                     mod_ast = load_module_ast(stmt.module)
@@ -341,6 +336,7 @@ class SemanticAnalyzer:
             if isinstance(stmt, FunctionDecl):
                 params = {name: VarInfo(name) for name in stmt.params}
                 body = stmt.body
+                skip_body = False
             else:
                 params = {
                     n: VarInfo(n, p.type_name)
@@ -351,13 +347,12 @@ class SemanticAnalyzer:
                     if p.default is not None:
                         self._visit_expression(p.default)
                 body = stmt.body.statements
+                skip_body = stmt.ffi_info is not None
             self.variables_stack.append(params)
-            for s in body:
-                self._visit_statement(s)
+            if not skip_body:
+                for s in body:
+                    self._visit_statement(s)
             self.variables_stack.pop()
-        elif isinstance(stmt, ForeignFuncDecl):
-            # no body to check
-            pass
         elif isinstance(stmt, ClassDef):
             self._visit_class_def(stmt)
         elif isinstance(stmt, InterfaceDef):

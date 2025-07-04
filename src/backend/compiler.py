@@ -14,7 +14,6 @@ from ..syntax_parser.ast import (
     FunctionDecl,
     FuncDef,
     AssignExpr,
-    ForeignFuncDecl,
     Identifier,
     Integer,
     Float,
@@ -176,8 +175,9 @@ def compile_program(
                         stmt.name, member, alias_map, type_registry
                     )
                     functions[ctor_ir.name] = ctor_ir
-        elif isinstance(stmt, ForeignFuncDecl):
-            foreign_functions[stmt.name] = stmt.c_name
+        elif isinstance(stmt, FuncDef) and stmt.ffi_info is not None:
+            symbol = stmt.ffi_info.get("c_name") or stmt.ffi_info.get("symbol_name", stmt.name)
+            foreign_functions[stmt.name] = symbol
         elif isinstance(stmt, ImportStmt):
             mod_name = stmt.module
             try:
