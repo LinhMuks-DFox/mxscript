@@ -11,10 +11,6 @@ namespace mxs_runtime {
     struct MXTypeInfo {
         const char *name;
         const MXTypeInfo *parent;
-        // Binary operation vtable entries
-        MXObject *(*op_add)(MXObject *, MXObject *);
-        MXObject *(*op_sub)(MXObject *, MXObject *);
-        MXObject *(*op_eq)(MXObject *, MXObject *);
     };
 }
 
@@ -30,6 +26,8 @@ MXS_API mxs_runtime::MXObject *mxs_op_add(mxs_runtime::MXObject *,
 MXS_API mxs_runtime::MXObject *mxs_op_sub(mxs_runtime::MXObject *,
                                           mxs_runtime::MXObject *);
 MXS_API mxs_runtime::inner_integer mxs_get_integer_value(mxs_runtime::MXObject *);
+MXS_API bool mxs_is_instance(mxs_runtime::MXObject *obj,
+                             const mxs_runtime::MXTypeInfo *target_type_info);
 #ifdef __cplusplus
 }
 #endif
