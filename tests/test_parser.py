@@ -139,10 +139,26 @@ def test_parse_func_def():
     assert len(func.signature.params) == 2
     assert func.signature.params[0].names == ["x"]
     assert func.signature.params[0].type_name == "int"
-    assert func.signature.return_type == "int"
+    assert func.signature.return_type == ["int"]
     assert isinstance(func.body, Block)
     assert len(func.body.statements) == 1
     assert isinstance(func.body.statements[0], LetStmt)
+
+
+def test_parse_union_return_type():
+    src = "func cast(target_type: Target, value: Origin) -> Target | Error {}"
+    program = parse(src)
+    func = program.statements[0]
+    assert isinstance(func, FuncDef)
+    assert func.signature.return_type == ["Target", "Error"]
+
+
+def test_parse_multiple_union_return_type():
+    src = "func process_data() -> String | Integer | Nil {}"
+    program = parse(src)
+    func = program.statements[0]
+    assert isinstance(func, FuncDef)
+    assert func.signature.return_type == ["String", "Integer", "Nil"]
 
 
 def test_nested_blocks():

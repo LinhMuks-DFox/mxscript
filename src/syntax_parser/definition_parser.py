@@ -296,11 +296,14 @@ class DefinitionParserMixin:
                     self.stream.next()
                     params.append(self.parse_param())
         self._expect(TokenType.RPAREN)
-        return_type = None
+        return_types: list[str] | None = None
         if self.stream.peek().type == TokenType.ARROW:
             self.stream.next()
-            return_type = self.parse_type_spec()
-        return FuncSig(params, return_type, var_arg, loc=start)
+            return_types = [self.parse_type_spec()]
+            while self.stream.peek().type == TokenType.PIPE:
+                self.stream.next()
+                return_types.append(self.parse_type_spec())
+        return FuncSig(params, return_types, var_arg, loc=start)
 
     def parse_param(self) -> Parameter:
         names = [self._expect(TokenType.IDENTIFIER).value]

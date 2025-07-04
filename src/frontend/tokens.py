@@ -91,6 +91,7 @@ class TokenType(Enum):
     SLASH_EQ = auto()
     AND_AND = auto()
     OR_OR = auto()
+    PIPE = auto()
     ARROW = auto()
     FAT_ARROW = auto()
     DOT = auto()
@@ -175,6 +176,7 @@ OPERATORS = {
     "/=": TokenType.SLASH_EQ,
     "&&": TokenType.AND_AND,
     "||": TokenType.OR_OR,
+    "|": TokenType.PIPE,
     "->": TokenType.ARROW,
     "=>": TokenType.FAT_ARROW,
     "+": TokenType.PLUS,
