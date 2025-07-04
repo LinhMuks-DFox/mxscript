@@ -60,6 +60,7 @@ class VarInfo:
     name: str
     type_name: str | None = None
     is_mut: bool = False
+    is_ffi: bool = False
 
 
 @dataclass
@@ -358,6 +359,10 @@ class SemanticAnalyzer:
                         self._visit_expression(p.default)
                 body = stmt.body.statements
                 skip_body = stmt.ffi_info is not None
+            if isinstance(stmt, FuncDef) and stmt.ffi_info is not None:
+                self._current_scope()[stmt.name] = VarInfo(
+                    stmt.name, None, False, True
+                )
             self.variables_stack.append(params)
             if not skip_body:
                 for s in body:

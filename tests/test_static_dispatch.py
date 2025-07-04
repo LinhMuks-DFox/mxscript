@@ -14,10 +14,12 @@ def compile_ir(code: str) -> str:
 
 def test_integer_add_dispatch():
     ir = compile_ir("1 + 2;")
-    assert 'call i8* @\"integer_add_integer\"' in ir
+    assert 'mxs_ffi_call' in ir
+    assert 'mxs_integer_add_integer' in ir
     assert 'add i64' not in ir
 
 def test_integer_sub_dispatch():
     ir = compile_ir("1 - 2;")
-    assert 'call i8* @\"integer_sub_integer\"' in ir
+    assert 'mxs_ffi_call' in ir
+    assert 'mxs_integer_sub_integer' in ir
     assert 'sub i64' not in ir

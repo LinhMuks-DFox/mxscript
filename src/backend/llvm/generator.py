@@ -27,11 +27,6 @@ from .context import LLVMContext
 from ..ffi import FFIManager
 from ..abi_manager import get_function_signature
 
-STATIC_DISPATCH_MAP = {
-    ("int", "+", "int"): "integer_add_integer",
-    ("int", "-", "int"): "integer_sub_integer",
-}
-
 DYNAMIC_DISPATCH_MAP = {
     "+": "mxs_op_add",
     "-": "mxs_op_sub",
@@ -326,17 +321,42 @@ class LLVMGenerator:
                 create_int = self.ffi.get_or_declare_function("MXCreateInteger")
                 a_obj = self.ctx.builder.call(create_int, [a])
                 b_obj = self.ctx.builder.call(create_int, [b])
-                func_name = STATIC_DISPATCH_MAP.get(key)
-                if func_name:
-                    self.ctx.builder.comment("STATIC dispatch")
-                    callee = self.ffi.get_or_declare_function(func_name)
-                else:
-                    self.ctx.builder.comment("DYNAMIC dispatch")
+                self.ctx.builder.comment("FFI dispatch")
+                symbol = None
+                if instr.left_type == "int" and instr.right_type == "int":
+                    if op == "+":
+                        symbol = "mxs_integer_add_integer"
+                    elif op == "-":
+                        symbol = "mxs_integer_sub_integer"
+                if symbol is None:
                     callee_name = DYNAMIC_DISPATCH_MAP.get(op)
                     if callee_name is None:
                         raise RuntimeError(f"Unsupported op {op}")
-                    callee = self.ffi.get_or_declare_function(callee_name)
-                obj_res = self.ctx.builder.call(callee, [a_obj, b_obj])
+                    symbol = callee_name
+                create_str = self.ffi.get_or_declare_function("MXCreateString")
+                lib_ptr = self._create_global_string("runtime.so")
+                lib_obj = self.ctx.builder.call(create_str, [lib_ptr])
+                sym_ptr = self._create_global_string(symbol)
+                sym_obj = self.ctx.builder.call(create_str, [sym_ptr])
+                arr = self.ctx.builder.alloca(
+                    self.ctx.obj_ptr_t,
+                    ir.Constant(self.ctx.int_t, 2),
+                )
+                for idx, obj in enumerate([a_obj, b_obj]):
+                    ptr = self.ctx.builder.gep(
+                        arr, [ir.Constant(self.ctx.int_t, idx)]
+                    )
+                    self.ctx.builder.store(obj, ptr)
+                ffi_fn = self.functions["mxs_ffi_call"]
+                obj_res = self.ctx.builder.call(
+                    ffi_fn,
+                    [
+                        lib_obj,
+                        sym_obj,
+                        ir.Constant(self.ctx.int_t, 2),
+                        arr,
+                    ],
+                )
                 get_val = self.ffi.get_or_declare_function("mxs_get_integer_value")
                 result = self.ctx.builder.call(get_val, [obj_res])
                 stack.append(result)
