@@ -1,4 +1,6 @@
 #include "ffi.hpp"
+#include "container.hpp"
+#include "numeric.hpp"
 #include "string.hpp"
 #include <dlfcn.h>
 #include <string>
@@ -68,4 +70,21 @@ extern "C" auto mxs_ffi_call(mxs_runtime::MXObject *lib_name_obj,
         default:
             return new MXError("FFIError", "unsupported argument count");
     }
+}
+
+extern "C" auto mxs_variadic_print(mxs_runtime::MXObject *fmt_obj,
+                                   mxs_runtime::MXObject *list_obj)
+        -> mxs_runtime::MXObject * {
+    using namespace mxs_runtime;
+    auto *fmt = dynamic_cast<MXString *>(fmt_obj);
+    auto *lst = dynamic_cast<MXList *>(list_obj);
+    if (!fmt || !lst) { return new MXError("TypeError", "expected String and List"); }
+    std::string out = fmt->value;
+    for (MXObject *elem : lst->elements) {
+        out += " ";
+        out += elem->repr();
+    }
+    std::printf("%s", out.c_str());
+    std::fflush(stdout);
+    return MXCreateInteger(static_cast<inner_integer>(lst->elements.size()));
 }

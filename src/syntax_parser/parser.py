@@ -141,14 +141,24 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
                 raise SyntaxError("@@template must be followed by parentheses", loc)
             params = self.parse_template_params(allow_angles=False)
             return {"name": name, "params": params}
-        args: Dict[str, str] = {}
+        args: Dict[str, object] = {}
         if self.stream.peek().type == TokenType.LPAREN:
             self.stream.next()
             while True:
                 key = self._expect(TokenType.IDENTIFIER).value
                 self._expect(TokenType.ASSIGN)
-                val_tok = self._expect(TokenType.STRING)
-                args[key] = val_tok.value
+                if key == "argv":
+                    self._expect(TokenType.LBRACKET)
+                    start_tok = self._expect(TokenType.INTEGER)
+                    start_idx = int(start_tok.value)
+                    if self.stream.peek().type == TokenType.COMMA:
+                        self.stream.next()
+                        self._expect(TokenType.ELLIPSIS)
+                    self._expect(TokenType.RBRACKET)
+                    args[key] = {"pack_args_from": start_idx}
+                else:
+                    val_tok = self._expect(TokenType.STRING)
+                    args[key] = val_tok.value
                 if self.stream.peek().type == TokenType.COMMA:
                     self.stream.next()
                     continue

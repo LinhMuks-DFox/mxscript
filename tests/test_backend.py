@@ -221,3 +221,18 @@ def test_break_llir_generation():
     assert any(
         isinstance(instr, Br) and instr.label == break_target for instr in ir.code
     )
+
+
+def test_ffi_variadic_call(capfd):
+    src = (
+        '@@foreign(lib="runtime.so", symbol_name="mxs_variadic_print", argv=[1,...])\n'
+        'func c_printf(fmt: String, ...) -> int;\n'
+        'func main() -> int {\n'
+        '    c_printf("Hello", "world", 123);\n'
+        '    return 0;\n'
+        '}'
+    )
+    result = compile_and_run(src)
+    captured = capfd.readouterr()
+    assert "Hello world 123" in captured.out
+    assert result == 0
