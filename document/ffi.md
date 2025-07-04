@@ -1,82 +1,84 @@
-# MxScript Foreign Function Interface (FFI) Specification
+# MxScript Foreign Function Interface (FFI) Master Specification
 
-## Version
+## Document Purpose
 
-| Item | Value |
-| :--- | :--- |
-| Version | 2.0.0 |
-| Status | **Active** |
-| Updated | 2025-07-04 |
+This document provides the authoritative specification for the MxScript Foreign Function Interface (FFI). All implementation work related to FFI **must** strictly adhere to the architecture and mechanisms described herein.
 
-## 1\. Core Concept
+## 1\. Core Philosophy
 
-The FFI is the **sole and unified mechanism** for MxScript to interface with compiled C++ code. It is not only for calling external libraries but is also the fundamental way the MxScript standard library binds its high-level APIs to the efficient C++ runtime implementations.
-
-This is achieved through **declaration binding**. A function or method is declared in an `.mxs` file (e.g., in the standard library) and uses a `@@foreign` annotation to link it to a specific C++ function.
+The FFI is the **unified and sole mechanism** for MxScript to interface with compiled C++ code. It is used both to bind the standard library to its C++ runtime implementation and to allow users to call arbitrary external shared libraries. The system is based on **declaration binding**.
 
 ## 2\. The `@@foreign` Annotation
 
-The `@@foreign` annotation must be placed directly before a `func` declaration (including `static` methods). It instructs the compiler to treat the function as an external C++ call.
+### 2.1. Syntax and Placement
 
-### 2.1. Syntax
+The `@@foreign` annotation must be placed directly before a `func` declaration.
 
 ```mxscript
-@@foreign(lib: string, name: string)
+@@foreign(lib: string, symbol_name: string, ...)
 func mxscript_function_name(arg1: Type1, ...) -> ReturnType;
 ```
 
-  * **`lib: string`**: The name of the shared library file. For all core functionalities, this will be `"runtime.so"` (or the platform-equivalent).
-  * **`name: string`**: The exact symbol name of the C function to call. If omitted, the MxScript function name is used.
+### 2.2. Parameters
 
-### 2.2. Example: Standard Library Binding
+  * **`lib: string` (Mandatory)**: The name of the shared library file (e.g., `"runtime.so"`, `"libc.so.6"`).
+  * **`symbol_name: string` (Optional)**: The exact symbol name of the C function to call. If omitted, the MxScript function name is used as the default.
+  * **`argc: int` (Optional)**: Explicitly declares the expected number of arguments for validation purposes.
+  * **`argv: list` (Optional, Special Handling)**: Specifies that the arguments should be packed into a container. See Section 3.2.2 for details.
 
-The `cast` function is a prime example of this mechanism. It is pure syntactic sugar for a static method call, which is itself bound to a C++ function via FFI.
+## 3\. End-to-End Workflow & Dispatch Modes
 
-**1. User Code:**
+The compiler translates an FFI-bound MxScript call into a call to a universal C++ runtime helper, `mxs_ffi_call`. The way arguments are prepared for this call depends on the FFI annotation.
 
-```mxscript
-// The user writes this simple, high-level code.
-let i_str = cast(String, 3);
-```
+### 3.1. Default Dispatch Mode (Individual Arguments)
 
-**2. Compiler Translation:**
-The compiler translates the `cast` into a static method call:
+This is the standard mode used when the `argv` parameter is **not** present in the `@@foreign` annotation.
 
-```mxscript
-let i_str = String.from(3);
-```
+  * **MxScript Declaration**:
+    ```mxscript
+    class String {
+        @@foreign(lib="runtime.so", symbol_name="mxs_string_from_integer")
+        static func from(value: Integer) -> String;
+    }
+    ```
+  * **Compiler `CodeGen` Behavior**:
+    The call `String.from(3)` is translated into a conceptual call to the universal FFI helper, passing the arguments individually.
+    `mxs_ffi_call("runtime.so", "mxs_string_from_integer", 1, [ &mx_integer_obj ])`
 
-**3. Standard Library Definition (`stdlib/string.mxs`):**
-The `String.from` method is defined in the standard library using the FFI annotation:
+### 3.2. Packed Dispatch Mode (Variadic/List Arguments)
 
-```mxscript
-class String {
-    // This static method is bound to a C++ function in the runtime library.
-    @@foreign(lib="runtime.so", name="mxs_string_from_integer")
-    static func from(value: Integer) -> String;
-}
-```
+This special mode is triggered when the `argv` parameter **is** present in the `@@foreign` annotation. It is designed for calling C functions that expect an array of arguments, such as `execv` or variadic functions like `printf`.
 
-## 3\. Compiler Responsibilities
+  * **MxScript Declaration**:
+    ```mxscript
+    // The "..." in the MxScript signature indicates it's variadic.
+    // The `argv` parameter tells the compiler to pack all arguments
+    // starting from the first one into a List.
+    @@foreign(lib="libc.so.6", symbol_name="printf", argv=[1,...])
+    func c_printf(format: String, ...) -> int;
+    ```
+  * **Compiler `CodeGen` Behavior**:
+    The call `c_printf("Hello %s %d", "world", 123)` is translated differently:
+    1.  The `CodeGen` sees the `argv` directive.
+    2.  It creates a new `MXList` object at the call site.
+    3.  It populates this list with the specified arguments (`"world"` and `123`).
+    4.  The final call to the universal FFI helper passes the format string and the **`MXList` object** as its two arguments.
+        `mxs_ffi_call("runtime.so", "printf", 2, [ &format_string_obj, &list_obj ])`
 
-The compiler's role is unified and simplified. It no longer needs special internal rules for static dispatch.
+## 4\. C++ API Contract
 
-  * **Parser**: Must parse the `@@foreign(...)` annotation and attach its metadata to the `FunctionDef` AST node.
-  * **Semantic Analyzer**: Registers the function as an "external" call and performs type checking based on the MxScript signature.
-  * **Code Generator (Codegen)**: When encountering a call to an FFI-bound function:
-    1.  **Load Library & Get Symbol**: Generate a call to a runtime helper (`mxs_get_foreign_func`) to resolve the C function pointer from the specified library.
-    2.  **Argument Passing**: All arguments passed from MxScript to the C++ function **must be passed as `MXObject*` pointers**. No marshalling to primitive C types occurs at the call site.
-    3.  **Generate Call**: Generate an LLVM `call` instruction to the resolved C function pointer.
-    4.  **Return Value**: The return value from the C function is expected to be an `MXObject*`, which is then used directly.
+### 4.1. The Universal FFI Helper
 
-## 4\. C++ Runtime Responsibilities
+  * **Function**: `mxs_ffi_call`
+  * **Signature**: `auto mxs_ffi_call(MXString* lib, MXString* name, int argc, MXObject** argv) -> MXObject*`
+  * **Responsibility**: Encapsulates all logic for library loading, symbol lookup, and function invocation. This is the **only** FFI-related function the `CodeGen` should directly call. It needs to be flexible enough to handle both dispatch modes.
 
-  * **Provide C API Functions**: The runtime must expose a suite of `extern "C"` functions with C-compatible linkage.
-  * **Function Signature**: All FFI-callable functions must adhere to the signature:
-    `auto function_name(MXObject* arg1, ...) -> MXObject*`.
-  * **Internal Type Checking**: Since all arguments are received as `MXObject*`, it is the **responsibility of the C++ function itself** to verify the types of its arguments before using them. It must check the `type_info` of the incoming objects and return an `MXError` if the types are incorrect.
+### 4.2. Target Function Contract
 
-**Example C++ Implementation:**
+  * **Signature**: All target C++ functions must accept `MXObject*` pointers as arguments and return an `MXObject*`.
+  * **Internal Type Safety**: It is the strict responsibility of every target C++ function to perform **runtime type checking** on the `MXObject*` pointers it receives. It must verify the `type_info` of each argument and return an `MXError` object on mismatch.
+
+**Example C++ Implementation**:
 
 ```cpp
 extern "C" auto mxs_string_from_integer(MXObject* integer_obj) -> MXObject* {
@@ -84,12 +86,9 @@ extern "C" auto mxs_string_from_integer(MXObject* integer_obj) -> MXObject* {
     if (integer_obj->type_info != &g_integer_type_info) {
         return new MXError("TypeError", "Argument must be an Integer.");
     }
-
     // 2. Safely cast and perform the operation.
     auto int_val = static_cast<MXInteger*>(integer_obj)->value;
-    auto str_val = std::to_string(int_val);
-    
     // 3. Return a new MxScript object.
-    return new MXString(str_val);
+    return new MXString(std::to_string(int_val));
 }
 ```
