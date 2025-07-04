@@ -16,6 +16,7 @@ from .ast import (
     OperatorDef,
 )
 from ..frontend.tokens import TokenType
+from ..errors import SyntaxError
 
 
 class DefinitionParserMixin:
@@ -102,8 +103,11 @@ class DefinitionParserMixin:
         self._expect(TokenType.RBRACE)
         return InterfaceDef(name, Block(members), generic_params, [super_iface] if super_iface else None, loc=start)
 
-    def parse_class_member(self, class_name: str):
+    def parse_class_member(self, class_name: str, annotation=None):
         tok = self.stream.peek()
+        if annotation is None and tok.type == TokenType.ANNOTATION:
+            ann = self.parse_annotation()
+            return self.parse_class_member(class_name, ann)
         if tok.type in (TokenType.PUBLIC, TokenType.PRIVATE):
             level = tok.value
             self.stream.next()
@@ -113,19 +117,49 @@ class DefinitionParserMixin:
             self.stream.next()
             next_tok = self.stream.peek()
             if next_tok.type == TokenType.LET:
+                if annotation:
+                    raise SyntaxError(
+                        "Annotation only supported before methods",
+                        self._get_location(next_tok),
+                    )
                 return self.parse_field_def(is_static=True)
             else:
-                return self.parse_class_member(class_name)
+                return self.parse_class_member(class_name, annotation)
         if tok.type == TokenType.TILDE:
+            if annotation:
+                raise SyntaxError(
+                    "Annotation only supported before methods",
+                    self._get_location(tok),
+                )
             return self.parse_destructor_def()
         if tok.type == TokenType.IDENTIFIER and tok.value == class_name:
+            if annotation:
+                raise SyntaxError(
+                    "Annotation only supported before methods",
+                    self._get_location(tok),
+                )
             return self.parse_constructor_def()
         if tok.type == TokenType.OPERATOR_KW:
+            if annotation:
+                raise SyntaxError(
+                    "Annotation only supported before methods",
+                    self._get_location(tok),
+                )
             return self.parse_operator_def()
         if tok.type in (TokenType.OVERRIDE, TokenType.FUNC):
-            return self.parse_method_def()
+            return self.parse_method_def(annotation)
         if tok.type == TokenType.LET:
+            if annotation:
+                raise SyntaxError(
+                    "Annotation only supported before methods",
+                    self._get_location(tok),
+                )
             return self.parse_field_def(is_static=False)
+        if annotation:
+            raise SyntaxError(
+                "Annotation only supported before methods",
+                self._get_location(tok),
+            )
         return self.parse_statement()
 
     def parse_field_def(self, *, is_static: bool = False):
@@ -158,7 +192,7 @@ class DefinitionParserMixin:
         body = self.parse_block()
         return ConstructorDef(sig, body, super_call, loc=start_ident)
 
-    def parse_method_def(self):
+    def parse_method_def(self, annotation=None):
         override = False
         if self.stream.peek().type == TokenType.OVERRIDE:
             self.stream.next()
@@ -168,8 +202,33 @@ class DefinitionParserMixin:
         if self.stream.peek().type == TokenType.LESS:
             self.parse_generic_params()  # ignore for now
         sig = self.parse_func_sig()
+        template_params = None
+        ffi_info = None
+        if annotation and annotation.get("name") == "foreign":
+            self._expect(TokenType.SEMICOLON)
+            ffi_info = {k: v for k, v in annotation.items() if k != "name"}
+            body = Block([], loc=start)
+            return MethodDef(
+                name,
+                sig,
+                body,
+                override,
+                template_params=None,
+                ffi_info=ffi_info,
+                loc=start,
+            )
+        if annotation and annotation.get("name") == "template":
+            template_params = annotation.get("params")
         body = self.parse_block()
-        return MethodDef(name, sig, body, override, loc=start)
+        return MethodDef(
+            name,
+            sig,
+            body,
+            override,
+            template_params=template_params,
+            ffi_info=ffi_info,
+            loc=start,
+        )
 
     def parse_operator_def(self):
         override = False
