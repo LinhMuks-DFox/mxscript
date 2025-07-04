@@ -211,3 +211,41 @@ The primary benefit of the POD system is its impact on the `Array<T>` storage st
 
 * **Direct Storage (Unboxed)**: If `T` is a POD type, an `Array<T>` will be a true, contiguous block of `T` values in memory. For example, `[10]Vector3D` will be a single memory block of `10 * sizeof(Vector3D)`. This layout is cache-friendly, offers maximum performance, and allows for zero-copy interoperability with C/C++ libraries.
 * **Indirect Storage (Boxed)**: If `T` is not a POD type (the default for most classes), the `Array<T>` stores a contiguous sequence of pointers to the objects, which are individually allocated on the heap.
+
+
+### 7. Type Operation Functions
+
+Core functions for runtime type introspection and conversion are provided as built-ins.
+
+| Function Name | Signature | Description |
+| :--- | :--- | :--- |
+| `type_of` | `@@template(T) func type_of(instance: T) -> RTTIObject` | Gets an object representing the runtime type information. |
+| `is_instance` | `@@template(T) func is_instance(instance: Object, target_type: RTTIObject) -> bool` | Checks if an object is an instance of a given type. |
+| `cast` | `@@template(Target, Origin) func cast(target_type: RTTIObject, value: Origin) -> Target | Error` | Attempts to convert a value to a target type. |
+
+### 7.1. `type_of` and `is_instance`
+
+  * `type_of(instance)` returns a special `RTTIObject` which is a wrapper around the C++ `MXTypeInfo` structure. This `RTTIObject` can be stored and compared.
+  * `is_instance(instance, target_type)` performs a runtime check. It traverses the inheritance chain of `instance` (by following the `parent` pointers in the `MXTypeInfo` structures) to see if it matches the type represented by `target_type`.
+
+
+
+### 7.2. `cast` as a Hybrid Conversion Mechanism
+
+The `cast(Target, value)` function is a powerful, high-level **conversion constructor**, not a low-level memory cast. It asks the `Target` type to attempt to construct an instance of itself from `value`. To achieve maximum performance and flexibility, the compiler implements this using a **hybrid dispatch model**.
+
+#### 7.2.1. Static Dispatch ("Fast Path")
+
+This is the default and preferred mechanism, used whenever the compiler can determine both the `Target` and `value` types at compile-time.
+
+* **Behavior**: The `cast` expression is treated as **syntactic sugar**. The compiler translates `cast(String, my_integer)` directly into a call to a specific, high-performance C API function, such as `mxs_string_from_integer`.
+* **Implementation**: This relies on a comprehensive set of C++ functions dedicated to specific type conversions. This path completely bypasses virtual function overhead.
+
+#### 7.2.2. Dynamic Dispatch ("Polymorphic Path")
+
+This is the fallback mechanism, employed only when the `Target` type cannot be resolved at compile-time (e.g., when it is a variable holding a type object).
+
+* **Behavior**: When a static path is not available, the compiler generates a call to a generic C API function (`mxs_op_from`).
+* **Implementation**: This generic function uses the C++ **`virtual` function mechanism**. It effectively calls `Target.op_from(value)`, asking the target type at **runtime** if it knows how to construct itself from the source value. Each type can `override` the `op_from` method to define its supported conversions.
+
+This two-pronged approach ensures that `cast` is both extremely fast for the common, statically-known cases, and powerful enough to handle complex, dynamic polymorphism when required.
