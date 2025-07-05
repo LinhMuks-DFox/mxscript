@@ -501,6 +501,27 @@ def test_template_annotation_requires_parens():
         Parser(stream).parse()
 
 
+def test_parse_all_container_types():
+    src = (
+        "let x: List<int>;\n"
+        "let y: Dict<String, (int, float)>;\n"
+        "let z: [10]String;\n"
+        "let w: (int, String, List<bool>);\n"
+        "let p: *[5]MyObject;\n"
+    )
+    program = parse(src)
+    expected = [
+        "List<int>",
+        "Dict<String, (int, float)>",
+        "[10]String",
+        "(int, String, List<bool>)",
+        "*[5]MyObject",
+    ]
+    for stmt, typ in zip(program.statements, expected):
+        assert isinstance(stmt, LetStmt)
+        assert stmt.type_name == typ
+
+
 def test_parse_pod_class():
     src = "@@POD\nclass Vec { let x: int; }"
     program = parse(src)

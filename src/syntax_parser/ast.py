@@ -119,6 +119,23 @@ class String(Expression):
 
     value: str
 
+
+@dataclass
+class GenericType(Expression):
+    name: Identifier
+    type_params: List[Expression]
+
+
+@dataclass
+class ArrayType(Expression):
+    size: Expression
+    element_type: Expression
+
+
+@dataclass
+class TupleType(Expression):
+    element_types: List[Expression]
+
 @dataclass
 class BinaryOp(Expression):
     left: Expression
