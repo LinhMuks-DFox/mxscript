@@ -18,95 +18,95 @@ func cast(target_type: Target, value: Origin) -> Target | Error {
 # --- Class Definitions ---
 class Integer {
     @@foreign(lib="runtime.so", symbol_name="mxs_op_add")
-    operator+(other: Integer) -> Integer;
+    func operator+(other: Integer) -> Integer;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_add")
-    operator+(other: Float) -> Float;
+    func operator+(other: Float) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_sub")
-    operator-(other: Integer) -> Integer;
+    func operator-(other: Integer) -> Integer;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_sub")
-    operator-(other: Float) -> Float;
+    func operator-(other: Float) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_mul")
-    operator*(other: Integer) -> Integer;
+    func operator*(other: Integer) -> Integer;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_mul")
-    operator*(other: Float) -> Float;
+    func operator*(other: Float) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_div")
-    operator/(other: Integer) -> Integer;
+    func operator/(other: Integer) -> Integer;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_div")
-    operator/(other: Float) -> Float;
+    func operator/(other: Float) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_eq")
-    operator==(other: Integer) -> Boolean;
+    func operator==(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_eq")
-    operator==(other: Float) -> Boolean;
+    func operator==(other: Float) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_ne")
-    operator!=(other: Integer) -> Boolean;
+    func operator!=(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_ne")
-    operator!=(other: Float) -> Boolean;
+    func operator!=(other: Float) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_lt")
-    operator<(other: Integer) -> Boolean;
+    func operator<(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_lt")
-    operator<(other: Float) -> Boolean;
+    func operator<(other: Float) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_gt")
-    operator>(other: Integer) -> Boolean;
+    func operator>(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_gt")
-    operator>(other: Float) -> Boolean;
+    func operator>(other: Float) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_le")
-    operator<=(other: Integer) -> Boolean;
+    func operator<=(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_le")
-    operator<=(other: Float) -> Boolean;
+    func operator<=(other: Float) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_ge")
-    operator>=(other: Integer) -> Boolean;
+    func operator>=(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_ge")
-    operator>=(other: Float) -> Boolean;
+    func operator>=(other: Float) -> Boolean;
 }
 
 class Float {
     @@foreign(lib="runtime.so", symbol_name="mxs_op_add")
-    operator+(other: Integer) -> Float;
+    func operator+(other: Integer) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_add")
-    operator+(other: Float) -> Float;
+    func operator+(other: Float) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_sub")
-    operator-(other: Integer) -> Float;
+    func operator-(other: Integer) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_sub")
-    operator-(other: Float) -> Float;
+    func operator-(other: Float) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_mul")
-    operator*(other: Integer) -> Float;
+    func operator*(other: Integer) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_mul")
-    operator*(other: Float) -> Float;
+    func operator*(other: Float) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_div")
-    operator/(other: Integer) -> Float;
+    func operator/(other: Integer) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_div")
-    operator/(other: Float) -> Float;
+    func operator/(other: Float) -> Float;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_eq")
-    operator==(other: Integer) -> Boolean;
+    func operator==(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_eq")
-    operator==(other: Float) -> Boolean;
+    func operator==(other: Float) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_ne")
-    operator!=(other: Integer) -> Boolean;
+    func operator!=(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_ne")
-    operator!=(other: Float) -> Boolean;
+    func operator!=(other: Float) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_lt")
-    operator<(other: Integer) -> Boolean;
+    func operator<(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_lt")
-    operator<(other: Float) -> Boolean;
+    func operator<(other: Float) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_gt")
-    operator>(other: Integer) -> Boolean;
+    func operator>(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_gt")
-    operator>(other: Float) -> Boolean;
+    func operator>(other: Float) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_le")
-    operator<=(other: Integer) -> Boolean;
+    func operator<=(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_le")
-    operator<=(other: Float) -> Boolean;
+    func operator<=(other: Float) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_ge")
-    operator>=(other: Integer) -> Boolean;
+    func operator>=(other: Integer) -> Boolean;
     @@foreign(lib="runtime.so", symbol_name="mxs_op_ge")
-    operator>=(other: Float) -> Boolean;
+    func operator>=(other: Float) -> Boolean;
 }
 
 class String {
     @@foreign(lib="runtime.so", symbol_name="mxs_string_from_integer")
     static func from(value: Integer) -> String;
     @@foreign(lib="runtime.so", symbol_name="mxs_string_concat")
-    operator+(other: String) -> String;
+    func operator+(other: String) -> String;
 }
 
 class Boolean {
@@ -135,13 +135,13 @@ class List {
     @@foreign(lib="runtime.so", symbol_name="mxs_list_remove")
     func remove(value: T) -> Nil | Error;
     @@foreign(lib="runtime.so", symbol_name="mxs_list_add_list")
-    operator+(other: List<T>) -> List<T>;
+    func operator+(other: List<T>) -> List<T>;
     @@foreign(lib="runtime.so", symbol_name="mxs_list_mul_integer")
-    operator*(count: Integer) -> List<T>;
+    func operator*(count: Integer) -> List<T>;
     @@foreign(lib="runtime.so", symbol_name="mxs_list_getitem")
-    operator[](index: Integer) -> T | Error;
+    func operator[](index: Integer) -> T | Error;
     @@foreign(lib="runtime.so", symbol_name="mxs_list_setitem")
-    operator[]=(index: Integer, value: T) -> Nil;
+    func operator[]=(index: Integer, value: T) -> Nil;
 }
 
 @@foreign(lib="runtime.so", symbol_name="mxs_int_absolute")
