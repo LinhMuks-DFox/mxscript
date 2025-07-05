@@ -299,7 +299,6 @@ namespace mxs_runtime {
         return MXObject::op_is(other);
     }
 
-    }
 }// namespace mxs_runtime
 
 #ifdef __cplusplus

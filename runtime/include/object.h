@@ -94,6 +94,13 @@ namespace mxs_runtime {
         auto op_eq(const MXObject &other) const -> MXObject *;
     };
 
+    class MXFFICallArgv : public MXObject {
+    public:
+        std::vector<MXObject *> args;
+
+        explicit MXFFICallArgv(std::vector<MXObject *> &&arg_list);
+    };
+
 }// namespace mxs_runtime
 
 #ifdef __cplusplus
