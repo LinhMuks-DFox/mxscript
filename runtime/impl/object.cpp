@@ -30,7 +30,9 @@ namespace mxs_runtime {
         return ref_cnt;
     }
 
-    auto MXObject::get_type_name() const -> const char * { return type_info->name; }
+    auto MXObject::get_type_name() const -> const char * {
+        return type_info->inner_string.c_str();
+    }
 
     auto MXObject::equals(const MXObject &other) -> inner_boolean {
         return this == &other;
@@ -44,7 +46,7 @@ namespace mxs_runtime {
         return reinterpret_cast<hash_code_type>(this);
     }
 
-    auto MXObject::repr() const -> inner_string { return type_info->name; }
+    auto MXObject::repr() const -> inner_string { return type_info->inner_string; }
     static const MXTypeInfo g_mxerror_type_info{ "Error", nullptr };
     MXError::MXError() : MXObject(&g_mxerror_type_info, false) { }
 
