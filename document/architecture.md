@@ -77,7 +77,8 @@ The backend is responsible for converting the high-level AST into low-level, mac
 ## 3. Runtime Environment (`runtime/`)
 
 The C++ runtime provides the essential services that MxScript programs need to execute.
-
+* C++ header(*.h, *.hpp) files should be placed at runtime/include
+* C++ implement(*.cpp) files should be placed at runtime/impl
 ### 3.1. Core Object Model
 
 * **`MXObject` (`runtime/include/object.h`)**: This is the polymorphic base class for all objects in the language.
@@ -102,24 +103,6 @@ The C++ runtime provides the essential services that MxScript programs need to e
     * The runtime exposes simple, `extern "C"` functions to the compiler (e.g., `mxs_op_add`).
     * The implementation of these functions is now a direct virtual call, delegating the work to the object itself.
     * **Example**: `return left->op_add(*right);`.
-
-### 3.4. C API Abstraction Layer (Future Refactoring Plan)
-
-To ensure long-term stability and interoperability, the runtime will be split into two distinct libraries, following the **"C Facade"** pattern.
-
-* **Principle**: The core logic will reside in a pure C++ library. A second, thin wrapper library will expose this logic to the outside world through a stable, pure C Application Binary Interface (ABI).
-
-* **Structure**:
-    * **`_libruntime.so` (The C++ Core)**: This library will contain the actual implementation of the object model, virtual functions, and all internal logic. It will have no `extern "C"` functions and will not expose C++ name-mangled symbols publicly.
-    * **`libruntime.so` (The C API Facade)**: This is the only library the MxScript compiler will link against. It will contain a set of `extern "C"` functions that act as simple wrappers, forwarding calls to the C++ implementation in `_libruntime.so`.
-
-* **Benefits**:
-    1.  **Stable ABI**: A pure C ABI does not change between compiler versions, ensuring that future versions of the C++ runtime will not break older compiled MxScript code.
-    2.  **Implementation Hiding**: It completely hides the complexity of the C++ runtime (STL usage, templates, class hierarchies) from the outside world.
-    3.  **Enhanced Interoperability**: A pure C interface is the lingua franca of programming, making it trivial for other languages to bind to the MxScript runtime.
-
-* **Performance Consideration**: The minor overhead from the extra function call in the C wrapper layer can be completely eliminated at compile time by enabling **Link-Time Optimization (LTO)**, resulting in zero performance loss.
-
 ---
 
 ## 4. Execution and Testing
