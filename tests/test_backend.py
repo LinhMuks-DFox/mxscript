@@ -236,3 +236,18 @@ def test_ffi_variadic_call(capfd):
     captured = capfd.readouterr()
     assert "Hello world 123" in captured.out
     assert result == 0
+
+
+def test_printf_wrapper_variadic(capfd):
+    src = (
+        '@@foreign(lib="runtime.so", symbol_name="printf_wrapper", argv=[1,...])\n'
+        'func c_printf(fmt: String, ...) -> int;\n'
+        'func main() -> int {\n'
+        '    c_printf("Args:", "yay", 42);\n'
+        '    return 0;\n'
+        '}'
+    )
+    result = compile_and_run(src)
+    captured = capfd.readouterr()
+    assert "Args: yay 42" in captured.out
+    assert result >= 0

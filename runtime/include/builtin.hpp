@@ -10,4 +10,15 @@
 #include "object.h"
 #include "string.hpp"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+MXS_API mxs_runtime::MXObject *printf_wrapper(mxs_runtime::MXObject *format,
+                                              mxs_runtime::MXObject *packed_argv);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif
