@@ -2,9 +2,11 @@
 #include "container.hpp"
 #include "numeric.hpp"
 #include "string.hpp"
+#include <array>
 #include <dlfcn.h>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace mxs_runtime {
     namespace {
@@ -14,6 +16,31 @@ namespace mxs_runtime {
         };
 
         static std::unordered_map<std::string, LibEntry> g_lib_cache;
+
+        static constexpr int MAX_FFI_ARGS = 10;
+
+        template<std::size_t... Is>
+        using FnFor = MXObject *(*) (decltype((void) Is,
+                                              static_cast<MXObject *>(nullptr))...);
+
+        template<std::size_t... Is>
+        auto invoke(void *fn, MXObject **argv, std::index_sequence<Is...>) -> MXObject * {
+            return reinterpret_cast<FnFor<Is...>>(fn)(argv[Is]...);
+        }
+
+        template<std::size_t N>
+        auto call_ffi(void *fn, MXObject **argv) -> MXObject * {
+            return invoke(fn, argv, std::make_index_sequence<N>{});
+        }
+
+        template<std::size_t... Ns>
+        constexpr auto make_table(std::index_sequence<Ns...>)
+                -> std::array<MXObject *(*) (void *, MXObject **), sizeof...(Ns)> {
+            return { &call_ffi<Ns>... };
+        }
+
+        static constexpr auto CALL_TABLE =
+                make_table(std::make_index_sequence<MAX_FFI_ARGS + 1>{});
 
         static void *get_foreign_func(const std::string &lib, const std::string &name) {
             auto &entry = g_lib_cache[lib];
@@ -41,35 +68,12 @@ extern "C" auto mxs_ffi_call(mxs_runtime::MXObject *lib_name_obj,
     }
     void *fn = get_foreign_func(lib_str->value, func_str->value);
     if (!fn) { return new MXError("FFIError", "symbol lookup failed"); }
-    switch (argc) {
-        case 0: {
-            using Fn = MXObject *(*) ();
-            return reinterpret_cast<Fn>(fn)();
-        }
-        case 1: {
-            using Fn = MXObject *(*) (MXObject *);
-            return reinterpret_cast<Fn>(fn)(argv[0]);
-        }
-        case 2: {
-            using Fn = MXObject *(*) (MXObject *, MXObject *);
-            return reinterpret_cast<Fn>(fn)(argv[0], argv[1]);
-        }
-        case 3: {
-            using Fn = MXObject *(*) (MXObject *, MXObject *, MXObject *);
-            return reinterpret_cast<Fn>(fn)(argv[0], argv[1], argv[2]);
-        }
-        case 4: {
-            using Fn = MXObject *(*) (MXObject *, MXObject *, MXObject *, MXObject *);
-            return reinterpret_cast<Fn>(fn)(argv[0], argv[1], argv[2], argv[3]);
-        }
-        case 5: {
-            using Fn = MXObject *(*) (MXObject *, MXObject *, MXObject *, MXObject *,
-                                      MXObject *);
-            return reinterpret_cast<Fn>(fn)(argv[0], argv[1], argv[2], argv[3], argv[4]);
-        }
-        default:
-            return new MXError("FFIError", "unsupported argument count");
+    if (argc < 0 || argc > MAX_FFI_ARGS) {
+        return new MXError("FFIError", "ffi_call supports up to " +
+                                               std::to_string(MAX_FFI_ARGS) +
+                                               " arguments");
     }
+    return CALL_TABLE[static_cast<std::size_t>(argc)](fn, argv);
 }
 
 extern "C" auto mxs_variadic_print(mxs_runtime::MXObject *fmt_obj,
