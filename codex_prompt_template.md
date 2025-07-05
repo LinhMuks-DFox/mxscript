@@ -27,13 +27,8 @@ This file contains standardized templates for submitting new tasks and bug repor
 
 **Acceptance Criteria:**
 * [A list of conditions that must be met for the task to be considered complete. For example: "All existing unit tests must pass," or "A new unit test, `test_my_new_feature`, must be added and pass."]
-```
 
----
-
-## Template 2: Bug Report
-
-```markdown
+## Template 2: Bug report
 **Bug:** [A short, descriptive title of the bug]
 
 **Observed Behavior:**
@@ -52,4 +47,3 @@ This file contains standardized templates for submitting new tasks and bug repor
 
 **Relevant Files:**
 * [List any other files that might be relevant to understanding the bug's context.]
-```

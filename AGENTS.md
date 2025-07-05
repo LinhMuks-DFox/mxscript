@@ -42,27 +42,24 @@ Your responsibility: **create / modify Python source code** in the `src/` tree t
 
 * Provide comprehensive **unit tests**:  
 
-  * **Positive** cases compile, generate valid IR, and run without error.  
+  * **Positive** cases compile, generate valid IR, and run without error.  
 
-  * **Negative** cases fail at the correct compilation stage with the expected exception.
+  * **Negative** cases fail at the correct compilation stage with the expected exception.
+  * **Update tests**:  
+      * Add positive tests proving the fix.  
+      * Add negative tests ensuring correct error handling.  
 
 
 
 ### 2.3  Bug-Fix Workflow
 
-
-
-1. **Reproduce** the reported issue.  
-
-2. **Diagnose** root cause (Tokenizer / Parser / IR generation).  
-
-3. **Patch** with minimal, targeted changes.  
-
-4. **Update tests**:  
-
-   * Add positive tests proving the fix.  
-
-   * Add negative tests ensuring correct error handling.  
+1.  **Reproduce** the reported issue.  
+2.  **Diagnose** root cause (Tokenizer / Parser / IR generation).  
+3.  **Patch** with minimal, targeted changes.  
+4.  **Update tests**:  
+    * Add positive tests proving the fix.  
+    * Add negative tests ensuring correct error handling.  
+5.  **Ensure all tests pass** before delivery.
 
 5. **Ensure all tests pass** before delivery.
 
