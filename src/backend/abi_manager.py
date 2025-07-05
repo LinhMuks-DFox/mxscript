@@ -41,7 +41,6 @@ if "ffi_functions" in _RAW_MAP:
         "decrease_ref": {"ret": int64, "args": [char_ptr]},
         "new_mx_object": {"ret": char_ptr, "args": []},
         "mxs_print_object_ext": {"ret": char_ptr, "args": [char_ptr, char_ptr]},
-        "mxs_get_integer_value": {"ret": int64, "args": [char_ptr]},
         "mxs_string_from_integer": {"ret": char_ptr, "args": [char_ptr]},
     }
     _TYPED_MAP.update(_BUILTIN_MAP)

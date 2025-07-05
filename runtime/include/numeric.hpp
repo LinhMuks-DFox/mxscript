@@ -36,6 +36,7 @@ namespace mxs_runtime {
         const inner_integer value;
         explicit MXInteger(inner_integer v);
         auto to_string() const -> std::string override;
+        auto get_value() const -> inner_integer { return value; }
 
         // --- Operator Overrides ---
         auto op_add(const MXObject &other) -> MXObject * override;
@@ -88,109 +89,6 @@ extern "C"
 //======================================================================
 MXS_API mxs_runtime::MXInteger *MXCreateInteger(mxs_runtime::inner_integer value);
 MXS_API mxs_runtime::MXFloat *MXCreateFloat(mxs_runtime::inner_float value);
-
-//======================================================================
-// C API for Static Dispatch ("Fast Path")
-//======================================================================
-
-// --- Arithmetic ---
-MXS_API mxs_runtime::MXObject *integer_add_integer(mxs_runtime::MXObject *left,
-                                                   mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *integer_add_float(mxs_runtime::MXObject *left,
-                                                 mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_add_integer(mxs_runtime::MXObject *left,
-                                                 mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_add_float(mxs_runtime::MXObject *left,
-                                               mxs_runtime::MXObject *right);
-
-MXS_API mxs_runtime::MXObject *integer_sub_integer(mxs_runtime::MXObject *left,
-                                                   mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *integer_sub_float(mxs_runtime::MXObject *left,
-                                                 mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_sub_integer(mxs_runtime::MXObject *left,
-                                                 mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_sub_float(mxs_runtime::MXObject *left,
-                                               mxs_runtime::MXObject *right);
-
-MXS_API mxs_runtime::MXObject *integer_mul_integer(mxs_runtime::MXObject *left,
-                                                   mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *integer_mul_float(mxs_runtime::MXObject *left,
-                                                 mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_mul_integer(mxs_runtime::MXObject *left,
-                                                 mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_mul_float(mxs_runtime::MXObject *left,
-                                               mxs_runtime::MXObject *right);
-
-MXS_API mxs_runtime::MXObject *integer_div_integer(mxs_runtime::MXObject *left,
-                                                   mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *integer_div_float(mxs_runtime::MXObject *left,
-                                                 mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_div_integer(mxs_runtime::MXObject *left,
-                                                 mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_div_float(mxs_runtime::MXObject *left,
-                                               mxs_runtime::MXObject *right);
-
-// --- Comparison (returns MXBoolean) ---
-MXS_API mxs_runtime::MXObject *integer_eq_integer(mxs_runtime::MXObject *left,
-                                                  mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *integer_eq_float(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_eq_integer(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_eq_float(mxs_runtime::MXObject *left,
-                                              mxs_runtime::MXObject *right);
-
-MXS_API mxs_runtime::MXObject *integer_gt_integer(mxs_runtime::MXObject *left,
-                                                  mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *integer_gt_float(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_gt_integer(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_gt_float(mxs_runtime::MXObject *left,
-                                              mxs_runtime::MXObject *right);
-
-MXS_API mxs_runtime::MXObject *integer_lt_integer(mxs_runtime::MXObject *left,
-                                                  mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *integer_lt_float(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_lt_integer(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_lt_float(mxs_runtime::MXObject *left,
-                                              mxs_runtime::MXObject *right);
-
-MXS_API mxs_runtime::MXObject *integer_ge_integer(mxs_runtime::MXObject *left,
-                                                  mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *integer_ge_float(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_ge_integer(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_ge_float(mxs_runtime::MXObject *left,
-                                              mxs_runtime::MXObject *right);
-
-MXS_API mxs_runtime::MXObject *integer_le_integer(mxs_runtime::MXObject *left,
-                                                  mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *integer_le_float(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_le_integer(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_le_float(mxs_runtime::MXObject *left,
-                                              mxs_runtime::MXObject *right);
-
-MXS_API mxs_runtime::MXObject *integer_ne_integer(mxs_runtime::MXObject *left,
-                                                  mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *integer_ne_float(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_ne_integer(mxs_runtime::MXObject *left,
-                                                mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *float_ne_float(mxs_runtime::MXObject *left,
-                                              mxs_runtime::MXObject *right);
-
-// --- Logical (on MXBoolean objects) ---
-MXS_API mxs_runtime::MXObject *boolean_and_boolean(mxs_runtime::MXObject *left,
-                                                   mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *boolean_or_boolean(mxs_runtime::MXObject *left,
-                                                  mxs_runtime::MXObject *right);
-MXS_API mxs_runtime::MXObject *boolean_not(mxs_runtime::MXObject *operand);
 
 
 //======================================================================

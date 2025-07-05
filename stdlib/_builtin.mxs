@@ -17,88 +17,88 @@ func cast(target_type: Target, value: Origin) -> Target | Error {
 
 # --- Class Definitions ---
 class Integer {
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_add_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_add")
     operator+(other: Integer) -> Integer;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_add_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_add")
     operator+(other: Float) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_sub_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_sub")
     operator-(other: Integer) -> Integer;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_sub_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_sub")
     operator-(other: Float) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_mul_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_mul")
     operator*(other: Integer) -> Integer;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_mul_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_mul")
     operator*(other: Float) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_div_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_div")
     operator/(other: Integer) -> Integer;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_div_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_div")
     operator/(other: Float) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_eq_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_eq")
     operator==(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_eq_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_eq")
     operator==(other: Float) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_ne_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_ne")
     operator!=(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_ne_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_ne")
     operator!=(other: Float) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_lt_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_lt")
     operator<(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_lt_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_lt")
     operator<(other: Float) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_gt_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_gt")
     operator>(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_gt_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_gt")
     operator>(other: Float) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_le_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_le")
     operator<=(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_le_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_le")
     operator<=(other: Float) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_ge_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_ge")
     operator>=(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_integer_ge_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_ge")
     operator>=(other: Float) -> Boolean;
 }
 
 class Float {
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_add_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_add")
     operator+(other: Integer) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_add_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_add")
     operator+(other: Float) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_sub_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_sub")
     operator-(other: Integer) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_sub_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_sub")
     operator-(other: Float) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_mul_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_mul")
     operator*(other: Integer) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_mul_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_mul")
     operator*(other: Float) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_div_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_div")
     operator/(other: Integer) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_div_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_div")
     operator/(other: Float) -> Float;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_eq_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_eq")
     operator==(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_eq_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_eq")
     operator==(other: Float) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_ne_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_ne")
     operator!=(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_ne_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_ne")
     operator!=(other: Float) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_lt_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_lt")
     operator<(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_lt_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_lt")
     operator<(other: Float) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_gt_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_gt")
     operator>(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_gt_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_gt")
     operator>(other: Float) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_le_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_le")
     operator<=(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_le_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_le")
     operator<=(other: Float) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_ge_integer")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_ge")
     operator>=(other: Integer) -> Boolean;
-    @@foreign(lib="runtime.so", symbol_name="mxs_float_ge_float")
+    @@foreign(lib="runtime.so", symbol_name="mxs_op_ge")
     operator>=(other: Float) -> Boolean;
 }
 
