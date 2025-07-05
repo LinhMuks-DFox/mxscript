@@ -323,23 +323,60 @@ class DefinitionParserMixin:
 
     def parse_type_spec(self) -> str:
         # Union types using '|' are not yet supported by the tokenizer.
-        return self._parse_single_type_spec()
+        prefix = ""
+        while self.stream.peek().type == TokenType.STAR:
+            self.stream.next()
+            prefix += "*"
+        typ = self._parse_single_type_spec()
+        while self.stream.peek().type == TokenType.STAR:
+            self.stream.next()
+            typ += "*"
+        return prefix + typ
 
     def _parse_single_type_spec(self) -> str:
         tok = self.stream.peek()
-        if tok.type == TokenType.NIL:
+
+        if tok.type in (TokenType.IDENTIFIER, TokenType.NIL):
             self.stream.next()
-            parts = ['nil']
+            name = tok.value
+            while self.stream.peek().type == TokenType.DOT:
+                self.stream.next()
+                name += "." + self._expect(TokenType.IDENTIFIER).value
+            if self.stream.peek().type == TokenType.LESS:
+                self.stream.next()
+                params = [self.parse_type_spec()]
+                while self.stream.peek().type == TokenType.COMMA:
+                    self.stream.next()
+                    params.append(self.parse_type_spec())
+                self._expect(TokenType.GREATER)
+                name += "<" + ", ".join(params) + ">"
+            typ = name
+        elif tok.type == TokenType.LBRACKET:
+            self.stream.next()
+            size_expr = self.parse_expression()
+            size = self._expr_to_str(size_expr)
+            self._expect(TokenType.RBRACKET)
+            elem = self.parse_type_spec()
+            typ = f"[{size}]{elem}"
+        elif tok.type == TokenType.LPAREN:
+            self.stream.next()
+            elems = [self.parse_type_spec()]
+            while self.stream.peek().type == TokenType.COMMA:
+                self.stream.next()
+                elems.append(self.parse_type_spec())
+            self._expect(TokenType.RPAREN)
+            typ = "(" + ", ".join(elems) + ")"
         else:
-            parts = [self._expect(TokenType.IDENTIFIER).value]
-        while self.stream.peek().type == TokenType.DOT:
-            self.stream.next()
-            parts.append(self._expect(TokenType.IDENTIFIER).value)
-        typ = '.'.join(parts)
-        while self.stream.peek().type == TokenType.STAR:
-            self.stream.next()
-            typ += '*'
+            raise SyntaxError("Invalid type specification", self._get_location(tok))
         return typ
+
+    def _expr_to_str(self, expr) -> str:
+        from .ast import Integer, Identifier
+        if isinstance(expr, Integer):
+            return str(expr.value)
+        if isinstance(expr, Identifier):
+            return expr.name
+        raise SyntaxError("Unsupported array size expression", self._get_location(expr.loc))
 
     def parse_block(self) -> Block:
         start = self._expect(TokenType.LBRACE)
