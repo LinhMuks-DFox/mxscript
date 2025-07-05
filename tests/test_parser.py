@@ -560,6 +560,21 @@ def test_parse_foreign_method_in_class():
     assert method.body.statements == []
 
 
+def test_parse_foreign_variadic_function():
+    src = (
+        '@@foreign(lib="runtime.so", symbol_name="printf_wrapper", argv=[1,...])\n'
+        'func c_printf(fmt: String, ...) -> int;'
+    )
+    program = parse(src)
+    func = program.statements[0]
+    assert isinstance(func, FuncDef)
+    assert func.ffi_info == {
+        "lib": "runtime.so",
+        "symbol_name": "printf_wrapper",
+        "argv": {"pack_args_from": 1},
+    }
+
+
 def test_annotation_not_allowed_on_field():
     src = (
         "class MyClass {\n"

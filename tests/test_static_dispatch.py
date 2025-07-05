@@ -23,3 +23,9 @@ def test_integer_sub_dispatch():
     assert 'mxs_ffi_call' not in ir
     assert 'mxs_op_sub' in ir
     assert 'sub i64' not in ir
+
+
+def test_integer_mul_dispatch():
+    ir = compile_ir("3 * 4;")
+    assert 'mxs_op_mul' in ir
+

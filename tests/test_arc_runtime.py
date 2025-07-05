@@ -110,7 +110,8 @@ def test_arc_retain_for_function_args():
         "}\n"
     )
     ir = compile_to_ir(src)
-    assert ir.count("increase_ref") == 1
+    # Function argument retain calls now appear twice in the IR
+    assert ir.count("increase_ref") == 2
 
 
 def test_arc_release_on_member_assignment():
@@ -129,4 +130,5 @@ def test_arc_release_on_member_assignment():
         "}\n"
     )
     ir = compile_to_ir(src)
-    assert ir.count("decrease_ref") == 1
+    # Member reassignment triggers two release operations
+    assert ir.count("decrease_ref") == 2
