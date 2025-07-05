@@ -7,7 +7,6 @@
 
 namespace mxs_runtime {
     class MXObject;
-    MXS_API MXObject *mxs_ffi_call(MXObject *lib, MXObject *name, MXObject *argv);
 }
 
 extern "C" {
