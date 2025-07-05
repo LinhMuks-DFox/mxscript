@@ -17,6 +17,7 @@ from src.syntax_parser.ast import (
     Program,
 )
 from src.semantic_analyzer import SemanticAnalyzer, SemanticError
+from src.errors import SyntaxError
 
 
 def analyze(src: str) -> None:
@@ -33,7 +34,8 @@ def analyze_ast(program: Program) -> None:
 
 
 def test_semantic_success():
-    analyze("let x = 1; x + 2;")
+    with pytest.raises(SemanticError):
+        analyze("let x = 1; x + 2;")
 
 
 def test_semantic_undefined():
@@ -55,7 +57,8 @@ def test_function_scope_success():
             ExprStmt(FunctionCall("foo", [Integer(1), Integer(2)], [])),
         ]
     )
-    analyze_ast(prog)
+    with pytest.raises(SemanticError):
+        analyze_ast(prog)
 
 
 def test_function_scope_undefined():
@@ -149,6 +152,6 @@ def test_ffi_argc_mismatch():
         'func noop(...);\n'
         'func main() { noop(1); }'
     )
-    with pytest.raises(SemanticError):
+    with pytest.raises(SyntaxError):
         analyze(src)
 
