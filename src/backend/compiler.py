@@ -158,6 +158,18 @@ def compile_program(
             alias_map[stmt.name] = _flatten_member(stmt.value)
 
     for stmt in prog.statements:
+        if isinstance(stmt, FuncDef) and stmt.ffi_info is not None:
+            info = {
+                "lib": stmt.ffi_info.get("lib", "runtime.so"),
+                "symbol_name": stmt.ffi_info.get("c_name")
+                or stmt.ffi_info.get("symbol_name", stmt.name),
+            }
+            if "argv" in stmt.ffi_info:
+                pack = stmt.ffi_info["argv"].get("pack_args_from")
+                if pack is not None:
+                    info["pack_args_from"] = pack
+            foreign_functions[stmt.name] = info
+            continue
         if isinstance(stmt, (FuncDef, FunctionDecl)):
             func_ir = _compile_function(stmt, alias_map, type_registry)
             functions[stmt.name] = func_ir
@@ -175,17 +187,6 @@ def compile_program(
                         stmt.name, member, alias_map, type_registry
                     )
                     functions[ctor_ir.name] = ctor_ir
-        elif isinstance(stmt, FuncDef) and stmt.ffi_info is not None:
-            info = {
-                "lib": stmt.ffi_info.get("lib", "runtime.so"),
-                "symbol_name": stmt.ffi_info.get("c_name")
-                or stmt.ffi_info.get("symbol_name", stmt.name),
-            }
-            if "argv" in stmt.ffi_info:
-                pack = stmt.ffi_info["argv"].get("pack_args_from")
-                if pack is not None:
-                    info["pack_args_from"] = pack
-            foreign_functions[stmt.name] = info
         elif isinstance(stmt, ImportStmt):
             mod_name = stmt.module
             try:

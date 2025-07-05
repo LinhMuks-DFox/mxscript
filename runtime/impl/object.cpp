@@ -52,6 +52,12 @@ namespace mxs_runtime {
     MXFFICallArgv::MXFFICallArgv(std::vector<MXObject *> &&arg_list)
         : MXObject(&FFICALLARGV_TYPE_INFO, false), args(std::move(arg_list)) { }
 
+    MXFFICallArgv::~MXFFICallArgv() {
+        for (MXObject *obj : args) {
+            if (obj) { ::decrease_ref(obj); }
+        }
+    }
+
     auto MXError::repr() const -> inner_string {
         return inner_string("An MXError occurred.");
     }
@@ -148,6 +154,26 @@ MXS_API bool mxs_is_instance(mxs_runtime::MXObject *obj,
         cur = cur->parent;
     }
     return false;
+}
+
+MXS_API mxs_runtime::MXObject *MXCreateFFICallArgv(mxs_runtime::MXObject **args,
+                                                   std::size_t count) {
+    std::vector<mxs_runtime::MXObject *> vec;
+    vec.reserve(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        mxs_runtime::MXObject *obj = args[i];
+        if (obj) { increase_ref(obj); }
+        vec.push_back(obj);
+    }
+    auto *obj = new mxs_runtime::MXFFICallArgv(std::move(vec));
+    obj->increase_ref();
+    return obj;
+}
+
+MXS_API void MXFFICallArgv_destructor(mxs_runtime::MXObject *obj) {
+    if (!obj) return;
+    auto *argv = dynamic_cast<mxs_runtime::MXFFICallArgv *>(obj);
+    if (argv) { delete argv; }
 }
 
 }// extern "C"

@@ -2,39 +2,9 @@
 #include "container.hpp"
 #include "numeric.hpp"
 #include "string.hpp"
-#include <dlfcn.h>
 #include <string>
-#include <unordered_map>
-#include <utility>
 
-namespace mxs_runtime {
-    namespace {
-        struct LibCache {
-            std::unordered_map<std::string, void *> handle_map;
-            ~LibCache() {
-                for (auto const &[key, val] : handle_map) {
-                    if (val) { dlclose(val); }
-                }
-            }
-        };
-
-        static LibCache g_lib_cache;
-
-        static auto get_foreign_func(const std::string &lib, const std::string &name)
-                -> mxs_runtime::MXObject * {
-            void *&handle = g_lib_cache.handle_map[lib];
-            if (!handle) {
-                handle = dlopen(lib.c_str(), RTLD_LAZY);
-                if (!handle) { return new MXError("FFIError", dlerror()); }
-            }
-            void *sym = dlsym(handle, name.c_str());
-            if (!sym) { return new MXError("FFIError", dlerror()); }
-            return reinterpret_cast<MXObject *>(sym);
-        }
-
-    }// namespace
-
-}// namespace mxs_runtime
+// This file contains C++ wrappers for FFI functions, such as modern_print_wrapper.
 
 extern "C" MXS_API auto modern_print_wrapper(mxs_runtime::MXObject *packed_argv)
         -> mxs_runtime::MXObject * {

@@ -99,6 +99,7 @@ namespace mxs_runtime {
         std::vector<MXObject *> args;
 
         explicit MXFFICallArgv(std::vector<MXObject *> &&arg_list);
+        ~MXFFICallArgv() override;
     };
 
 }// namespace mxs_runtime
@@ -130,6 +131,10 @@ MXRegisterPODLayout(const char *name,
       */
 MXS_API mxs_runtime::MXPODLayout *MXCreatePOD(void *source,
                                               const mxs_runtime::MXPODLayout *layout);
+
+MXS_API mxs_runtime::MXObject *MXCreateFFICallArgv(mxs_runtime::MXObject **args,
+                                                   std::size_t count);
+MXS_API void MXFFICallArgv_destructor(mxs_runtime::MXObject *obj);
 
 #ifdef __cplusplus
 }

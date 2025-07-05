@@ -334,6 +334,7 @@ class LLVMGenerator:
                     fixed_args = args if packed_from is None else args[:packed_from]
                     call_args = [self._to_obj(v) for v in fixed_args]
 
+                    argv_obj = None
                     if packed_from is not None:
                         variadic = args[packed_from:]
                         arr = self.ctx.builder.alloca(
@@ -345,9 +346,10 @@ class LLVMGenerator:
                                 arr, [ir.Constant(ir.IntType(32), idx)]
                             )
                             self.ctx.builder.store(self._to_obj(val), ptr)
-                        ctor_name = "MXFFICallArgv"
+                        ctor_name = "MXCreateFFICallArgv"
                         ctor_ty = ir.FunctionType(
-                            self.ctx.obj_ptr_t, [self.ctx.obj_ptr_t.as_pointer(), self.ctx.int_t]
+                            self.ctx.obj_ptr_t,
+                            [self.ctx.obj_ptr_t.as_pointer(), self.ctx.int_t],
                         )
                         ctor = self.ctx.module.globals.get(ctor_name)
                         if ctor is None:
@@ -366,6 +368,13 @@ class LLVMGenerator:
                         )
                         callee = ir.Function(self.ctx.module, func_ty, name=sym_name)
                     result = self.ctx.builder.call(callee, call_args)
+                    if argv_obj is not None:
+                        dtor_name = "MXFFICallArgv_destructor"
+                        dtor_ty = ir.FunctionType(ir.VoidType(), [self.ctx.obj_ptr_t])
+                        dtor = self.ctx.module.globals.get(dtor_name)
+                        if dtor is None:
+                            dtor = ir.Function(self.ctx.module, dtor_ty, name=dtor_name)
+                        self.ctx.builder.call(dtor, [argv_obj])
                     stack.append(result)
                     continue
                 callee = self.functions.get(instr.name)
