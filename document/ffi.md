@@ -69,6 +69,7 @@ This mode is activated by the presence of the `argv` parameter.
     3.  It gathers all arguments from index 1 onwards into a `std::vector<MXObject*>`.
     4.  It generates code to call the `MXFFICallArgv` constructor with this vector.
     5.  It generates a direct LLVM `call` to `printf_wrapper`, passing the fixed argument first, followed by the pointer to the new `MXFFICallArgv` object.
+    6.  Immediately after the wrapper returns, it emits a call to `MXFFICallArgv_destructor` to release the packed arguments object.
 
 ## 4\. C++ API & Implementation Contract
 
@@ -80,3 +81,4 @@ This is a specialized, internal-only `MXObject` subtype for variadic argument pa
 
 * **Fixed-Arity Functions:** Declare the C++ function with an exact matching number of `MXObject*` arguments.
 * **Variadic Functions:** Declare the C++ function to accept its fixed arguments, followed by a **single final `MXObject*`** for the packed arguments. Inside the function, use `cast<MXFFICallArgv>(...)` to safely access the packed arguments.
+* **Lifecycle:** The compiler creates the `MXFFICallArgv` before dispatch and destroys it immediately after the call, so wrapper code should not retain this object beyond the call scope.
