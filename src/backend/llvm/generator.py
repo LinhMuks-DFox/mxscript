@@ -30,6 +30,17 @@ from ..abi_manager import get_function_signature
 DYNAMIC_DISPATCH_MAP = {
     "+": "mxs_op_add",
     "-": "mxs_op_sub",
+    "*": "mxs_op_mul",
+    "/": "mxs_op_div",
+    "==": "mxs_op_eq",
+    "!=": "mxs_op_ne",
+    "<": "mxs_op_lt",
+    "<=": "mxs_op_le",
+    ">": "mxs_op_gt",
+    ">=": "mxs_op_ge",
+    "is": "mxs_op_is",
+    "and": "mxs_op_and",
+    "or": "mxs_op_or",
 }
 
 
@@ -76,24 +87,6 @@ class LLVMGenerator:
             ty = ir.FunctionType(self.ctx.obj_ptr_t, arg_types)
             self.functions[func.name] = ir.Function(self.ctx.module, ty, name=func.name)
         self.foreign_functions = program.foreign_functions
-        try:
-            self.functions["mxs_ffi_call"] = self.ffi.get_or_declare_function(
-                "mxs_ffi_call"
-            )
-        except KeyError:
-            self.functions["mxs_ffi_call"] = ir.Function(
-                self.ctx.module,
-                ir.FunctionType(
-                    self.ctx.obj_ptr_t,
-                    [
-                        self.ctx.obj_ptr_t,
-                        self.ctx.obj_ptr_t,
-                        self.ctx.int_t,
-                        self.ctx.obj_ptr_t.as_pointer(),
-                    ],
-                ),
-                name="mxs_ffi_call",
-            )
 
     # Symbol table helpers ---------------------------------------------
     def _get_or_alloc_mut(self, name: str, ty: ir.Type) -> ir.Value:
@@ -320,79 +313,59 @@ class LLVMGenerator:
                 callee_name = DYNAMIC_DISPATCH_MAP.get(op)
                 if callee_name is None:
                     raise RuntimeError(f"Unsupported op {op}")
-                create_str = self.ffi.get_or_declare_function("MXCreateString")
-                lib_ptr = self._create_global_string("runtime.so")
-                lib_obj = self.ctx.builder.call(create_str, [lib_ptr])
-                sym_ptr = self._create_global_string(callee_name)
-                sym_obj = self.ctx.builder.call(create_str, [sym_ptr])
-                arr = self.ctx.builder.alloca(
-                    self.ctx.obj_ptr_t,
-                    ir.Constant(ir.IntType(32), 2),
-                )
-                for idx, val in enumerate([a, b]):
-                    obj = self._to_obj(val)
-                    ptr = self.ctx.builder.gep(
-                        arr, [ir.Constant(ir.IntType(32), idx)]
+                callee = self.ctx.module.globals.get(callee_name)
+                if callee is None:
+                    func_ty = ir.FunctionType(
+                        self.ctx.obj_ptr_t,
+                        [self.ctx.obj_ptr_t, self.ctx.obj_ptr_t],
                     )
-                    self.ctx.builder.store(obj, ptr)
-                ffi_fn = self.functions["mxs_ffi_call"]
-                result = self.ctx.builder.call(
-                    ffi_fn,
-                    [
-                        lib_obj,
-                        sym_obj,
-                        ir.Constant(ir.IntType(32), 2),
-                        arr,
-                    ],
-                )
+                    callee = ir.Function(self.ctx.module, func_ty, name=callee_name)
+                obj_a = self._to_obj(a)
+                obj_b = self._to_obj(b)
+                result = self.ctx.builder.call(callee, [obj_a, obj_b])
                 stack.append(result)
             elif isinstance(instr, Call):
                 args = [stack.pop() for _ in range(instr.argc)][::-1]
                 if instr.name in self.foreign_functions:
                     info = self.foreign_functions[instr.name]
-                    lib_name = info.get("lib", "runtime.so")
                     sym_name = info.get("symbol_name", instr.name)
-                    create_str = self.ffi.get_or_declare_function("MXCreateString")
-                    lib_ptr = self._create_global_string(lib_name)
-                    lib_obj = self.ctx.builder.call(create_str, [lib_ptr])
-                    sym_ptr = self._create_global_string(sym_name)
-                    sym_obj = self.ctx.builder.call(create_str, [sym_ptr])
-
                     packed_from = info.get("pack_args_from")
-                    final_args: List[ir.Value] = []
-                    if packed_from is not None:
-                        prefix = args[:packed_from]
-                        rest = args[packed_from:]
-                        list_create = self.ffi.get_or_declare_function("MXCreateList")
-                        list_obj = self.ctx.builder.call(list_create, [])
-                        append_fn = self.ffi.get_or_declare_function("list_append")
-                        for val in rest:
-                            obj = self._to_obj(val)
-                            self.ctx.builder.call(append_fn, [list_obj, obj])
-                        final_args.extend(self._to_obj(v) for v in prefix)
-                        final_args.append(list_obj)
-                    else:
-                        final_args.extend(self._to_obj(v) for v in args)
 
-                    arr = self.ctx.builder.alloca(
-                        self.ctx.obj_ptr_t,
-                        ir.Constant(ir.IntType(32), max(len(final_args), 1)),
-                    )
-                    for idx, a in enumerate(final_args):
-                        ptr = self.ctx.builder.gep(
-                            arr, [ir.Constant(ir.IntType(32), idx)]
+                    fixed_args = args if packed_from is None else args[:packed_from]
+                    call_args = [self._to_obj(v) for v in fixed_args]
+
+                    if packed_from is not None:
+                        variadic = args[packed_from:]
+                        arr = self.ctx.builder.alloca(
+                            self.ctx.obj_ptr_t,
+                            ir.Constant(ir.IntType(32), len(variadic)),
                         )
-                        self.ctx.builder.store(a, ptr)
-                    ffi_fn = self.functions["mxs_ffi_call"]
-                    result = self.ctx.builder.call(
-                        ffi_fn,
-                        [
-                            lib_obj,
-                            sym_obj,
-                            ir.Constant(ir.IntType(32), len(final_args)),
-                            arr,
-                        ],
-                    )
+                        for idx, val in enumerate(variadic):
+                            ptr = self.ctx.builder.gep(
+                                arr, [ir.Constant(ir.IntType(32), idx)]
+                            )
+                            self.ctx.builder.store(self._to_obj(val), ptr)
+                        ctor_name = "MXFFICallArgv"
+                        ctor_ty = ir.FunctionType(
+                            self.ctx.obj_ptr_t, [self.ctx.obj_ptr_t.as_pointer(), self.ctx.int_t]
+                        )
+                        ctor = self.ctx.module.globals.get(ctor_name)
+                        if ctor is None:
+                            ctor = ir.Function(self.ctx.module, ctor_ty, name=ctor_name)
+                        argv_obj = self.ctx.builder.call(
+                            ctor,
+                            [arr, ir.Constant(self.ctx.int_t, len(variadic))],
+                        )
+                        call_args.append(argv_obj)
+
+                    callee = self.ctx.module.globals.get(sym_name)
+                    if callee is None:
+                        func_ty = ir.FunctionType(
+                            self.ctx.obj_ptr_t,
+                            [self.ctx.obj_ptr_t] * len(call_args),
+                        )
+                        callee = ir.Function(self.ctx.module, func_ty, name=sym_name)
+                    result = self.ctx.builder.call(callee, call_args)
                     stack.append(result)
                     continue
                 callee = self.functions.get(instr.name)
