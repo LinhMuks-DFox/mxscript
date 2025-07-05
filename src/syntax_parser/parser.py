@@ -147,10 +147,7 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
             while True:
                 key = self._expect(TokenType.IDENTIFIER).value
                 self._expect(TokenType.ASSIGN)
-                if key == "argc":
-                    val_tok = self._expect(TokenType.INTEGER)
-                    args[key] = int(val_tok.value)
-                elif key == "argv":  # Changed from if to elif
+                if key == "argv":
                     self._expect(TokenType.LBRACKET)
                     start_tok = self._expect(TokenType.INTEGER)
                     start_idx = int(start_tok.value)
@@ -158,7 +155,7 @@ class Parser(ExpressionParserMixin, DefinitionParserMixin):
                         self.stream.next()
                         self._expect(TokenType.ELLIPSIS)
                     self._expect(TokenType.RBRACKET)
-                    args["pack_args_from"] = start_idx 
+                    args["argv"] = {"pack_args_from": start_idx}
                 else:
                     val_tok = self._expect(TokenType.STRING)
                     args[key] = val_tok.value

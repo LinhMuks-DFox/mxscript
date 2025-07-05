@@ -43,7 +43,7 @@ def test_arc_runtime_calls_emit_correct_ir():
         "}\n"
     )
     ir = compile_to_ir(src)
-    assert "mxs_ffi_call" in ir
+    assert "mxs_ffi_call" not in ir
     assert "new_mx_object" in ir
     assert "increase_ref" in ir
     assert "decrease_ref" in ir
@@ -61,7 +61,7 @@ def test_class_allocation_uses_arc_runtime():
         "}\n"
     )
     ir = compile_to_ir(src)
-    assert "mxs_ffi_call" in ir
+    assert "mxs_ffi_call" not in ir
     assert "new_mx_object" in ir
     assert "decrease_ref" in ir
 

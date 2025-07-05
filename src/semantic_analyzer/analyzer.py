@@ -261,10 +261,13 @@ class SemanticAnalyzer:
                         f"Variable '{name}' is already defined.",
                         self._get_location(stmt.loc),
                     )
+            inferred = None
             if stmt.value is not None:
                 self._visit_expression(stmt.value)
+                inferred = getattr(stmt.value, "result_type", None)
+            final_type = stmt.type_name if stmt.type_name is not None else inferred
             for name in stmt.names:
-                self._current_scope()[name] = VarInfo(name, stmt.type_name, stmt.is_mut)
+                self._current_scope()[name] = VarInfo(name, final_type, stmt.is_mut)
         elif isinstance(stmt, BindingStmt):
             if stmt.name in self._current_scope():
                 raise NameError(
