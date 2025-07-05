@@ -2,8 +2,8 @@
 #include "container.hpp"
 #include "numeric.hpp"
 #include "string.hpp"
-#include <array>
 #include <dlfcn.h>
+#include <array>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -54,27 +54,34 @@ namespace mxs_runtime {
             if (sym) entry.symbols.emplace(name, sym);
             return sym;
         }
-    }// namespace
-}// namespace mxs_runtime
 
-extern "C" auto mxs_ffi_call(mxs_runtime::MXObject *lib_name_obj,
-                             mxs_runtime::MXObject *func_name_obj, int argc,
-                             mxs_runtime::MXObject **argv) -> mxs_runtime::MXObject * {
+    }// namespace
+
+extern "C" MXS_API mxs_runtime::MXObject *mxs_ffi_call(
+        mxs_runtime::MXObject *lib_name_obj, mxs_runtime::MXObject *func_name_obj,
+        mxs_runtime::MXObject *argv_obj) {
     using namespace mxs_runtime;
-    auto *lib_str = dynamic_cast<MXString *>(lib_name_obj);
-    auto *func_str = dynamic_cast<MXString *>(func_name_obj);
-    if (!lib_str || !func_str) {
-        return new MXError("TypeError", "ffi_call expects string arguments");
-    }
-    void *fn = get_foreign_func(lib_str->value, func_str->value);
-    if (!fn) { return new MXError("FFIError", "symbol lookup failed"); }
-    if (argc < 0 || argc > MAX_FFI_ARGS) {
-        return new MXError("FFIError", "ffi_call supports up to " +
+        auto *lib_str = dynamic_cast<MXString *>(lib_name_obj);
+        auto *func_str = dynamic_cast<MXString *>(func_name_obj);
+        auto *argv = dynamic_cast<MXFFICallArgv *>(argv_obj);
+        if (!lib_str || !func_str || !argv) {
+            return new MXError("TypeError", "invalid arguments to ffi_call");
+        }
+
+        void *fn = get_foreign_func(lib_str->value, func_str->value);
+        if (!fn) { return new MXError("FFIError", "symbol lookup failed"); }
+
+        int argc = static_cast<int>(argv->args.size());
+        if (argc < 0 || argc > MAX_FFI_ARGS) {
+            return new MXError("FFIError", "ffi_call supports up to " +
                                                std::to_string(MAX_FFI_ARGS) +
                                                " arguments");
+        }
+        MXObject **args_ptr = argc ? argv->args.data() : nullptr;
+        return CALL_TABLE[static_cast<std::size_t>(argc)](fn, args_ptr);
     }
-    return CALL_TABLE[static_cast<std::size_t>(argc)](fn, argv);
-}
+
+}// namespace mxs_runtime
 
 extern "C" auto mxs_variadic_print(mxs_runtime::MXObject *fmt_obj,
                                    mxs_runtime::MXObject *list_obj)
