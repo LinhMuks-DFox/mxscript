@@ -25,7 +25,8 @@ list(APPEND IMPL_SOURCES "impl/object.cpp")
 # list(APPEND IMPL_SOURCES "src/ffi.cpp")
 
 # ----------- 目标 ----------
-add_library(runtime SHARED ${IMPL_SOURCES})
+add_library(runtime SHARED ${IMPL_SOURCES}
+        c_api/object.c)
 target_include_directories(runtime PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}"
