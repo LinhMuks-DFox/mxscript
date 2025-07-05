@@ -106,5 +106,5 @@ All C++ functions exposed via the FFI must accept `MXObject*` pointers as argume
 **Internal Type Safety:**
 It is the strict responsibility of every target C++ function to perform runtime type checking on the `MXObject*` pointers it receives. It must verify the `type_info` of each argument and return an `MXError` object on a mismatch.
 
-```
-```
+
+

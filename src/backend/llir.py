@@ -49,13 +49,9 @@ def _load_runtime() -> None:
     runtime_dir = base_dir / "runtime"
     build_dir = runtime_dir / "build"
     if "darwin" in sys.platform:
-        so_path = base_dir/"bin"/"libruntime.dylib"
+        so_path = base_dir / "bin" / "libruntime.dylib"
     else:
         so_path = base_dir / "bin" / "libruntime.so"
-    
-    extra = os.environ.get("MXSCRIPT_EXTRA_RUNTIMES", "")
-    extra_libs = [Path(p) for p in extra.split(os.pathsep) if p]
-
     if not so_path.exists():
         print("Runtime library not found. Building...")
         build_dir.mkdir(exist_ok=True)
@@ -72,10 +68,13 @@ def _load_runtime() -> None:
             check=True,
         )
         print("Runtime library built successfully.")
-
-    # --- 加载共享库 ---
-    binding.load_library_permanently(str(so_path))
-    for lib in extra_libs:
+    runtime_list = [
+        so_path,     
+    ]
+    extra = os.environ.get("MXSCRIPT_EXTRA_RUNTIMES", "")
+    extra_libs = [Path(p) for p in extra.split(os.pathsep) if p]
+    runtime_list.extend(extra_libs)
+    for lib in runtime_list:
         if lib.exists():
             binding.load_library_permanently(str(lib))
     _RUNTIME_LOADED = True
