@@ -1,102 +1,82 @@
 # MxScript Foreign Function Interface (FFI) Specification
 
-## Document Purpose
+## 1\. Core Philosophy & Convention
 
-This document provides the authoritative specification for the MxScript Foreign Function Interface (FFI). All FFI-related implementation work must strictly adhere to the architecture and mechanisms described herein.
+The FFI is the sole and unified mechanism for MxScript to interface with compiled C++ code. It enables both the language's standard library implementation and user-defined bindings to external shared libraries.
 
-## 1\. Core Philosophy
+The system is based on **Direct Call with a Type Convention**. Its core principle is that the MxScript compiler generates a direct LLVM `call` to a C++ function. There is **no** central runtime dispatch helper.
 
-The FFI is the sole and unified mechanism for MxScript to interface with compiled C++ code. It is used both to bind the language's standard library to its C++ runtime implementation and to allow users to call arbitrary external shared libraries.
+All C++ functions exposed to MxScript via FFI **must** adhere to the following convention:
 
-The system is based on **Declaration Binding**. Its core principle is that any C++ function exposed to MxScript must conform to the MxScript type system. Specifically, all function arguments and return values must be of the type `MXObject*`. Interfacing with native C libraries (e.g., libc) requires a C++ wrapper that adheres to this specification. All arguments are collected into a dedicated argument vector object for dispatch.
+* **Signature:** All function arguments and return values must be of the type `mxs_runtime::MXObject*`.
+* **Responsibility:** The C++ function itself is responsible for runtime type checking (using the RTTI system like `isa`/`cast`) and handling potential type errors.
 
 ## 2\. The `@@foreign` Annotation
 
-### 2.1. Syntax and Placement
+The `@@foreign` annotation links an MxScript function declaration to a C++ symbol in a shared library.
 
-The `@@foreign` annotation must be placed directly before a `func` declaration.
+### 2.1. Syntax
 
 ```mxscript
-@@foreign(lib: string, symbol_name: string)
+@@foreign(lib: string, symbol_name: string, argv: list)
 func mxscript_function_name(arg1: Type1, ...) -> ReturnType;
 ```
 
-### 2.2. Parameters
+### 2.2. Annotation Parameter Parsing and Handling
 
-  * **lib: string (Mandatory):** The filename of the shared library (e.g., "runtime.so", "my\_wrappers.so").
-  * **symbol\_name: string (Optional):** The exact symbol name of the C++ function to be called. If omitted, the MxScript function name is used as the default.
+The content within the `@@foreign(...)` parentheses is parsed by the compiler's frontend as a set of key-value arguments. The parser's role is to extract this metadata and attach it to the function's AST node for later use by the code generator.
 
-## 3\. Unified Dispatch Workflow
+* **`lib: string` (Mandatory)**
 
-The compiler translates every FFI-bound call into a standardized sequence that invokes a universal runtime helper, `mxs_ffi_call`. There is a single, unified dispatch mode for all foreign calls.
+    * **Parsing:** The parser expects the key `lib` followed by a **string literal**. It extracts the content of the string (e.g., `"runtime.so"`).
+    * **Handling:** This string is stored as the library name that the final executable will need to link against or dynamically load.
 
-**MxScript Declaration:**
+* **`symbol_name: string` (Optional)**
 
-```mxscript
-# Calls a C++ function `wrapped_printf` in "my_wrappers.so".
-# The "..." in the signature indicates it is variadic.
-@@foreign(lib="my_wrappers.so", symbol_name="wrapped_printf")
-func c_printf(format: String, ...) -> Integer;
-```
+    * **Parsing:** The parser expects the key `symbol_name` followed by a **string literal**.
+    * **Handling:** This string is stored as the exact external symbol name to be used in the LLVM `call` instruction. If this parameter is omitted, the code generator defaults to using the MxScript function's own name (e.g., `c_printf`) as the symbol name.
 
-**Compiler & Runtime Behavior:**
-A call like `c_printf("Hello %s %d", "world", 123)` is translated by the compiler and handled by the runtime as follows:
+* **`argv: list` (Optional, Special Directive)**
 
-1.  **Argument Collection:** The CodeGen gathers all arguments passed to the function (`"Hello %s %d"`, `"world"`, `123`) into a list of `MXObject*` pointers.
-2.  **Argument Object Creation:** The compiler generates code to create a specialized, lightweight `MXFFICallArgv` object. This internal object wraps the list of `MXObject*` pointers.
-3.  **Universal Helper Call:** The compiler generates a call to the single runtime helper `mxs_ffi_call`, passing the library name, the target symbol name, and the newly created `MXFFICallArgv` object.
+    * **Parsing:** The parser expects the key `argv` followed by a **list literal**. The contents of this list literal dictate the argument packing strategy.
+    * **Handling:** The presence of the `argv` key signals the code generator to activate the "Variadic Dispatch Mode". The generator analyzes the list's content (e.g., `[1,...]`) to determine which arguments are fixed and which are to be packed into the `MXFFICallArgv` object.
 
-**The conceptual call generated by the compiler is:**
+## 3\. Dispatch Modes & Compiler Behavior
 
-```cpp
-// 1. Arguments are prepared
-std::vector<MXObject*> args = { &format_string_obj, &world_string_obj, &int_123_obj };
+### 3.1. Fixed-Arity Function Dispatch (Default)
 
-// 2. A specialized argument vector object is created
-MXFFICallArgv* argv_obj = new MXFFICallArgv(std::move(args));
+This mode is used when the `argv` parameter is **not** present in the annotation.
 
-// 3. The universal helper is called
-mxs_ffi_call(lib_name_obj, symbol_name_obj, argv_obj);
-```
+* **MxScript Declaration:**
+  ```mxscript
+  @@foreign(lib="runtime.so", symbol_name="mxs_string_from_integer")
+  static func from(value: Integer) -> String;
+  ```
+* **Compiler Behavior:** The code generator produces a direct LLVM `call` to the symbol `mxs_string_from_integer`, passing the single `MXObject*` argument directly.
 
-This unified approach simplifies the compiler's logic and provides a clean, efficient interface to the runtime, regardless of the number or type of arguments.
+### 3.2. Variadic Function Dispatch (Triggered by `argv`)
 
-## 4\. C++ API Contract
+This mode is activated by the presence of the `argv` parameter.
 
-### 4.1. The Universal FFI Helper: `mxs_ffi_call`
+* **MxScript Declaration:**
+  ```mxscript
+  @@foreign(lib="my_wrappers.so", symbol_name="printf_wrapper", argv=[1,...])
+  func c_printf(format: String, ...);
+  ```
+* **Compiler Behavior:**
+    1.  The code generator sees the `argv=[1,...]` directive.
+    2.  It designates argument 0 (`format`) as a fixed argument to be passed directly.
+    3.  It gathers all arguments from index 1 onwards into a `std::vector<MXObject*>`.
+    4.  It generates code to call the `MXFFICallArgv` constructor with this vector.
+    5.  It generates a direct LLVM `call` to `printf_wrapper`, passing the fixed argument first, followed by the pointer to the new `MXFFICallArgv` object.
 
-**Signature:**
+## 4\. C++ API & Implementation Contract
 
-```cpp
-auto mxs_ffi_call(MXString* lib, MXString* name, MXFFICallArgv* argv) -> MXObject*;
-```
+### 4.1. The FFI Argument Vector: `MXFFICallArgv`
 
-**Responsibilities:**
-This function encapsulates the core logic for all FFI calls and is the only FFI-related function that the CodeGen should target. Its responsibilities include:
+This is a specialized, internal-only `MXObject` subtype for variadic argument passing. Its definition resides in `runtime/include/object.h`.
 
-  * Loading the specified shared library using `dlopen`.
-  * Looking up the target symbol using `dlsym`.
-  * Invoking the target function. To do this, it unpacks the `std::vector<MXObject*>` from the received `MXFFICallArgv` object. A robust implementation **must** use a library like `libffi` to dynamically construct the call frame for the target C++ function.
-  * Returning the `MXObject*` received from the target function back to the MxScript VM.
+### 4.2. Contract for C++ Wrapper Developers
 
-### 4.2. The FFI Argument Vector: `MXFFICallArgv`
-
-This is a specialized, internal-only `MXObject` subtype designed for efficient FFI argument passing.
-
-**Conceptual Definition:**
-
-```cpp
-struct MXFFICallArgv : public MXObject {
-    std::vector<MXObject*> args;
-};
-```
-
-Its sole purpose is to act as a container, avoiding the overhead of the general-purpose, user-facing `MXList` object.
-
-### 4.3. Target C++ Function Contract
-
-**Signature:**
-All C++ functions exposed via the FFI must accept `MXObject*` pointers as arguments and must return an `MXObject*`.
-
-**Internal Type Safety:**
-It is the strict responsibility of every target C++ function to perform runtime type checking on the `MXObject*` pointers it receives. It must verify the type of each argument (e.g., via `dynamic_cast` or a type field) and return an `MXError` object on a mismatch.
+* **Fixed-Arity Functions:** Declare the C++ function with an exact matching number of `MXObject*` arguments.
+* **Variadic Functions:** Declare the C++ function to accept its fixed arguments, followed by a **single final `MXObject*`** for the packed arguments. Inside the function, use `cast<MXFFICallArgv>(...)` to safely access the packed arguments.
