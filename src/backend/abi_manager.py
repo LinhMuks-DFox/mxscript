@@ -23,13 +23,8 @@ _RAW_MAP = json.loads(_PATH.read_text())
 _TYPED_MAP: Dict[str, dict] = {}
 
 if "ffi_functions" in _RAW_MAP:
-    # Minimal map containing only names of FFI-exposed functions
-    if "mxs_ffi_call" in _RAW_MAP["ffi_functions"]:
-        _TYPED_MAP["mxs_ffi_call"] = {
-            "ret": char_ptr,
-            "args": [char_ptr, char_ptr, int32, char_ptr.as_pointer()],
-        }
-    # Builtin runtime functions always available
+#Minimal map containing only names of FFI - exposed functions
+#Builtin runtime functions always available
     _BUILTIN_MAP = {
         "MXCreateInteger": {"ret": char_ptr, "args": [int64]},
         "MXCreateFloat": {"ret": char_ptr, "args": [ir.DoubleType()]},

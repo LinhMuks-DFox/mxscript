@@ -225,7 +225,7 @@ def test_break_llir_generation():
 
 def test_ffi_variadic_call(capfd):
     src = (
-        '@@foreign(lib="runtime.so", symbol_name="mxs_variadic_print", argv=[1,...])\n'
+        '@@foreign(lib="runtime.so", symbol_name="modern_print_wrapper", argv=[0,...])\n'
         'func c_printf(fmt: String, ...) -> int;\n'
         'func main() -> int {\n'
         '    c_printf("Hello", "world", 123);\n'
