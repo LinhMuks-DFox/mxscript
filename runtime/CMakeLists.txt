@@ -20,8 +20,10 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_ROOT}/bin")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_ROOT}/bin")
 
 # ----------- 源文件 ----------
+# add_library(runtime SHARED ${IMPL_SOURCES})
 file(GLOB_RECURSE IMPL_SOURCES "impl/*.cpp")
-list(APPEND IMPL_SOURCES "impl/object.cpp")
+add_library(runtime SHARED ${IMPL_SOURCES})
+# list(APPEND IMPL_SOURCES "impl/object.cpp")
 # list(APPEND IMPL_SOURCES "src/ffi.cpp")
 
 
