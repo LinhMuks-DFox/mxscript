@@ -1,4 +1,4 @@
-#include "include/ffi.hpp"
+#include "builtin.hpp"
 #include "container.hpp"
 #include "numeric.hpp"
 #include "string.hpp"
@@ -9,44 +9,44 @@
 
 namespace mxs_runtime {
     namespace {
-        struct LibEntry {
-            void *handle{ nullptr };
-            std::unordered_map<std::string, void *> symbols;
+        struct LibCache {
+            std::unordered_map<std::string, void *> handle_map;
+            ~LibCache() {
+                for (auto const &[key, val] : handle_map) {
+                    if (val) { dlclose(val); }
+                }
+            }
         };
 
-        static std::unordered_map<std::string, LibEntry> g_lib_cache;
+        static LibCache g_lib_cache;
 
-
-        static void *get_foreign_func(const std::string &lib, const std::string &name) {
-            auto &entry = g_lib_cache[lib];
-            if (!entry.handle) {
-                entry.handle = dlopen(lib.c_str(), RTLD_LAZY);
-                if (!entry.handle) return nullptr;
+        static auto get_foreign_func(const std::string &lib, const std::string &name)
+                -> mxs_runtime::MXObject * {
+            void *&handle = g_lib_cache.handle_map[lib];
+            if (!handle) {
+                handle = dlopen(lib.c_str(), RTLD_LAZY);
+                if (!handle) { return new MXError("FFIError", dlerror()); }
             }
-            auto it = entry.symbols.find(name);
-            if (it != entry.symbols.end()) return it->second;
-            void *sym = dlsym(entry.handle, name.c_str());
-            if (sym) entry.symbols.emplace(name, sym);
-            return sym;
+            void *sym = dlsym(handle, name.c_str());
+            if (!sym) { return new MXError("FFIError", dlerror()); }
+            return reinterpret_cast<MXObject *>(sym);
         }
 
     }// namespace
 
 }// namespace mxs_runtime
 
-extern "C" auto mxs_variadic_print(mxs_runtime::MXObject *fmt_obj,
-                                   mxs_runtime::MXObject *list_obj)
+extern "C" MXS_API auto modern_print_wrapper(mxs_runtime::MXObject *packed_argv)
         -> mxs_runtime::MXObject * {
     using namespace mxs_runtime;
-    auto *fmt = dynamic_cast<MXString *>(fmt_obj);
-    auto *lst = dynamic_cast<MXList *>(list_obj);
-    if (!fmt || !lst) { return new MXError("TypeError", "expected String and List"); }
-    std::string out = fmt->value;
-    for (MXObject *elem : lst->elements) {
-        out += " ";
+    auto *argv = dynamic_cast<MXFFICallArgv *>(packed_argv);
+    if (!argv) { return new MXError("TypeError", "expected FFICallArgv"); }
+    std::string out;
+    for (MXObject *elem : argv->args) {
+        if (!out.empty()) { out += " "; }
         out += elem->repr();
     }
     std::printf("%s", out.c_str());
     std::fflush(stdout);
-    return MXCreateInteger(static_cast<inner_integer>(lst->elements.size()));
+    return MXCreateInteger(static_cast<inner_integer>(argv->args.size()));
 }

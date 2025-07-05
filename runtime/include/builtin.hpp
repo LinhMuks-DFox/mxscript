@@ -16,6 +16,7 @@ extern "C" {
 
 MXS_API mxs_runtime::MXObject *printf_wrapper(mxs_runtime::MXObject *format,
                                               mxs_runtime::MXObject *packed_argv);
+MXS_API mxs_runtime::MXObject *modern_print_wrapper(mxs_runtime::MXObject *packed_argv);
 
 #ifdef __cplusplus
 }
